@@ -1,0 +1,331 @@
+/**
+ * API для сохранения и загрузки игры
+ *
+ * POST /api/save - сохранить игру
+ * GET /api/save - загрузить игру
+ * DELETE /api/save - удалить сохранение (сбросить прогресс)
+ */
+
+import { NextRequest, NextResponse } from 'next/server'
+import { getDb } from '@/lib/db'
+
+// Демо-игрок для разработки (без авторизации)
+const DEMO_PLAYER_ID = 'demo-player'
+
+// ================================
+// GET - Загрузка сохранения
+// ================================
+export async function GET(request: NextRequest) {
+  try {
+    const db = getDb()
+
+    if (!db) {
+      return NextResponse.json({
+        success: false,
+        error: 'Database not configured',
+        details: 'Set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN in environment variables',
+        needsConfig: true,
+      }, { status: 503 })
+    }
+
+    const playerId = request.headers.get('x-player-id') || DEMO_PLAYER_ID
+
+    const save = await db.gameSave.findUnique({
+      where: { playerId },
+    })
+
+    if (!save) {
+      const newSave = await createNewSave(db, playerId)
+      console.log('[Save API] Created new save for:', playerId)
+      return NextResponse.json({
+        success: true,
+        data: formatSaveData(newSave),
+        isNew: true,
+      })
+    }
+
+    console.log('[Save API] Loaded save for:', playerId)
+    return NextResponse.json({
+      success: true,
+      data: formatSaveData(save),
+      isNew: false,
+    })
+  } catch (error) {
+    console.error('[Save API] Load error:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to load save',
+      details: errorMessage,
+    }, { status: 500 })
+  }
+}
+
+// ================================
+// POST - Сохранение игры
+// ================================
+export async function POST(request: NextRequest) {
+  try {
+    const db = getDb()
+
+    if (!db) {
+      return NextResponse.json({
+        success: false,
+        error: 'Database not configured',
+        details: 'Set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN in environment variables',
+        needsConfig: true,
+      }, { status: 503 })
+    }
+
+    const playerId = request.headers.get('x-player-id') || DEMO_PLAYER_ID
+    const body = await request.json()
+
+    const validatedData = validateSaveData(body)
+
+    const save = await db.gameSave.upsert({
+      where: { playerId },
+      update: {
+        level: validatedData.player.level,
+        experience: validatedData.player.experience,
+        fame: validatedData.player.fame,
+        resources: JSON.stringify(validatedData.resources),
+        statistics: JSON.stringify(validatedData.statistics),
+        workers: JSON.stringify(validatedData.workers),
+        buildings: JSON.stringify(validatedData.buildings),
+        maxWorkers: validatedData.maxWorkers,
+        activeCraft: JSON.stringify(validatedData.activeCraft),
+        activeRefining: JSON.stringify(validatedData.activeRefining),
+        weaponInventory: JSON.stringify(validatedData.weaponInventory),
+        unlockedRecipes: JSON.stringify(validatedData.unlockedRecipes),
+        recipeSources: JSON.stringify(validatedData.recipeSources),
+        unlockedEnchantments: JSON.stringify(validatedData.unlockedEnchantments),
+        guild: JSON.stringify(validatedData.guild),
+        knownAdventurers: JSON.stringify(validatedData.knownAdventurers || []),
+        orders: JSON.stringify(validatedData.orders),
+        tutorial: JSON.stringify(validatedData.tutorial),
+        playTime: validatedData.playTime || 0,
+        saveVersion: validatedData.saveVersion || 2,
+      },
+      create: {
+        playerId,
+        level: validatedData.player.level,
+        experience: validatedData.player.experience,
+        fame: validatedData.player.fame,
+        resources: JSON.stringify(validatedData.resources),
+        statistics: JSON.stringify(validatedData.statistics),
+        workers: JSON.stringify(validatedData.workers),
+        buildings: JSON.stringify(validatedData.buildings),
+        maxWorkers: validatedData.maxWorkers,
+        activeCraft: JSON.stringify(validatedData.activeCraft),
+        activeRefining: JSON.stringify(validatedData.activeRefining),
+        weaponInventory: JSON.stringify(validatedData.weaponInventory),
+        unlockedRecipes: JSON.stringify(validatedData.unlockedRecipes),
+        recipeSources: JSON.stringify(validatedData.recipeSources),
+        unlockedEnchantments: JSON.stringify(validatedData.unlockedEnchantments),
+        guild: JSON.stringify(validatedData.guild),
+        knownAdventurers: JSON.stringify(validatedData.knownAdventurers || []),
+        orders: JSON.stringify(validatedData.orders),
+        tutorial: JSON.stringify(validatedData.tutorial),
+        playTime: validatedData.playTime || 0,
+      },
+    })
+
+    console.log(`[Save API] Saved for player ${playerId}`)
+
+    return NextResponse.json({
+      success: true,
+      savedAt: save.updatedAt,
+    })
+  } catch (error) {
+    console.error('[Save API] Save error:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to save',
+      details: errorMessage,
+    }, { status: 500 })
+  }
+}
+
+// ================================
+// DELETE - Удаление сохранения (сброс)
+// ================================
+export async function DELETE(request: NextRequest) {
+  try {
+    const db = getDb()
+
+    if (!db) {
+      return NextResponse.json({
+        success: false,
+        error: 'Database not configured',
+        needsConfig: true,
+      }, { status: 503 })
+    }
+
+    const playerId = request.headers.get('x-player-id') || DEMO_PLAYER_ID
+
+    await db.gameSave.delete({
+      where: { playerId },
+    })
+
+    await db.saveHistory.deleteMany({
+      where: { gameSaveId: playerId },
+    })
+
+    console.log(`[Save API] Deleted save for player ${playerId}`)
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('[Save API] Delete error:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to delete save',
+      details: errorMessage,
+    }, { status: 500 })
+  }
+}
+
+// ================================
+// HELPER FUNCTIONS
+// ================================
+
+function formatSaveData(save: Record<string, unknown>) {
+  return {
+    ...save,
+    resources: safeJsonParse(save.resources as string, {}),
+    statistics: safeJsonParse(save.statistics as string, {}),
+    workers: safeJsonParse(save.workers as string, []),
+    buildings: safeJsonParse(save.buildings as string, []),
+    activeCraft: safeJsonParse(save.activeCraft as string, {}),
+    activeRefining: safeJsonParse(save.activeRefining as string, {}),
+    weaponInventory: safeJsonParse(save.weaponInventory as string, { weapons: [] }),
+    unlockedRecipes: safeJsonParse(save.unlockedRecipes as string, {
+      weaponRecipes: [],
+      refiningRecipes: [],
+    }),
+    recipeSources: safeJsonParse(save.recipeSources as string, []),
+    unlockedEnchantments: safeJsonParse(save.unlockedEnchantments as string, []),
+    guild: safeJsonParse(save.guild as string, {}),
+    knownAdventurers: safeJsonParse(save.knownAdventurers as string, []),
+    orders: safeJsonParse(save.orders as string, {}),
+    tutorial: safeJsonParse(save.tutorial as string, { isActive: true, currentStep: 0 }),
+  }
+}
+
+function safeJsonParse(str: string | null | undefined, fallback: unknown) {
+  if (!str) return fallback
+  try {
+    return JSON.parse(str)
+  } catch {
+    return fallback
+  }
+}
+
+async function createNewSave(db: ReturnType<typeof getDb> extends infer T ? T : never, playerId: string) {
+  if (!db) throw new Error('Database not available')
+
+  const initialResources = {
+    gold: 100,
+    wood: 20,
+    stone: 10,
+    iron: 5,
+    coal: 5,
+    copper: 0,
+    tin: 0,
+    silver: 0,
+    goldOre: 0,
+    mithril: 0,
+    soulEssence: 0,
+    planks: 0,
+    stoneBlocks: 0,
+    copperIngot: 0,
+    tinIngot: 0,
+    bronzeIngot: 0,
+    ironIngot: 0,
+    steelIngot: 0,
+    silverIngot: 0,
+    goldIngot: 0,
+    mithrilIngot: 0,
+  }
+
+  const initialStatistics = {
+    totalCrafts: 0,
+    totalRefines: 0,
+    totalGoldEarned: 0,
+    totalWorkersHired: 0,
+    playTime: 0,
+    weaponsSold: 0,
+    recipesUnlocked: 6,
+    ordersCompleted: 0,
+    weaponsSacrificed: 0,
+    enchantmentsApplied: 0,
+  }
+
+  const initialGuild = {
+    level: 1,
+    glory: 0,
+    adventurers: [],
+    activeExpeditions: [],
+    recoveryQuests: [],
+    history: [],
+    adventurerRefreshAt: Date.now(),
+  }
+
+  const save = await db.gameSave.create({
+    data: {
+      playerId,
+      level: 1,
+      experience: 0,
+      fame: 0,
+      resources: JSON.stringify(initialResources),
+      statistics: JSON.stringify(initialStatistics),
+      workers: '[]',
+      buildings: '[]',
+      maxWorkers: 3,
+      activeCraft: '{}',
+      activeRefining: '{}',
+      weaponInventory: '{"weapons": []}',
+      unlockedRecipes:
+        '{"weaponRecipes": ["sword_iron", "dagger_iron", "sword_bronze", "dagger_bronze", "sword_copper", "dagger_copper"], "refiningRecipes": []}',
+      recipeSources: '[]',
+      unlockedEnchantments: '[]',
+      guild: JSON.stringify(initialGuild),
+      knownAdventurers: '[]',
+      orders: '{}',
+      tutorial:
+        '{"isActive": true, "currentStep": 0, "skipped": false, "completedSteps": []}',
+    },
+  })
+
+  return save
+}
+
+function validateSaveData(data: Record<string, unknown>) {
+  const player = data.player as Record<string, unknown> | undefined
+
+  return {
+    player: {
+      level: Math.max(1, Number(player?.level) || 1),
+      experience: Math.max(0, Number(player?.experience) || 0),
+      fame: Math.max(0, Number(player?.fame) || 0),
+    },
+    resources: (data.resources as Record<string, unknown>) || {},
+    statistics: (data.statistics as Record<string, unknown>) || {},
+    workers: (data.workers as unknown[]) || [],
+    buildings: (data.buildings as unknown[]) || [],
+    maxWorkers: Math.max(1, Number(data.maxWorkers) || 3),
+    activeCraft: (data.activeCraft as Record<string, unknown>) || {},
+    activeRefining: (data.activeRefining as Record<string, unknown>) || {},
+    weaponInventory: (data.weaponInventory as Record<string, unknown>) || { weapons: [] },
+    unlockedRecipes: (data.unlockedRecipes as Record<string, unknown>) || { weaponRecipes: [], refiningRecipes: [] },
+    recipeSources: (data.recipeSources as unknown[]) || [],
+    unlockedEnchantments: (data.unlockedEnchantments as unknown[]) || [],
+    guild: (data.guild as Record<string, unknown>) || {},
+    knownAdventurers: (data.knownAdventurers as unknown[]) || [],
+    orders: (data.orders as Record<string, unknown>) || {},
+    tutorial: (data.tutorial as Record<string, unknown>) || { isActive: true, currentStep: 0 },
+    playTime: Math.max(0, Number(data.playTime) || 0),
+    saveVersion: Number(data.saveVersion) || 2,
+  }
+}
