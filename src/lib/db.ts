@@ -1,16 +1,12 @@
 /**
- * Prisma Client для SwordCraft
- * Работает с Turso (libSQL) для облачного хранения данных
- * Автоматически создаёт таблицы при первом подключении
+ * Turso/libSQL клиент для SwordCraft
+ * Прямое подключение без Prisma adapter
  */
 
-import { PrismaClient } from '@prisma/client'
-import { PrismaLibSQL } from '@prisma/adapter-libsql'
 import { createClient, type Client } from '@libsql/client'
 
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined
-  libsql: Client | undefined
+const globalForDb = globalThis as unknown as {
+  turso: Client | undefined
   tablesInitialized: boolean
 }
 
@@ -53,23 +49,39 @@ CREATE TABLE IF NOT EXISTS save_history (
 CREATE INDEX IF NOT EXISTS save_history_gameSaveId_idx ON save_history(gameSaveId);
 `
 
-async function initializeTables(libsql: Client): Promise<void> {
-  if (globalForPrisma.tablesInitialized) return
+function createDbClient(): Client | null {
+  const url = process.env.TURSO_DATABASE_URL
+  const authToken = process.env.TURSO_AUTH_TOKEN
+
+  if (!url) {
+    console.warn('[DB] TURSO_DATABASE_URL not found')
+    return null
+  }
+
+  console.log('[DB] Connecting to Turso:', url.substring(0, 30) + '...')
+
+  return createClient({
+    url,
+    authToken: authToken || undefined,
+  })
+}
+
+async function initializeTables(db: Client): Promise<void> {
+  if (globalForDb.tablesInitialized) return
 
   try {
     console.log('[DB] Creating tables if not exist...')
 
-    // Выполняем SQL по частям (libsql не поддерживает множественные statements)
     const statements = CREATE_TABLES_SQL.split(';').filter(s => s.trim())
 
     for (const statement of statements) {
       const sql = statement.trim()
       if (sql) {
-        await libsql.execute(sql)
+        await db.execute(sql)
       }
     }
 
-    globalForPrisma.tablesInitialized = true
+    globalForDb.tablesInitialized = true
     console.log('[DB] Tables initialized successfully')
   } catch (error) {
     console.error('[DB] Failed to initialize tables:', error)
@@ -77,65 +89,21 @@ async function initializeTables(libsql: Client): Promise<void> {
   }
 }
 
-function createPrismaClient() {
-  // Получаем переменные окружения
-  const databaseUrl = process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL
-  const authToken = process.env.TURSO_AUTH_TOKEN
-
-  if (!databaseUrl) {
-    console.warn('[DB] No database URL found')
-    return null
+export function getDb(): Client | null {
+  if (!globalForDb.turso) {
+    globalForDb.turso = createDbClient()
   }
-
-  // Проверяем, что URL выглядит как Turso/libSQL
-  if (!databaseUrl.startsWith('libsql://') && !databaseUrl.startsWith('file:')) {
-    console.warn('[DB] Invalid database URL format. Expected libsql:// or file:')
-    return null
-  }
-
-  console.log('[DB] Connecting to:', databaseUrl.substring(0, 30) + '...')
-
-  // Создаём libSQL клиент
-  const libsql = createClient({
-    url: databaseUrl,
-    authToken: authToken || undefined,
-  })
-
-  // Сохраняем клиент для инициализации таблиц
-  globalForPrisma.libsql = libsql
-
-  // Создаём Prisma адаптер
-  const adapter = new PrismaLibSQL(libsql)
-
-  const prisma = new PrismaClient({
-    adapter,
-    log: process.env.NODE_ENV === 'development'
-      ? ['query', 'error', 'warn']
-      : ['error'],
-  })
-
-  // Инициализируем таблицы асинхронно
-  initializeTables(libsql).catch(err => {
-    console.error('[DB] Table initialization failed:', err)
-  })
-
-  return prisma
+  return globalForDb.turso
 }
 
-// Экспортируем функцию для получения БД с проверкой
-export function getDb(): PrismaClient | null {
-  if (!globalForPrisma.prisma) {
-    globalForPrisma.prisma = createPrismaClient()
+// Инициализация таблиц при первом обращении
+export async function initDb(): Promise<Client | null> {
+  const db = getDb()
+  if (db) {
+    await initializeTables(db)
   }
-  return globalForPrisma.prisma
+  return db
 }
 
-// Для обратной совместимости
-export const db = globalForPrisma.prisma ?? createPrismaClient()
-
-if (process.env.NODE_ENV !== 'production' && db) {
-  globalForPrisma.prisma = db
-}
-
-// Типы
-export type { GameSave, SaveHistory } from '@prisma/client'
+export { createDbClient }
+export type { Client }

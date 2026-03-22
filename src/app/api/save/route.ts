@@ -1,5 +1,6 @@
 /**
  * API для сохранения и загрузки игры
+ * Использует Turso/libSQL напрямую
  *
  * POST /api/save - сохранить игру
  * GET /api/save - загрузить игру
@@ -7,7 +8,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb } from '@/lib/db'
+import { getDb, initDb } from '@/lib/db'
+import { randomUUID } from 'crypto'
 
 // Демо-игрок для разработки (без авторизации)
 const DEMO_PLAYER_ID = 'demo-player'
@@ -17,24 +19,25 @@ const DEMO_PLAYER_ID = 'demo-player'
 // ================================
 export async function GET(request: NextRequest) {
   try {
-    const db = getDb()
+    const db = await initDb()
 
     if (!db) {
       return NextResponse.json({
         success: false,
         error: 'Database not configured',
-        details: 'Set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN in environment variables',
+        details: 'TURSO_DATABASE_URL and TURSO_AUTH_TOKEN must be set',
         needsConfig: true,
       }, { status: 503 })
     }
 
     const playerId = request.headers.get('x-player-id') || DEMO_PLAYER_ID
 
-    const save = await db.gameSave.findUnique({
-      where: { playerId },
+    const result = await db.execute({
+      sql: 'SELECT * FROM game_saves WHERE playerId = ?',
+      args: [playerId],
     })
 
-    if (!save) {
+    if (result.rows.length === 0) {
       const newSave = await createNewSave(db, playerId)
       console.log('[Save API] Created new save for:', playerId)
       return NextResponse.json({
@@ -47,7 +50,7 @@ export async function GET(request: NextRequest) {
     console.log('[Save API] Loaded save for:', playerId)
     return NextResponse.json({
       success: true,
-      data: formatSaveData(save),
+      data: formatSaveData(result.rows[0]),
       isNew: false,
     })
   } catch (error) {
@@ -66,13 +69,12 @@ export async function GET(request: NextRequest) {
 // ================================
 export async function POST(request: NextRequest) {
   try {
-    const db = getDb()
+    const db = await initDb()
 
     if (!db) {
       return NextResponse.json({
         success: false,
         error: 'Database not configured',
-        details: 'Set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN in environment variables',
         needsConfig: true,
       }, { status: 503 })
     }
@@ -82,59 +84,93 @@ export async function POST(request: NextRequest) {
 
     const validatedData = validateSaveData(body)
 
-    const save = await db.gameSave.upsert({
-      where: { playerId },
-      update: {
-        level: validatedData.player.level,
-        experience: validatedData.player.experience,
-        fame: validatedData.player.fame,
-        resources: JSON.stringify(validatedData.resources),
-        statistics: JSON.stringify(validatedData.statistics),
-        workers: JSON.stringify(validatedData.workers),
-        buildings: JSON.stringify(validatedData.buildings),
-        maxWorkers: validatedData.maxWorkers,
-        activeCraft: JSON.stringify(validatedData.activeCraft),
-        activeRefining: JSON.stringify(validatedData.activeRefining),
-        weaponInventory: JSON.stringify(validatedData.weaponInventory),
-        unlockedRecipes: JSON.stringify(validatedData.unlockedRecipes),
-        recipeSources: JSON.stringify(validatedData.recipeSources),
-        unlockedEnchantments: JSON.stringify(validatedData.unlockedEnchantments),
-        guild: JSON.stringify(validatedData.guild),
-        knownAdventurers: JSON.stringify(validatedData.knownAdventurers || []),
-        orders: JSON.stringify(validatedData.orders),
-        tutorial: JSON.stringify(validatedData.tutorial),
-        playTime: validatedData.playTime || 0,
-        saveVersion: validatedData.saveVersion || 2,
-      },
-      create: {
-        playerId,
-        level: validatedData.player.level,
-        experience: validatedData.player.experience,
-        fame: validatedData.player.fame,
-        resources: JSON.stringify(validatedData.resources),
-        statistics: JSON.stringify(validatedData.statistics),
-        workers: JSON.stringify(validatedData.workers),
-        buildings: JSON.stringify(validatedData.buildings),
-        maxWorkers: validatedData.maxWorkers,
-        activeCraft: JSON.stringify(validatedData.activeCraft),
-        activeRefining: JSON.stringify(validatedData.activeRefining),
-        weaponInventory: JSON.stringify(validatedData.weaponInventory),
-        unlockedRecipes: JSON.stringify(validatedData.unlockedRecipes),
-        recipeSources: JSON.stringify(validatedData.recipeSources),
-        unlockedEnchantments: JSON.stringify(validatedData.unlockedEnchantments),
-        guild: JSON.stringify(validatedData.guild),
-        knownAdventurers: JSON.stringify(validatedData.knownAdventurers || []),
-        orders: JSON.stringify(validatedData.orders),
-        tutorial: JSON.stringify(validatedData.tutorial),
-        playTime: validatedData.playTime || 0,
-      },
+    // Проверяем, существует ли сохранение
+    const existing = await db.execute({
+      sql: 'SELECT id FROM game_saves WHERE playerId = ?',
+      args: [playerId],
     })
+
+    const now = new Date().toISOString()
+
+    if (existing.rows.length > 0) {
+      // Обновляем
+      await db.execute({
+        sql: `UPDATE game_saves SET
+          level = ?, experience = ?, fame = ?,
+          resources = ?, statistics = ?, workers = ?, buildings = ?,
+          maxWorkers = ?, activeCraft = ?, activeRefining = ?,
+          weaponInventory = ?, unlockedRecipes = ?, recipeSources = ?,
+          unlockedEnchantments = ?, guild = ?, knownAdventurers = ?,
+          orders = ?, tutorial = ?, playTime = ?, saveVersion = ?, updatedAt = ?
+        WHERE playerId = ?`,
+        args: [
+          validatedData.player.level,
+          validatedData.player.experience,
+          validatedData.player.fame,
+          JSON.stringify(validatedData.resources),
+          JSON.stringify(validatedData.statistics),
+          JSON.stringify(validatedData.workers),
+          JSON.stringify(validatedData.buildings),
+          validatedData.maxWorkers,
+          JSON.stringify(validatedData.activeCraft),
+          JSON.stringify(validatedData.activeRefining),
+          JSON.stringify(validatedData.weaponInventory),
+          JSON.stringify(validatedData.unlockedRecipes),
+          JSON.stringify(validatedData.recipeSources),
+          JSON.stringify(validatedData.unlockedEnchantments),
+          JSON.stringify(validatedData.guild),
+          JSON.stringify(validatedData.knownAdventurers),
+          JSON.stringify(validatedData.orders),
+          JSON.stringify(validatedData.tutorial),
+          validatedData.playTime,
+          validatedData.saveVersion,
+          now,
+          playerId,
+        ],
+      })
+    } else {
+      // Создаём новое
+      await db.execute({
+        sql: `INSERT INTO game_saves (
+          id, playerId, level, experience, fame,
+          resources, statistics, workers, buildings, maxWorkers,
+          activeCraft, activeRefining, weaponInventory, unlockedRecipes,
+          recipeSources, unlockedEnchantments, guild, knownAdventurers,
+          orders, tutorial, playTime, saveVersion, updatedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [
+          randomUUID(),
+          playerId,
+          validatedData.player.level,
+          validatedData.player.experience,
+          validatedData.player.fame,
+          JSON.stringify(validatedData.resources),
+          JSON.stringify(validatedData.statistics),
+          JSON.stringify(validatedData.workers),
+          JSON.stringify(validatedData.buildings),
+          validatedData.maxWorkers,
+          JSON.stringify(validatedData.activeCraft),
+          JSON.stringify(validatedData.activeRefining),
+          JSON.stringify(validatedData.weaponInventory),
+          JSON.stringify(validatedData.unlockedRecipes),
+          JSON.stringify(validatedData.recipeSources),
+          JSON.stringify(validatedData.unlockedEnchantments),
+          JSON.stringify(validatedData.guild),
+          JSON.stringify(validatedData.knownAdventurers),
+          JSON.stringify(validatedData.orders),
+          JSON.stringify(validatedData.tutorial),
+          validatedData.playTime,
+          validatedData.saveVersion,
+          now,
+        ],
+      })
+    }
 
     console.log(`[Save API] Saved for player ${playerId}`)
 
     return NextResponse.json({
       success: true,
-      savedAt: save.updatedAt,
+      savedAt: now,
     })
   } catch (error) {
     console.error('[Save API] Save error:', error)
@@ -152,7 +188,7 @@ export async function POST(request: NextRequest) {
 // ================================
 export async function DELETE(request: NextRequest) {
   try {
-    const db = getDb()
+    const db = await initDb()
 
     if (!db) {
       return NextResponse.json({
@@ -164,12 +200,14 @@ export async function DELETE(request: NextRequest) {
 
     const playerId = request.headers.get('x-player-id') || DEMO_PLAYER_ID
 
-    await db.gameSave.delete({
-      where: { playerId },
+    await db.execute({
+      sql: 'DELETE FROM game_saves WHERE playerId = ?',
+      args: [playerId],
     })
 
-    await db.saveHistory.deleteMany({
-      where: { gameSaveId: playerId },
+    await db.execute({
+      sql: 'DELETE FROM save_history WHERE gameSaveId = ?',
+      args: [playerId],
     })
 
     console.log(`[Save API] Deleted save for player ${playerId}`)
@@ -190,26 +228,35 @@ export async function DELETE(request: NextRequest) {
 // HELPER FUNCTIONS
 // ================================
 
-function formatSaveData(save: Record<string, unknown>) {
+function formatSaveData(row: Record<string, unknown>) {
   return {
-    ...save,
-    resources: safeJsonParse(save.resources as string, {}),
-    statistics: safeJsonParse(save.statistics as string, {}),
-    workers: safeJsonParse(save.workers as string, []),
-    buildings: safeJsonParse(save.buildings as string, []),
-    activeCraft: safeJsonParse(save.activeCraft as string, {}),
-    activeRefining: safeJsonParse(save.activeRefining as string, {}),
-    weaponInventory: safeJsonParse(save.weaponInventory as string, { weapons: [] }),
-    unlockedRecipes: safeJsonParse(save.unlockedRecipes as string, {
+    id: row.id,
+    playerId: row.playerId,
+    level: row.level,
+    experience: row.experience,
+    fame: row.fame,
+    resources: safeJsonParse(row.resources as string, {}),
+    statistics: safeJsonParse(row.statistics as string, {}),
+    workers: safeJsonParse(row.workers as string, []),
+    buildings: safeJsonParse(row.buildings as string, []),
+    maxWorkers: row.maxWorkers,
+    activeCraft: safeJsonParse(row.activeCraft as string, {}),
+    activeRefining: safeJsonParse(row.activeRefining as string, {}),
+    weaponInventory: safeJsonParse(row.weaponInventory as string, { weapons: [] }),
+    unlockedRecipes: safeJsonParse(row.unlockedRecipes as string, {
       weaponRecipes: [],
       refiningRecipes: [],
     }),
-    recipeSources: safeJsonParse(save.recipeSources as string, []),
-    unlockedEnchantments: safeJsonParse(save.unlockedEnchantments as string, []),
-    guild: safeJsonParse(save.guild as string, {}),
-    knownAdventurers: safeJsonParse(save.knownAdventurers as string, []),
-    orders: safeJsonParse(save.orders as string, {}),
-    tutorial: safeJsonParse(save.tutorial as string, { isActive: true, currentStep: 0 }),
+    recipeSources: safeJsonParse(row.recipeSources as string, []),
+    unlockedEnchantments: safeJsonParse(row.unlockedEnchantments as string, []),
+    guild: safeJsonParse(row.guild as string, {}),
+    knownAdventurers: safeJsonParse(row.knownAdventurers as string, []),
+    orders: safeJsonParse(row.orders as string, {}),
+    tutorial: safeJsonParse(row.tutorial as string, { isActive: true, currentStep: 0 }),
+    playTime: row.playTime,
+    saveVersion: row.saveVersion,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   }
 }
 
@@ -222,9 +269,7 @@ function safeJsonParse(str: string | null | undefined, fallback: unknown) {
   }
 }
 
-async function createNewSave(db: ReturnType<typeof getDb> extends infer T ? T : never, playerId: string) {
-  if (!db) throw new Error('Database not available')
-
+async function createNewSave(db: ReturnType<typeof getDb>, playerId: string) {
   const initialResources = {
     gold: 100,
     wood: 20,
@@ -272,33 +317,43 @@ async function createNewSave(db: ReturnType<typeof getDb> extends infer T ? T : 
     adventurerRefreshAt: Date.now(),
   }
 
-  const save = await db.gameSave.create({
-    data: {
+  const now = new Date().toISOString()
+  const id = randomUUID()
+
+  await db!.execute({
+    sql: `INSERT INTO game_saves (
+      id, playerId, level, experience, fame,
+      resources, statistics, workers, buildings, maxWorkers,
+      activeCraft, activeRefining, weaponInventory, unlockedRecipes,
+      recipeSources, unlockedEnchantments, guild, knownAdventurers,
+      orders, tutorial, playTime, saveVersion, updatedAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [
+      id,
       playerId,
-      level: 1,
-      experience: 0,
-      fame: 0,
-      resources: JSON.stringify(initialResources),
-      statistics: JSON.stringify(initialStatistics),
-      workers: '[]',
-      buildings: '[]',
-      maxWorkers: 3,
-      activeCraft: '{}',
-      activeRefining: '{}',
-      weaponInventory: '{"weapons": []}',
-      unlockedRecipes:
-        '{"weaponRecipes": ["sword_iron", "dagger_iron", "sword_bronze", "dagger_bronze", "sword_copper", "dagger_copper"], "refiningRecipes": []}',
-      recipeSources: '[]',
-      unlockedEnchantments: '[]',
-      guild: JSON.stringify(initialGuild),
-      knownAdventurers: '[]',
-      orders: '{}',
-      tutorial:
-        '{"isActive": true, "currentStep": 0, "skipped": false, "completedSteps": []}',
-    },
+      1, 0, 0,
+      JSON.stringify(initialResources),
+      JSON.stringify(initialStatistics),
+      '[]', '[]', 3,
+      '{}', '{}',
+      '{"weapons":[]}',
+      '{"weaponRecipes":["sword_iron","dagger_iron","sword_bronze","dagger_bronze","sword_copper","dagger_copper"],"refiningRecipes":[]}',
+      '[]', '[]',
+      JSON.stringify(initialGuild),
+      '[]',
+      '{}',
+      '{"isActive":true,"currentStep":0}',
+      0, 2, now,
+    ],
   })
 
-  return save
+  // Возвращаем созданный save
+  const result = await db!.execute({
+    sql: 'SELECT * FROM game_saves WHERE id = ?',
+    args: [id],
+  })
+
+  return result.rows[0]
 }
 
 function validateSaveData(data: Record<string, unknown>) {
