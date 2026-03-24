@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     console.log('[Save API] Loaded save for:', playerId)
     return NextResponse.json({
       success: true,
-      data: formatSaveData(result.rows[0]),
+      data: formatSaveData(result.rows[0] as Record<string, unknown>),
       isNew: false,
     })
   } catch (error) {
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
           maxWorkers = ?, activeCraft = ?, activeRefining = ?,
           weaponInventory = ?, unlockedRecipes = ?, recipeSources = ?,
           unlockedEnchantments = ?, guild = ?, knownAdventurers = ?,
-          orders = ?, tutorial = ?, playTime = ?, saveVersion = ?, updatedAt = ?
+          orders = ?, tutorial = ?, materialKnowledge = ?, playTime = ?, saveVersion = ?, updatedAt = ?
         WHERE playerId = ?`,
         args: [
           validatedData.player.level,
@@ -122,6 +122,7 @@ export async function POST(request: NextRequest) {
           JSON.stringify(validatedData.knownAdventurers),
           JSON.stringify(validatedData.orders),
           JSON.stringify(validatedData.tutorial),
+          JSON.stringify(validatedData.materialKnowledge),
           validatedData.playTime,
           validatedData.saveVersion,
           now,
@@ -136,8 +137,8 @@ export async function POST(request: NextRequest) {
           resources, statistics, workers, buildings, maxWorkers,
           activeCraft, activeRefining, weaponInventory, unlockedRecipes,
           recipeSources, unlockedEnchantments, guild, knownAdventurers,
-          orders, tutorial, playTime, saveVersion, updatedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          orders, tutorial, materialKnowledge, playTime, saveVersion, updatedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         args: [
           randomUUID(),
           playerId,
@@ -159,6 +160,7 @@ export async function POST(request: NextRequest) {
           JSON.stringify(validatedData.knownAdventurers),
           JSON.stringify(validatedData.orders),
           JSON.stringify(validatedData.tutorial),
+          JSON.stringify(validatedData.materialKnowledge),
           validatedData.playTime,
           validatedData.saveVersion,
           now,
@@ -230,33 +232,34 @@ export async function DELETE(request: NextRequest) {
 
 function formatSaveData(row: Record<string, unknown>) {
   return {
-    id: row.id,
-    playerId: row.playerId,
-    level: row.level,
-    experience: row.experience,
-    fame: row.fame,
-    resources: safeJsonParse(row.resources as string, {}),
-    statistics: safeJsonParse(row.statistics as string, {}),
-    workers: safeJsonParse(row.workers as string, []),
-    buildings: safeJsonParse(row.buildings as string, []),
-    maxWorkers: row.maxWorkers,
-    activeCraft: safeJsonParse(row.activeCraft as string, {}),
-    activeRefining: safeJsonParse(row.activeRefining as string, {}),
-    weaponInventory: safeJsonParse(row.weaponInventory as string, { weapons: [] }),
-    unlockedRecipes: safeJsonParse(row.unlockedRecipes as string, {
+    id: row['id'],
+    playerId: row['playerId'],
+    level: row['level'],
+    experience: row['experience'],
+    fame: row['fame'],
+    resources: safeJsonParse(row['resources'] as string, {}),
+    statistics: safeJsonParse(row['statistics'] as string, {}),
+    workers: safeJsonParse(row['workers'] as string, []),
+    buildings: safeJsonParse(row['buildings'] as string, []),
+    maxWorkers: row['maxWorkers'],
+    activeCraft: safeJsonParse(row['activeCraft'] as string, {}),
+    activeRefining: safeJsonParse(row['activeRefining'] as string, {}),
+    weaponInventory: safeJsonParse(row['weaponInventory'] as string, { weapons: [] }),
+    unlockedRecipes: safeJsonParse(row['unlockedRecipes'] as string, {
       weaponRecipes: [],
       refiningRecipes: [],
     }),
-    recipeSources: safeJsonParse(row.recipeSources as string, []),
-    unlockedEnchantments: safeJsonParse(row.unlockedEnchantments as string, []),
-    guild: safeJsonParse(row.guild as string, {}),
-    knownAdventurers: safeJsonParse(row.knownAdventurers as string, []),
-    orders: safeJsonParse(row.orders as string, {}),
-    tutorial: safeJsonParse(row.tutorial as string, { isActive: true, currentStep: 0 }),
-    playTime: row.playTime,
-    saveVersion: row.saveVersion,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
+    recipeSources: safeJsonParse(row['recipeSources'] as string, []),
+    unlockedEnchantments: safeJsonParse(row['unlockedEnchantments'] as string, []),
+    guild: safeJsonParse(row['guild'] as string, {}),
+    knownAdventurers: safeJsonParse(row['knownAdventurers'] as string, []),
+    orders: safeJsonParse(row['orders'] as string, {}),
+    tutorial: safeJsonParse(row['tutorial'] as string, { isActive: true, currentStep: 0 }),
+    materialKnowledge: safeJsonParse(row['materialKnowledge'] as string, {}),
+    playTime: row['playTime'],
+    saveVersion: row['saveVersion'],
+    createdAt: row['createdAt'],
+    updatedAt: row['updatedAt'],
   }
 }
 
@@ -357,30 +360,31 @@ async function createNewSave(db: ReturnType<typeof getDb>, playerId: string) {
 }
 
 function validateSaveData(data: Record<string, unknown>) {
-  const player = data.player as Record<string, unknown> | undefined
+  const player = data['player'] as Record<string, unknown> | undefined
 
   return {
     player: {
-      level: Math.max(1, Number(player?.level) || 1),
-      experience: Math.max(0, Number(player?.experience) || 0),
-      fame: Math.max(0, Number(player?.fame) || 0),
+      level: Math.max(1, Number(player?.['level']) || 1),
+      experience: Math.max(0, Number(player?.['experience']) || 0),
+      fame: Math.max(0, Number(player?.['fame']) || 0),
     },
-    resources: (data.resources as Record<string, unknown>) || {},
-    statistics: (data.statistics as Record<string, unknown>) || {},
-    workers: (data.workers as unknown[]) || [],
-    buildings: (data.buildings as unknown[]) || [],
-    maxWorkers: Math.max(1, Number(data.maxWorkers) || 3),
-    activeCraft: (data.activeCraft as Record<string, unknown>) || {},
-    activeRefining: (data.activeRefining as Record<string, unknown>) || {},
-    weaponInventory: (data.weaponInventory as Record<string, unknown>) || { weapons: [] },
-    unlockedRecipes: (data.unlockedRecipes as Record<string, unknown>) || { weaponRecipes: [], refiningRecipes: [] },
-    recipeSources: (data.recipeSources as unknown[]) || [],
-    unlockedEnchantments: (data.unlockedEnchantments as unknown[]) || [],
-    guild: (data.guild as Record<string, unknown>) || {},
-    knownAdventurers: (data.knownAdventurers as unknown[]) || [],
-    orders: (data.orders as Record<string, unknown>) || {},
-    tutorial: (data.tutorial as Record<string, unknown>) || { isActive: true, currentStep: 0 },
-    playTime: Math.max(0, Number(data.playTime) || 0),
-    saveVersion: Number(data.saveVersion) || 2,
+    resources: (data['resources'] as Record<string, unknown>) || {},
+    statistics: (data['statistics'] as Record<string, unknown>) || {},
+    workers: (data['workers'] as unknown[]) || [],
+    buildings: (data['buildings'] as unknown[]) || [],
+    maxWorkers: Math.max(1, Number(data['maxWorkers']) || 3),
+    activeCraft: (data['activeCraft'] as Record<string, unknown>) || {},
+    activeRefining: (data['activeRefining'] as Record<string, unknown>) || {},
+    weaponInventory: (data['weaponInventory'] as Record<string, unknown>) || { weapons: [] },
+    unlockedRecipes: (data['unlockedRecipes'] as Record<string, unknown>) || { weaponRecipes: [], refiningRecipes: [] },
+    recipeSources: (data['recipeSources'] as unknown[]) || [],
+    unlockedEnchantments: (data['unlockedEnchantments'] as unknown[]) || [],
+    guild: (data['guild'] as Record<string, unknown>) || {},
+    knownAdventurers: (data['knownAdventurers'] as unknown[]) || [],
+    orders: (data['orders'] as Record<string, unknown>) || {},
+    tutorial: (data['tutorial'] as Record<string, unknown>) || { isActive: true, currentStep: 0 },
+    materialKnowledge: (data['materialKnowledge'] as Record<string, unknown>) || {},
+    playTime: Math.max(0, Number(data['playTime']) || 0),
+    saveVersion: Number(data['saveVersion']) || 2,
   }
 }

@@ -16,7 +16,7 @@ import type {
 } from '@/types/craft-v2'
 import { DEFAULT_GAME_CONFIG } from '@/types/craft-v2'
 import { getStageById, allStages } from '@/data/stages'
-import { getMaterialById } from '@/data/materials'
+import { getMaterialAsLegacy } from '@/data/materials'
 
 /**
  * Контекст для генерации процесса
@@ -90,7 +90,7 @@ function applyMaterialMods(
   
   // Для каждого материала проверяем processingProfile
   for (const [partId, { materialId }] of Object.entries(materials)) {
-    const material = getMaterialById(materialId)
+    const material = getMaterialAsLegacy(materialId)
     if (!material?.processingProfile?.stages) continue
     
     const { replacements, forbidden } = material.processingProfile.stages
@@ -171,7 +171,7 @@ function createStageInstance(
 ): CraftStageInstance {
   // Получаем материал для расчёта модификаторов
   const material = config.material && context.materials[config.material]
-    ? getMaterialById(context.materials[config.material].materialId)
+    ? getMaterialAsLegacy(context.materials[config.material].materialId)
     : null
   
   // Рассчитываем длительность
@@ -326,7 +326,7 @@ function calculateWeaponStats(
   
   // Применяем бонусы от материалов
   for (const [partId, { materialId }] of Object.entries(materials)) {
-    const material = getMaterialById(materialId)
+    const material = getMaterialAsLegacy(materialId)
     if (!material) continue
     
     // Бонусы к атаке

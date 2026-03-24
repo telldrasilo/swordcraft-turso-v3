@@ -17,7 +17,7 @@ import { generateCraftStages, createCraftPlan } from '@/lib/craft/process-genera
 import { calculateWeapon, type WeaponCalculationResult } from '@/lib/craft/calculator'
 import { generateWeaponName, type WeaponNameResult } from '@/lib/craft/name-generator'
 import { getRecipeById } from '@/data/recipes'
-import { getMaterialById } from '@/data/materials'
+import { getMaterialAsLegacy } from '@/data/materials'
 import { getTechniqueById } from '@/data/techniques'
 
 // ================================
@@ -190,7 +190,7 @@ export function useCraftV2(
     // Получаем материал боевой части для имени
     const combatPart = recipe.combatPart
     const combatMaterialId = materials[combatPart]?.materialId
-    const combatMaterial = combatMaterialId ? getMaterialById(combatMaterialId) : null
+    const combatMaterial = combatMaterialId ? getMaterialAsLegacy(combatMaterialId) : null
     
     // Рассчитываем характеристики
     const preview = calculateWeapon(recipe, materials, techniques, blacksmithLevel)

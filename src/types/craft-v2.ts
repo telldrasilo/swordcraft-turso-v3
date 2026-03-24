@@ -1,9 +1,19 @@
 /**
  * Система крафта v2.0
  * Типы данных для новой системы крафта
- * 
+ *
  * @see docs/CRAFT_SYSTEM_CONCEPT.md
  */
+
+import type { QualityGrade } from './shared/quality'
+import type { WeaponEnchantment } from './shared/enchantment'
+import {
+  QUALITY_GRADES_V2 as QUALITY_GRADES_CONFIG,
+  getQualityGradeV2 as getQualityGrade,
+  getQualityMultiplierV2 as getQualityMultiplier,
+  getQualityColorV2 as getQualityColor,
+  getQualityNameRu,
+} from './shared/quality'
 
 // ================================
 // КАТЕГОРИИ И БАЗОВЫЕ ТИПЫ
@@ -20,9 +30,6 @@ export type DominantPropertyType = 'sharpness' | 'durability' | 'balance' | 'con
 
 /** Категория этапа */
 export type StageCategory = 'preparation' | 'processing' | 'forming' | 'assembly' | 'finishing'
-
-/** Качество оружия */
-export type QualityGrade = 'poor' | 'common' | 'good' | 'excellent' | 'masterpiece' | 'legendary'
 
 // ================================
 // МАТЕРИАЛ
@@ -399,12 +406,8 @@ export interface CraftLogEntry {
 // ЗАЧАРОВАНИЯ
 // ================================
 
-/** Зачарование на оружии */
-export interface WeaponEnchantment {
-  id: string
-  enchantmentId: string
-  appliedAt: number
-}
+// Re-export shared enchantment type for convenience
+export { WeaponEnchantment } from './shared/enchantment'
 
 // ================================
 // ГОТОВОЕ ОРУЖИЕ v2
@@ -479,44 +482,13 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
 // ГРАДАЦИИ КАЧЕСТВА
 // ================================
 
-export const QUALITY_GRADES_CONFIG: { 
-  min: number
-  max: number
-  grade: QualityGrade
-  multiplier: number
-  color: string
-  nameRu: string 
-}[] = [
-  { min: 0, max: 30, grade: 'poor', multiplier: 0.7, color: 'text-red-400', nameRu: 'Плохое' },
-  { min: 31, max: 50, grade: 'common', multiplier: 1.0, color: 'text-gray-400', nameRu: 'Обычное' },
-  { min: 51, max: 70, grade: 'good', multiplier: 1.1, color: 'text-green-400', nameRu: 'Хорошее' },
-  { min: 71, max: 85, grade: 'excellent', multiplier: 1.2, color: 'text-blue-400', nameRu: 'Отличное' },
-  { min: 86, max: 95, grade: 'masterpiece', multiplier: 1.35, color: 'text-purple-400', nameRu: 'Шедевр' },
-  { min: 96, max: 100, grade: 'legendary', multiplier: 1.5, color: 'text-amber-400', nameRu: 'Легендарное' },
-]
-
-/** Получить градацию качества */
-export function getQualityGrade(quality: number): QualityGrade {
-  const grade = QUALITY_GRADES_CONFIG.find(g => quality >= g.min && quality <= g.max)
-  return grade?.grade ?? 'common'
-}
-
-/** Получить множитель качества */
-export function getQualityMultiplier(quality: number): number {
-  const grade = QUALITY_GRADES_CONFIG.find(g => quality >= g.min && quality <= g.max)
-  return grade?.multiplier ?? 1.0
-}
-
-/** Получить цвет качества */
-export function getQualityColor(quality: number): string {
-  const grade = QUALITY_GRADES_CONFIG.find(g => quality >= g.min && quality <= g.max)
-  return grade?.color ?? 'text-gray-400'
-}
-
-/** Получить название качества */
-export function getQualityNameRu(quality: number): string {
-  const grade = QUALITY_GRADES_CONFIG.find(g => quality >= g.min && quality <= g.max)
-  return grade?.nameRu ?? 'Обычное'
+// Re-export for convenience
+export {
+  getQualityGrade,
+  getQualityMultiplier,
+  getQualityColor,
+  getQualityNameRu,
+  QUALITY_GRADES_CONFIG,
 }
 
 // ================================

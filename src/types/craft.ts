@@ -3,6 +3,16 @@
  */
 
 import type { ResourceKey, CraftingCost } from './resources'
+import type { QualityGrade } from './shared/quality'
+import type { WeaponEnchantment } from './shared/enchantment'
+
+// Re-export shared functions for backward compatibility
+export {
+  getQualityGrade,
+  getQualityMultiplier,
+  getQualityColor,
+  QUALITY_GRADES_V1 as QUALITY_GRADES,
+} from './shared/quality'
 
 // ================================
 // КРАФТ
@@ -64,9 +74,6 @@ export type WeaponTier = 1 | 2 | 3 | 4 | 5 | 6
 /** Материал оружия */
 export type WeaponMaterial = 'iron' | 'bronze' | 'steel' | 'silver' | 'gold' | 'mithril'
 
-/** Градация качества */
-export type QualityGrade = 'poor' | 'common' | 'good' | 'excellent' | 'masterpiece' | 'legendary'
-
 /** Созданное оружие */
 export interface CraftedWeapon {
   id: string
@@ -87,44 +94,6 @@ export interface CraftedWeapon {
   epicMultiplier: number
   materials: CraftingCost
   enchantments?: WeaponEnchantment[]
-}
-
-/** Зачарование на оружии */
-export interface WeaponEnchantment {
-  id: string
-  enchantmentId: string
-  appliedAt: number
-}
-
-// ================================
-// ГРАДАЦИИ КАЧЕСТВА
-// ================================
-
-export const QUALITY_GRADES: { min: number; max: number; grade: QualityGrade; multiplier: number; color: string }[] = [
-  { min: 0, max: 25, grade: 'poor', multiplier: 0.6, color: 'text-red-400' },
-  { min: 26, max: 50, grade: 'common', multiplier: 1.0, color: 'text-gray-400' },
-  { min: 51, max: 70, grade: 'good', multiplier: 1.3, color: 'text-green-400' },
-  { min: 71, max: 85, grade: 'excellent', multiplier: 1.6, color: 'text-blue-400' },
-  { min: 86, max: 95, grade: 'masterpiece', multiplier: 2.0, color: 'text-purple-400' },
-  { min: 96, max: 100, grade: 'legendary', multiplier: 3.0, color: 'text-amber-400' },
-]
-
-/** Получить градацию качества */
-export function getQualityGrade(quality: number): QualityGrade {
-  const grade = QUALITY_GRADES.find(g => quality >= g.min && quality <= g.max)
-  return grade?.grade ?? 'common'
-}
-
-/** Получить множитель качества */
-export function getQualityMultiplier(quality: number): number {
-  const grade = QUALITY_GRADES.find(g => quality >= g.min && quality <= g.max)
-  return grade?.multiplier ?? 1.0
-}
-
-/** Получить цвет качества */
-export function getQualityColor(quality: number): string {
-  const grade = QUALITY_GRADES.find(g => quality >= g.min && quality <= g.max)
-  return grade?.color ?? 'text-gray-400'
 }
 
 // ================================

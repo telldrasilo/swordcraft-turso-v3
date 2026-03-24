@@ -1,0 +1,13 @@
+node_modules
+.next
+out
+build
+dist
+.next-env.d.ts
+*.log
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+examples
+skills
+swordcraft

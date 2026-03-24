@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { allMaterials, getMaterialsForPart } from '@/data/materials'
+import type { MaterialNode } from '@/types/materials'
 
 interface PartMaterialSelectorProps {
   partId: string
@@ -22,10 +23,9 @@ interface PartMaterialSelectorProps {
 
 const categoryIcons: Record<string, string> = {
   metal: '⚒️',
-  alloy: '🔧',
+  mineral: '🪨',
   wood: '🪵',
   leather: '🟤',
-  stone: '🪨',
 }
 
 export function PartMaterialSelector({
@@ -40,11 +40,13 @@ export function PartMaterialSelector({
   
   const materials = useMemo(() => {
     return getMaterialsForPart(partId, allowedCategories)
-      .filter(m => availableMaterials.includes(m.id))
+      .filter((m: MaterialNode) => availableMaterials.includes(m.identity.id))
   }, [partId, allowedCategories, availableMaterials])
   
   const selected = useMemo(() => {
-    return selectedMaterial ? allMaterials.find(m => m.id === selectedMaterial) : null
+    return selectedMaterial 
+      ? allMaterials.find((m: MaterialNode) => m.identity.id === selectedMaterial) 
+      : null
   }, [selectedMaterial])
   
   return (
@@ -55,12 +57,12 @@ export function PartMaterialSelector({
       >
         <div className="flex items-center gap-3">
           <span className="text-lg">
-            {selected ? categoryIcons[selected.category] : '❓'}
+            {selected ? categoryIcons[selected.identity.class] : '❓'}
           </span>
           <div className="text-left">
             <p className="font-medium text-stone-200">{partName}</p>
             <p className="text-xs text-stone-500">
-              {selected ? selected.name : 'Выберите материал'}
+              {selected ? selected.identity.name : 'Выберите материал'}
             </p>
           </div>
         </div>
@@ -80,28 +82,28 @@ export function PartMaterialSelector({
             className="overflow-hidden"
           >
             <div className="p-2 grid grid-cols-2 gap-2 bg-stone-900/50">
-              {materials.map(material => (
+              {materials.map((material: MaterialNode) => (
                 <button
-                  key={material.id}
+                  key={material.identity.id}
                   onClick={() => {
-                    onSelect(material.id)
+                    onSelect(material.identity.id)
                     setExpanded(false)
                   }}
                   className={cn(
                     "p-2 rounded text-left transition-colors",
-                    selectedMaterial === material.id
+                    selectedMaterial === material.identity.id
                       ? "bg-amber-600/30 border border-amber-500"
                       : "bg-stone-800 border border-stone-700 hover:border-stone-600"
                   )}
                 >
                   <div className="flex items-center gap-2">
-                    <span>{categoryIcons[material.category]}</span>
+                    <span>{categoryIcons[material.identity.class]}</span>
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-stone-200 truncate">
-                        {material.name}
+                        {material.identity.name}
                       </p>
                       <p className="text-xs text-stone-500">
-                        ATK +{material.weaponEffects.attackBonus}%
+                        Твёрдость: {material.physical.hardness}
                       </p>
                     </div>
                   </div>

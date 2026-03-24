@@ -13,7 +13,7 @@ import type {
   WeaponStats,
   QualityGrade 
 } from '@/types/craft-v2'
-import { getMaterialById } from '@/data/materials'
+import { getMaterialAsLegacy } from '@/data/materials'
 import { 
   getQualityGrade, 
   getQualityMultiplier, 
@@ -57,7 +57,7 @@ export function calculateWeapon(
   const materialData: { partId: string; material: Material; quantity: number }[] = []
   
   for (const [partId, { materialId, quantity }] of Object.entries(materials)) {
-    const material = getMaterialById(materialId)
+    const material = getMaterialAsLegacy(materialId)
     if (material) {
       materialData.push({ partId, material, quantity })
     }

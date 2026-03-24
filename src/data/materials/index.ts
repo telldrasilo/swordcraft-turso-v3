@@ -1,48 +1,66 @@
 /**
  * Библиотека материалов
- * Экспорт всех материалов
+ * Центральный экспорт всех материалов
  */
 
-import type { Material } from '@/types/craft-v2'
+// Экспорт из новой структуры library
+export * from './library'
 
-import { metalMaterials } from './metals'
-import { woodMaterials, leatherMaterials } from './organic'
-import { stoneMaterials } from './stone'
+// Экспорт коллекций
+export * from './collections'
 
-// Все материалы в одном массиве
-export const allMaterials: Material[] = [
-  ...metalMaterials,
-  ...woodMaterials,
-  ...leatherMaterials,
-  ...stoneMaterials,
-]
+// Импорт типов
+import type { MaterialNode } from '@/types/materials/material-core'
 
-// Карта материалов по ID для быстрого доступа
-export const materialById: Map<string, Material> = new Map(
-  allMaterials.map(material => [material.id, material])
-)
+// Импорт всех материалов из library
+import {
+  allMaterials,
+  materialById,
+  allMetals,
+  allStones,
+  allWoods,
+  allLeathers,
+  allOres,
+} from './library'
 
-// Группировка по категориям
-export const materialsByCategory = {
-  metal: metalMaterials.filter(m => m.category === 'metal'),
-  alloy: metalMaterials.filter(m => m.category === 'alloy'),
-  wood: woodMaterials,
-  leather: leatherMaterials,
-  stone: stoneMaterials,
+// Реэкспорт для обратной совместимости
+export { allMaterials }
+export { materialById }
+
+// Группировка по классам (для энциклопедии и крафта)
+export const materialsByClass = {
+  metal: allMetals,
+  mineral: [...allStones, ...allOres],
+  wood: allWoods,
+  leather: allLeathers,
 }
 
 /**
  * Получить материал по ID
  */
-export function getMaterialById(id: string): Material | undefined {
-  return materialById.get(id)
+export function getMaterialById(id: string): MaterialNode | undefined {
+  return materialById[id]
 }
 
 /**
- * Получить материалы по категории
+ * Получить материалы по классу
  */
-export function getMaterialsByCategory(category: string): Material[] {
-  return materialsByCategory[category as keyof typeof materialsByCategory] || []
+export function getMaterialsByClass(className: string): MaterialNode[] {
+  return materialsByClass[className as keyof typeof materialsByClass] || []
+}
+
+/**
+ * Получить материалы по тегу
+ */
+export function getMaterialsByTag(tag: string): MaterialNode[] {
+  return allMaterials.filter(m => m.identity.tags.includes(tag))
+}
+
+/**
+ * Получить материалы по тиру
+ */
+export function getMaterialsByTier(tier: number): MaterialNode[] {
+  return allMaterials.filter(m => m.economy.tier === tier)
 }
 
 /**
@@ -53,38 +71,88 @@ export function getMaterialsByCategory(category: string): Material[] {
 export function getAvailableMaterials(
   playerLevel: number,
   unlockedMaterials: string[] = []
-): Material[] {
+): MaterialNode[] {
   return allMaterials.filter(material => {
     // Если материал в списке разблокированных
-    if (unlockedMaterials.includes(material.id)) return true
+    if (unlockedMaterials.includes(material.identity.id)) return true
     
-    // Проверяем условие разблокировки
-    if (material.source.unlockCondition) {
-      const levelMatch = material.source.unlockCondition.match(/Уровень кузнеца (\d+)/)
-      if (levelMatch) {
-        return playerLevel >= parseInt(levelMatch[1])
-      }
-      return false
+    // Проверяем условия разблокировки
+    if (material.discovery.unlockedBy) {
+      return material.discovery.unlockedBy.some(unlock => {
+        if (unlock.type === 'harvest') return true
+        if (unlock.type === 'craft') return playerLevel >= Math.floor(unlock.requiredExpertise / 10)
+        if (unlock.type === 'research') return playerLevel >= Math.floor(unlock.requiredExpertise / 10)
+        return false
+      })
     }
     
-    // Материалы без условия доступны по редкости
-    return material.source.rarity === 'common'
+    // Материалы без условий доступны по редкости
+    return material.economy.rarity <= 30
   })
 }
 
 /**
- * Получить материалы, подходящие для части оружия
+ * Поиск материалов по названию
  */
-export function getMaterialsForPart(
-  partId: string,
-  allowedCategories: string[]
-): Material[] {
-  return allMaterials.filter(material => 
-    allowedCategories.includes(material.category)
+export function searchMaterials(query: string): MaterialNode[] {
+  const lowerQuery = query.toLowerCase()
+  return allMaterials.filter(m => 
+    m.identity.name.toLowerCase().includes(lowerQuery) ||
+    m.identity.tags.some(tag => tag.toLowerCase().includes(lowerQuery))
   )
 }
 
-// Экспорт
-export { metalMaterials } from './metals'
-export { woodMaterials, leatherMaterials } from './organic'
-export { stoneMaterials } from './stone'
+/**
+ * Поиск материалов по категории и названию
+ * Сначала фильтрация по категории, потом поиск внутри
+ */
+export function searchMaterialsByCategory(
+  category: string,
+  query: string
+): MaterialNode[] {
+  const categoryMaterials = category === 'all' 
+    ? allMaterials 
+    : getMaterialsByClass(category)
+  
+  if (!query.trim()) return categoryMaterials
+  
+  const lowerQuery = query.toLowerCase()
+  return categoryMaterials.filter(m => 
+    m.identity.name.toLowerCase().includes(lowerQuery) ||
+    m.identity.tags.some(tag => tag.toLowerCase().includes(lowerQuery))
+  )
+}
+
+/**
+ * Получить материалы для части оружия
+ * @param _partId ID части (blade, guard, grip, pommel) - не используется, для совместимости
+ * @param allowedCategories Разрешённые классы материалов
+ */
+export function getMaterialsForPart(
+  _partId: string,
+  allowedCategories: string[]
+): MaterialNode[] {
+  // Маппинг старых категорий на новые классы
+  const categoryToClass: Record<string, string[]> = {
+    metal: ['metal'],
+    alloy: ['metal'],  // сплавы - это тоже металлы
+    wood: ['wood'],
+    leather: ['leather'],
+    stone: ['mineral'],
+  }
+
+  const allowedClasses = allowedCategories.flatMap(cat => 
+    categoryToClass[cat] || [cat]
+  )
+
+  return allMaterials.filter(m => 
+    allowedClasses.includes(m.identity.class)
+  )
+}
+
+// Экспорт адаптера для обратной совместимости
+export {
+  adaptMaterialNodeToMaterial,
+  getMaterialAsLegacy,
+  getAllMaterialsAsLegacy,
+} from './adapter'

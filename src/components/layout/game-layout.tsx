@@ -17,7 +17,8 @@ import {
   Cloud,
   CloudOff,
   Loader2,
-  CheckCircle
+  CheckCircle,
+  BookOpen,
 } from 'lucide-react'
 import { useGameStore, useFormattedResources, type GameScreen } from '@/store'
 import { useGameLoop, useProductionRates } from '@/hooks/use-game-loop'
@@ -38,6 +39,7 @@ const navItems: { id: GameScreen; label: string; icon: typeof Flame }[] = [
   { id: 'guild', label: 'Гильдия', icon: Sword },
   { id: 'dungeons', label: 'Подземелья', icon: Map },
   { id: 'altar', label: 'Алтарь', icon: Sparkles },
+  { id: 'encyclopedia', label: 'Энциклопедия', icon: BookOpen },
 ]
 
 // Ресурсы для отображения в панели
@@ -316,9 +318,10 @@ import { ForgeScreen } from '@/components/screens/forge-screen'
 import { ResourcesScreen } from '@/components/screens/resources-screen'
 import { WorkersScreen } from '@/components/screens/workers-screen'
 import { ShopScreen } from '@/components/screens/shop-screen'
-import { GuildScreen } from '@/components/screens/guild-screen'
+import { GuildScreen } from '@/components/guild/GuildScreen'
 import { DungeonsScreen } from '@/components/screens/dungeons-screen'
 import { AltarScreen } from '@/components/screens/altar-screen'
+import { EncyclopediaScreen } from '@/components/screens/encyclopedia-screen'
 import { TutorialOverlay } from '@/components/tutorial-overlay'
 
 // Маппинг экранов
@@ -330,6 +333,7 @@ const screens: Record<GameScreen, typeof ForgeScreen> = {
   guild: GuildScreen,
   dungeons: DungeonsScreen,
   altar: AltarScreen,
+  encyclopedia: EncyclopediaScreen,
 }
 
 export function GameLayout() {

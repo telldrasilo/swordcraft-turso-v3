@@ -31,6 +31,9 @@ import { createCraftSlice } from './slices/craft-slice'
 import type { CraftSlice, CraftedWeapon, ActiveCraft, ActiveRefining, WeaponInventory, UnlockedRecipes, RecipeSource, WeaponType, WeaponTier, WeaponMaterial, QualityGrade } from './slices/craft-slice'
 import { initialActiveCraft, initialActiveRefining, initialWeaponInventory, initialUnlockedRecipes } from './slices/craft-slice'
 
+import { createEncyclopediaSlice } from './slices/encyclopedia-slice'
+import type { EncyclopediaSlice } from './slices/encyclopedia-slice'
+
 import type { CraftedWeaponV2 } from '@/types/craft-v2'
 
 // ================================
@@ -144,7 +147,7 @@ import { initialTutorialState } from './slices/tutorial-slice'
 // ОСТАВШИЕСЯ ТИПЫ (не в slices)
 // ================================
 
-export type GameScreen = 'forge' | 'resources' | 'workers' | 'shop' | 'guild' | 'dungeons' | 'altar'
+export type GameScreen = 'forge' | 'resources' | 'workers' | 'shop' | 'guild' | 'dungeons' | 'altar' | 'encyclopedia'
 
 // ================================
 // CROSS-SLICE ACTIONS INTERFACE
@@ -271,7 +274,7 @@ const initialAdditionalState: AdditionalState = {
 // FULL STORE TYPE
 // ================================
 
-type GameStore = PlayerSlice & ResourcesSlice & WorkersSlice & CraftSlice & OrdersSlice & TutorialActions & AdditionalState & CrossSliceActions
+type GameStore = PlayerSlice & ResourcesSlice & WorkersSlice & CraftSlice & OrdersSlice & TutorialActions & AdditionalState & CrossSliceActions & EncyclopediaSlice
 
 // ================================
 // STORE CREATION
@@ -295,6 +298,9 @@ export const useGameStore = create<GameStore>()(
 
       // Orders slice
       ...createOrdersSlice(set as any, get as any, {} as any),
+
+      // Encyclopedia slice
+      ...createEncyclopediaSlice(set as any, get as any, {} as any),
 
       // Override generateOrder with wrapper that passes player stats
       generateOrder: () => {
@@ -1151,7 +1157,34 @@ export const useGameStore = create<GameStore>()(
     }),
     {
       name: 'swordcraft-store',
-      version: 2,
+      version: 3,
+      partialize: (state) => ({
+        // Сохраняем только персистентное состояние
+        player: state.player,
+        resources: state.resources,
+        workers: state.workers,
+        buildings: state.buildings,
+        weaponInventory: state.weaponInventory,
+        unlockedRecipes: state.unlockedRecipes,
+        recipeSources: state.recipeSources,
+        unlockedEnchantments: state.unlockedEnchantments,
+        guild: state.guild,
+        knownAdventurers: state.knownAdventurers,
+        orders: state.orders.filter(o => o.status !== 'expired'),
+        tutorial: state.tutorial,
+        playTime: state.playTime,
+        saveVersion: state.saveVersion,
+      }),
+      migrate: (persistedState: any, version: number) => {
+        // Миграция с версии 2 на 3
+        if (version === 2) {
+          // Удаляем просроченные заказы при первой загрузке v3
+          if (persistedState.orders) {
+            persistedState.orders = persistedState.orders.filter((o: any) => o.status !== 'expired')
+          }
+        }
+        return persistedState
+      },
     }
   )
 )

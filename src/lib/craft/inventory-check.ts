@@ -10,7 +10,7 @@
 
 import type { Material, MaterialAssignment, WeaponRecipe } from '@/types/craft-v2'
 import type { Resources, ResourceKey } from '@/store/slices/resources-slice'
-import { getMaterialById } from '@/data/materials'
+import { getMaterialAsLegacy } from '@/data/materials'
 import { canBuyMaterial, getMaterialPrice, getMaterialShopInfo } from '@/data/material-shop'
 
 // ================================
@@ -183,7 +183,7 @@ function calculateRawResources(
   
   // Это сырьё — прямая запись
   const resourceKey = getResourceKeyForMaterial(materialId)
-  const material = getMaterialById(materialId)
+  const material = getMaterialAsLegacy(materialId)
   if (resourceKey) {
     return [{ 
       resource: resourceKey, 
@@ -208,7 +208,7 @@ export function calculateCraftRequirements(
   const requirements = new Map<ResourceKey, { amount: number; sources: string[]; names: string[] }>()
   
   for (const [partId, selection] of Object.entries(materialSelections)) {
-    const material = getMaterialById(selection.materialId)
+    const material = getMaterialAsLegacy(selection.materialId)
     if (!material) continue
     
     // Базовое количество материала для этой части
@@ -296,7 +296,7 @@ export function checkInventoryForCraft(
   }
   
   for (const [partId, selection] of Object.entries(materialSelections)) {
-    const material = getMaterialById(selection.materialId)
+    const material = getMaterialAsLegacy(selection.materialId)
     if (!material) continue
     
     const recipePart = recipe.parts.find(p => p.id === partId)
