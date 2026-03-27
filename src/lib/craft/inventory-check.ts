@@ -26,12 +26,22 @@ const MATERIAL_TO_RESOURCE: Record<string, ResourceKey> = {
   // Металлы (сырьё)
   'iron': 'iron',
   'cold_iron': 'iron',  // Вариант железа
+  'copper': 'copper',
+  'tin': 'tin',
+  'silver': 'silver',
+  'gold': 'goldOre',
+  'mithril': 'mithril',
   
   // Сплавы (создаются из сырья)
   'steel': 'steelIngot',
   'high_carbon_steel': 'steelIngot',
+  'iron_alloy': 'ironIngot',
+  'copper_alloy': 'copperIngot',
+  'tin_alloy': 'tinIngot',
+  'bronze': 'bronzeIngot',
   'silver_alloy': 'silverIngot',
-  'mithril': 'mithrilIngot',
+  'gold_alloy': 'goldIngot',
+  'mithril_alloy': 'mithrilIngot',
   
   // Дерево
   'birch': 'wood',
@@ -39,17 +49,25 @@ const MATERIAL_TO_RESOURCE: Record<string, ResourceKey> = {
   'ash': 'wood',
   'ebony': 'wood',
   'ironwood': 'wood',
+  'pine': 'wood',
+  'maple': 'wood',
+  'walnut': 'wood',
+  'mahogany': 'wood',
+  'processed_wood': 'planks',
   
   // Кожа
-  'raw_leather': 'leather',      // Нужно добавить leather в ресурсы
+  'raw_leather': 'leather',
   'tanned_leather': 'leather',
   'bull_leather': 'leather',
   'dragon_leather': 'leather',
+  'hardened_leather': 'leather',
   
   // Камень
   'basic_stone': 'stone',
   'granite': 'stone',
   'obsidian': 'stone',
+  'marble': 'stone',
+  'processed_stone': 'stoneBlocks',
 }
 
 /**
@@ -356,9 +374,7 @@ export function checkInventoryForCraft(
   const totalPurchaseCost = materialsToBuy.reduce((sum, m) => sum + m.totalPrice, 0)
   
   // Проверяем, можно ли купить все недостающие материалы
-  const canPurchaseMissing = missing.length > 0 && 
-    materialsToBuy.length === (missing.length + (fuelRequired.sufficient ? 0 : 1)) &&
-    materialsToBuy.every(m => m.canBuy)
+  const canPurchaseMissing = missing.length > 0 && materialsToBuy.length > 0 && materialsToBuy.every(m => m.canBuy)
   
   return {
     canCraft: missing.length === 0 && fuelRequired.sufficient,
@@ -374,6 +390,8 @@ export function checkInventoryForCraft(
 
 /**
  * Получить стоимость для списания
+ * 
+ * Если materialSelections пустой (генерация заказа), используем recipe.cost
  */
 export function getCraftingCost(
   recipe: WeaponRecipe,
@@ -381,10 +399,19 @@ export function getCraftingCost(
 ): Partial<Record<ResourceKey, number>> {
   const cost: Partial<Record<ResourceKey, number>> = {}
   
-  const totalRequirements = calculateCraftRequirements(recipe, materialSelections)
-  
-  for (const [resourceKey, { amount }] of totalRequirements) {
-    cost[resourceKey] = (cost[resourceKey] || 0) + amount
+  // Если есть выбранные материалы (при крафте) — используем их
+  if (Object.keys(materialSelections).length > 0) {
+    const totalRequirements = calculateCraftRequirements(recipe, materialSelections)
+    for (const [resourceKey, { amount }] of totalRequirements) {
+      cost[resourceKey] = (cost[resourceKey] || 0) + amount
+    }
+  } else if (recipe.cost) {
+    // Если нет выбранных материалов (генерация заказа) — используем базовую стоимость рецепта
+    for (const [resourceKey, amount] of Object.entries(recipe.cost)) {
+      if (amount && amount > 0) {
+        cost[resourceKey as ResourceKey] = amount
+      }
+    }
   }
   
   // Добавляем топливо

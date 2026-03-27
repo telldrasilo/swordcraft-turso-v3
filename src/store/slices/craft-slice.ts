@@ -14,6 +14,9 @@ import {
   getQualityMultiplier,
 } from '@/lib/store-utils/craft-utils'
 
+// Импорт нового типа оружия
+import type { CraftedWeaponV2 } from '@/types/craft-v2'
+
 // ================================
 // ТИПЫ
 // ================================
@@ -29,40 +32,6 @@ export type WeaponMaterial = 'iron' | 'bronze' | 'steel' | 'silver' | 'gold' | '
 
 /** Градация качества */
 export type QualityGrade = 'poor' | 'normal' | 'good' | 'excellent' | 'masterwork' | 'legendary'
-
-/** Материал, использованный при создании оружия */
-export interface WeaponMaterialUsed {
-  partId: string           // 'blade', 'guard', 'grip', 'pommel'
-  partName: string         // 'Лезвие', 'Гарда', 'Рукоять', 'Навершие'
-  materialId: string       // ID материала
-  materialName: string     // Имя для отображения (на русском)
-  quantity: number
-}
-
-/** Созданное оружие */
-export interface CraftedWeapon {
-  id: string
-  recipeId: string
-  name: string
-  type: WeaponType
-  tier: WeaponTier
-  material: WeaponMaterial
-  quality: number
-  qualityGrade: QualityGrade
-  attack: number
-  durability: number
-  maxDurability: number
-  sellPrice: number
-  createdAt: number
-  warSoul: number
-  adventureCount: number
-  epicMultiplier: number
-  materials: CraftingCost
-  primaryMaterial: WeaponMaterial
-  enchantments?: WeaponEnchantment[]
-  materialsUsed?: WeaponMaterialUsed[]
-  techniquesUsed?: string[]
-}
 
 /** Зачарование на оружии */
 export interface WeaponEnchantment {
@@ -93,7 +62,7 @@ export interface ActiveRefining {
 
 /** Инвентарь оружия */
 export interface WeaponInventory {
-  weapons: CraftedWeapon[]
+  weapons: CraftedWeaponV2[]
   maxSlots: number
 }
 
@@ -124,15 +93,15 @@ export interface CraftState {
 export interface CraftActions {
   startCraft: (recipe: { id: string; name: string; cost: CraftingCost; baseCraftTime: number; tier: number; type: WeaponType; material: WeaponMaterial; baseSellPrice: number; requiredLevel: number }) => boolean
   updateCraftProgress: (progress: number) => void
-  completeCraft: () => CraftedWeapon | null
+  completeCraft: () => CraftedWeaponV2 | null
   isCrafting: () => boolean
   startRefining: (recipe: { id: string; name: string; processTime: number; inputs: { resource: string; amount: number }[]; extraCost?: { coal: number }; output: { resource: string; amount: number }; requiredLevel: number }, amount: number) => boolean
   updateRefiningProgress: (progress: number) => void
   completeRefining: () => boolean
   isRefining: () => boolean
   sellWeapon: (weaponId: string) => boolean
-  getWeaponById: (weaponId: string) => CraftedWeapon | undefined
-  addWeapon: (weapon: CraftedWeapon) => void
+  getWeaponById: (weaponId: string) => CraftedWeaponV2 | undefined
+  addWeapon: (weapon: CraftedWeaponV2) => void
   removeWeapon: (weaponId: string) => boolean
   unlockRecipe: (recipeId: string, source: 'purchase' | 'order' | 'expedition' | 'level') => boolean
   isRecipeUnlocked: (recipeId: string) => boolean
@@ -201,10 +170,10 @@ export const createCraftSlice: StateCreator<
     if (state.activeCraft.recipeId) return false
     if (!state.isRecipeUnlocked(recipe.id)) return false
     // Проверка ресурсов и уровня делается в game-store
-    
+
     const now = Date.now()
     const endTime = now + recipe.baseCraftTime * 1000
-    
+
     set({
       activeCraft: {
         recipeId: recipe.id,
@@ -358,7 +327,7 @@ export const createCraftSlice: StateCreator<
     const weapon = state.weaponInventory.weapons.find(w => w.id === weaponId)
     if (!weapon) return false
     
-    const newDurability = Math.max(0, weapon.durability - durabilityLoss)
+    const newDurability = Math.max(0, weapon.currentDurability - durabilityLoss)
     const newEpicMultiplier = Math.min(5.0, weapon.epicMultiplier + epicGain)
     
     set((state) => ({
@@ -367,8 +336,8 @@ export const createCraftSlice: StateCreator<
         weapons: state.weaponInventory.weapons.map(w => 
           w.id === weaponId ? {
             ...w,
-            warSoul: w.warSoul + points,
-            durability: newDurability,
+            warSoul: Math.min(w.maxWarSoul ?? Infinity, w.warSoul + points),
+            currentDurability: newDurability,
             epicMultiplier: newEpicMultiplier,
             adventureCount: w.adventureCount + 1,
           } : w
@@ -395,8 +364,7 @@ export type {
   UnlockedRecipes,
   RecipeSource,
   WeaponEnchantment,
-  WeaponMaterialUsed,
-  CraftedWeapon,
+  CraftedWeaponV2,
   CraftSlice,
   CraftState,
   CraftActions,

@@ -71,7 +71,7 @@ export type EncyclopediaSlice = EncyclopediaState & EncyclopediaActions
 /**
  * Создать начальные знания о материале
  */
-function createInitialKnowledge(materialId: string, expertise: number = 50): MaterialKnowledge {
+function createInitialKnowledge(materialId: string, expertise: number = 10): MaterialKnowledge {
   const now = Date.now()
   return {
     materialId,
@@ -87,21 +87,21 @@ export const initialEncyclopediaState: EncyclopediaState = {
   // Начальные открытые материалы
   materialKnowledge: {
     // Руды
-    'iron_ore': createInitialKnowledge('iron_ore', 50),
+    'iron_ore': createInitialKnowledge('iron_ore', 10),
     
-    // Металлы
-    'iron': createInitialKnowledge('iron', 50),
+    // Металлы (слитки)
+    'iron': createInitialKnowledge('iron', 10),
     
     // Дерево
-    'birch': createInitialKnowledge('birch', 50),
-    'oak': createInitialKnowledge('oak', 50),
+    'birch': createInitialKnowledge('birch', 10),
+    'oak': createInitialKnowledge('oak', 10),
     
     // Кожа
-    'raw_leather': createInitialKnowledge('raw_leather', 50),
-    'tanned_leather': createInitialKnowledge('tanned_leather', 50),
+    'raw_leather': createInitialKnowledge('raw_leather', 10),
+    'tanned_leather': createInitialKnowledge('tanned_leather', 10),
     
     // Уголь
-    'coal': createInitialKnowledge('coal', 50),
+    'coal': createInitialKnowledge('coal', 10),
   },
   selectedCategory: 'all',
   searchQuery: '',

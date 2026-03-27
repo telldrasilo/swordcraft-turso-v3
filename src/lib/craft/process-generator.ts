@@ -39,7 +39,8 @@ export function generateCraftStages(
   techniques: Technique[] = [],
   blacksmithLevel: number = 1,
   forgeLevel: number = 1,
-  config: GameConfig = DEFAULT_GAME_CONFIG
+  config: GameConfig = DEFAULT_GAME_CONFIG,
+  shouldPurchaseMaterials: boolean = false
 ): CraftStageInstance[] {
   const context: GenerationContext = {
     recipe,
@@ -53,7 +54,12 @@ export function generateCraftStages(
   // 1. Базовая последовательность этапов из рецепта
   let stageConfigs = [...recipe.stages]
   
-  // 2. Применяем модификации от материалов
+  // 2. Добавляем этап закупки материалов, если нужно
+  if (shouldPurchaseMaterials) {
+    stageConfigs.unshift({ stageType: 'proc_purchasing' })
+  }
+  
+  // 3. Применяем модификации от материалов
   stageConfigs = applyMaterialMods(stageConfigs, materials, context)
   
   // 3. Применяем модификации от техник
@@ -260,7 +266,8 @@ export function createCraftPlan(
   materials: MaterialAssignment,
   techniqueIds: string[] = [],
   blacksmithLevel: number = 1,
-  forgeLevel: number = 1
+  forgeLevel: number = 1,
+  shouldPurchaseMaterials: boolean = false
 ): CraftPlan {
   // Загружаем рецепт
   const { getRecipeById } = require('@/data/recipes')
@@ -281,7 +288,9 @@ export function createCraftPlan(
     materials,
     techniques,
     blacksmithLevel,
-    forgeLevel
+    forgeLevel,
+    undefined,
+    shouldPurchaseMaterials
   )
   
   // Рассчитываем общее время
@@ -297,6 +306,7 @@ export function createCraftPlan(
     recipeId,
     materials,
     techniques: techniqueIds,
+    shouldPurchaseMaterials,
     estimatedTime,
     estimatedStats,
     estimatedQuality,
@@ -409,7 +419,9 @@ export function createActiveCraft(
     plan.materials,
     [], // техники уже применены в плане
     1,  // уровень кузнеца
-    1   // уровень кузницы
+    1,  // уровень кузницы
+    undefined, // config
+    plan.shouldPurchaseMaterials ?? false
   )
   
   const totalDuration = stages.reduce((sum, s) => sum + s.calculatedDuration, 0)

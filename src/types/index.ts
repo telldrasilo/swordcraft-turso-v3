@@ -14,8 +14,14 @@ export * from './worker'
 // Крафт и оружие
 export * from './craft'
 
-// Гильдия (уже существует, реэкспорт)
+// Гильдия и экспедиции
 export * from './guild'
+
+// Тэги экспедиций
+export * from './expedition-tags'
+
+// События экспедиций
+export * from './expedition-events'
 
 // Заказы и туториал
 export * from './game'

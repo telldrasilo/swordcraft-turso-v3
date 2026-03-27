@@ -3,6 +3,7 @@
  */
 
 import { CraftingCost } from './weapon-recipes'
+import type { ExpeditionTags } from '@/types/expedition-tags'
 
 // ================================
 // ТИПЫ
@@ -38,6 +39,7 @@ export interface ExpeditionTemplate {
   weaponLossChance: number // Базовый шанс потери оружия при провале
   recommendedWeaponTypes: string[]
   minWeaponAttack: number
+  tags?: ExpeditionTags // Тэги для подбора событий и категоризации (опционально)
 }
 
 // ================================
@@ -150,6 +152,11 @@ export const expeditionTemplates: ExpeditionTemplate[] = [
     weaponLossChance: 3,
     recommendedWeaponTypes: ['sword', 'axe'],
     minWeaponAttack: 5, // Доступно с самого первого оружия
+    tags: {
+      locations: ['road', 'forest'],
+      enemies: ['goblins'],
+      themes: ['wilderness', 'combat_heavy'],
+    },
   },
   {
     id: 'forest_scout',
@@ -173,6 +180,11 @@ export const expeditionTemplates: ExpeditionTemplate[] = [
     weaponLossChance: 3,
     recommendedWeaponTypes: ['dagger', 'spear'],
     minWeaponAttack: 5,
+    tags: {
+      locations: ['forest'],
+      enemies: ['beasts'],
+      themes: ['wilderness', 'exploration'],
+    },
   },
   {
     id: 'merchant_escort',
@@ -189,6 +201,12 @@ export const expeditionTemplates: ExpeditionTemplate[] = [
     weaponLossChance: 3,
     recommendedWeaponTypes: ['sword', 'mace'],
     minWeaponAttack: 5,
+    tags: {
+      locations: ['road', 'village'],
+      enemies: ['bandits'],
+      themes: ['social', 'adventure'],
+      special: ['escort'],
+    },
   },
   {
     id: 'rat_cellar',
@@ -205,6 +223,11 @@ export const expeditionTemplates: ExpeditionTemplate[] = [
     weaponLossChance: 2,
     recommendedWeaponTypes: ['dagger', 'sword'],
     minWeaponAttack: 3, // Минимальное требование
+    tags: {
+      locations: ['tavern', 'dungeon'],
+      enemies: ['rats'],
+      themes: ['urban', 'combat_heavy'],
+    },
   },
 
   // === ОБЫЧНЫЕ (Уровень гильдии 1-2) ===
@@ -223,6 +246,11 @@ export const expeditionTemplates: ExpeditionTemplate[] = [
     weaponLossChance: 8,
     recommendedWeaponTypes: ['spear', 'axe'],
     minWeaponAttack: 10, // Снижено с 10
+    tags: {
+      locations: ['forest'],
+      enemies: ['wolves'],
+      themes: ['wilderness', 'combat_heavy'],
+    },
   },
   {
     id: 'old_mine_clear',
@@ -246,6 +274,11 @@ export const expeditionTemplates: ExpeditionTemplate[] = [
     weaponLossChance: 8,
     recommendedWeaponTypes: ['hammer', 'mace'],
     minWeaponAttack: 12,
+    tags: {
+      locations: ['cave'],
+      enemies: ['rats', 'beasts'],
+      themes: ['underground', 'combat_heavy'],
+    },
   },
   {
     id: 'treasure_hunt_1',
@@ -268,6 +301,12 @@ export const expeditionTemplates: ExpeditionTemplate[] = [
     weaponLossChance: 8,
     recommendedWeaponTypes: ['dagger'],
     minWeaponAttack: 10,
+    tags: {
+      locations: ['ruins', 'forest'],
+      enemies: ['beasts'],
+      themes: ['exploration', 'adventure'],
+      special: ['treasure'],
+    },
   },
 
   // === СЛОЖНЫЕ (Уровень гильдии 2-3) ===
@@ -286,6 +325,12 @@ export const expeditionTemplates: ExpeditionTemplate[] = [
     weaponLossChance: 12,
     recommendedWeaponTypes: ['sword', 'axe', 'hammer'],
     minWeaponAttack: 18,
+    tags: {
+      locations: ['ruins', 'castle'],
+      enemies: ['bandits'],
+      themes: ['combat_heavy', 'adventure'],
+      special: ['boss', 'treasure'],
+    },
   },
   {
     id: 'undead_rise',
@@ -306,6 +351,12 @@ export const expeditionTemplates: ExpeditionTemplate[] = [
     weaponLossChance: 12,
     recommendedWeaponTypes: ['mace', 'sword'],
     minWeaponAttack: 22,
+    tags: {
+      locations: ['temple', 'ruins'],
+      enemies: ['undead'],
+      themes: ['horror', 'combat_heavy'],
+      special: ['boss'],
+    },
   },
   {
     id: 'magic_tower',
@@ -326,6 +377,12 @@ export const expeditionTemplates: ExpeditionTemplate[] = [
     weaponLossChance: 12,
     recommendedWeaponTypes: ['sword', 'dagger'],
     minWeaponAttack: 20,
+    tags: {
+      locations: ['ruins', 'dungeon'],
+      enemies: ['demons', 'cultists'],
+      themes: ['mystery', 'underground'],
+      special: ['puzzle', 'treasure'],
+    },
   },
 
   // === ЭКСТРЕМАЛЬНЫЕ (Уровень гильдии 4) ===
@@ -351,6 +408,12 @@ export const expeditionTemplates: ExpeditionTemplate[] = [
     weaponLossChance: 18,
     recommendedWeaponTypes: ['spear', 'axe', 'sword'],
     minWeaponAttack: 35,
+    tags: {
+      locations: ['cave', 'mountain'],
+      enemies: ['dragons'],
+      themes: ['adventure', 'combat_heavy'],
+      special: ['boss', 'treasure'],
+    },
   },
   {
     id: 'demon_portal',
@@ -371,6 +434,12 @@ export const expeditionTemplates: ExpeditionTemplate[] = [
     weaponLossChance: 18,
     recommendedWeaponTypes: ['sword', 'hammer', 'mace'],
     minWeaponAttack: 40,
+    tags: {
+      locations: ['dungeon', 'ruins'],
+      enemies: ['demons', 'cultists'],
+      themes: ['mystery', 'horror'],
+      special: ['boss', 'ritual'],
+    },
   },
 
   // === ЛЕГЕНДАРНЫЕ (Уровень гильдии 5) ===
@@ -395,6 +464,12 @@ export const expeditionTemplates: ExpeditionTemplate[] = [
     weaponLossChance: 22,
     recommendedWeaponTypes: ['sword', 'axe', 'hammer'],
     minWeaponAttack: 50,
+    tags: {
+      locations: ['ruins', 'cave'],
+      enemies: ['undead', 'skeletons'],
+      themes: ['mystery', 'horror', 'combat_heavy'],
+      special: ['boss', 'treasure', 'puzzle'],
+    },
   },
   {
     id: 'lich_tomb',
@@ -415,6 +490,12 @@ export const expeditionTemplates: ExpeditionTemplate[] = [
     weaponLossChance: 22,
     recommendedWeaponTypes: ['sword', 'mace', 'hammer'],
     minWeaponAttack: 60,
+    tags: {
+      locations: ['dungeon', 'ruins'],
+      enemies: ['undead', 'skeletons'],
+      themes: ['horror', 'mystery'],
+      special: ['boss', 'treasure', 'ritual'],
+    },
   },
 ]
 

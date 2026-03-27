@@ -196,7 +196,7 @@ function TraitDisplay({ trait }: { trait: AdventurerTrait }) {
           <div className="flex items-center gap-2">
             {effectIcon}
             <span className={cn('text-xs font-medium', isGoodEffect() ? 'text-green-400' : 'text-red-400')}>
-              {effectName}: {trait.effect.value > 0 ? '+' : ''}{trait.effect.value}%
+              {effectName}: {Math.round(trait.effect.value)}%
             </span>
           </div>
           <p className="text-xs text-stone-500">{effectDesc}</p>
@@ -278,7 +278,7 @@ function ExpeditionPreview({
         >
           <div className="flex items-center justify-between cursor-help">
             <span className="text-stone-500">Золото:</span>
-            <span className="font-semibold text-amber-400">~{preview.gold}</span>
+            <span className="font-semibold text-amber-400">~{Math.round(preview.gold)}</span>
           </div>
         </InfoTooltip>
 
@@ -290,7 +290,7 @@ function ExpeditionPreview({
         >
           <div className="flex items-center justify-between cursor-help">
             <span className="text-stone-500">Души:</span>
-            <span className="font-semibold text-purple-400">~{preview.warSoul}</span>
+            <span className="font-semibold text-purple-400">~{Math.round(preview.warSoul)}</span>
           </div>
         </InfoTooltip>
 
@@ -302,7 +302,7 @@ function ExpeditionPreview({
         >
           <div className="flex items-center justify-between cursor-help">
             <span className="text-stone-500">Износ:</span>
-            <span className="font-semibold text-orange-400">-{preview.weaponWear}%</span>
+            <span className="font-semibold text-orange-400">-{Math.round(preview.weaponWear)}%</span>
           </div>
         </InfoTooltip>
 
@@ -318,7 +318,7 @@ function ExpeditionPreview({
               'font-semibold',
               preview.weaponLossChance > 20 ? 'text-red-400' : 'text-stone-400'
             )}>
-              {preview.weaponLossChance}%
+              {Math.round(preview.weaponLossChance)}%
             </span>
           </div>
         </InfoTooltip>
@@ -335,7 +335,7 @@ function ExpeditionPreview({
             >
               <Badge className="text-xs bg-green-900/50 text-green-300 border-green-700/50 cursor-help">
                 <Package className="w-3 h-3 mr-1" />
-                {preview.resourceChance}% ресурсы
+                {Math.round(preview.resourceChance)}% ресурсы
               </Badge>
             </InfoTooltip>
           )}
@@ -347,7 +347,7 @@ function ExpeditionPreview({
             >
               <Badge className="text-xs bg-pink-900/50 text-pink-300 border-pink-700/50 cursor-help">
                 <Droplet className="w-3 h-3 mr-1" />
-                +{preview.essenceGuaranteed} эссенция
+                +{Math.round(preview.essenceGuaranteed)} эссенция
               </Badge>
             </InfoTooltip>
           )}
@@ -359,7 +359,7 @@ function ExpeditionPreview({
             >
               <Badge className="text-xs bg-amber-900/50 text-amber-300 border-amber-700/50 cursor-help">
                 <Dice5 className="w-3 h-3 mr-1" />
-                {preview.critChance}% крит!
+                {Math.round(preview.critChance)}% крит!
               </Badge>
             </InfoTooltip>
           )}
@@ -504,7 +504,7 @@ export function AdventurerCard({
                   <Sparkles className="w-4 h-4 text-purple-400" />
                   Навык искателя
                 </span>
-                <span className="text-sm font-semibold text-purple-400">+{adventurer.skill}%</span>
+                <span className="text-sm font-semibold text-purple-400">+{Math.round(adventurer.skill)}%</span>
               </div>
               <Progress
                 value={(adventurer.skill / 30) * 100}

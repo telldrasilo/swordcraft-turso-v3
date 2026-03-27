@@ -149,7 +149,7 @@ export const ContractOfferModal: React.FC<ContractOfferModalProps> = ({
             Предложить контракт
           </DialogTitle>
           <DialogDescription className="text-stone-400">
-            {displayName} • {rarityConfig?.nameRu} искатель {adventurer.combat.level} уровня
+            {displayName} • {rarityConfig?.nameRu} искатель {Math.round(adventurer.combat.level)} уровня
           </DialogDescription>
         </DialogHeader>
         

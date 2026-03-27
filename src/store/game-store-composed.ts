@@ -9,7 +9,7 @@
  */
 
 import { create, StateCreator } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
 
 // ================================
 // SLICE IMPORTS
@@ -28,19 +28,18 @@ import type { WorkersSlice, Worker, WorkerClass, ProductionBuilding } from './sl
 import { initialBuildings, workerClassData } from './slices/workers-slice'
 
 import { createCraftSlice } from './slices/craft-slice'
-import type { CraftSlice, CraftedWeapon, ActiveCraft, ActiveRefining, WeaponInventory, UnlockedRecipes, RecipeSource, WeaponType, WeaponTier, WeaponMaterial, QualityGrade } from './slices/craft-slice'
+import type { CraftSlice, ActiveCraft, ActiveRefining, WeaponInventory, UnlockedRecipes, RecipeSource, WeaponType, WeaponTier, WeaponMaterial, QualityGrade } from './slices/craft-slice'
+import type { CraftedWeaponV2, ActiveCraftV2, CraftPlan } from '@/types/craft-v2'
 import { initialActiveCraft, initialActiveRefining, initialWeaponInventory, initialUnlockedRecipes } from './slices/craft-slice'
 
 import { createEncyclopediaSlice } from './slices/encyclopedia-slice'
 import type { EncyclopediaSlice } from './slices/encyclopedia-slice'
 
-import type { CraftedWeaponV2 } from '@/types/craft-v2'
-
 // ================================
 // DATA IMPORTS
 // ================================
 
-import { WeaponRecipe } from '@/data/weapon-recipes'
+import { WeaponRecipe, weaponRecipes } from '@/data/weapon-recipes'
 import { RefiningRecipe, refiningRecipes } from '@/data/refining-recipes'
 import {
   Enchantment,
@@ -74,6 +73,7 @@ import {
   calculateAttack as calculateAttackUtil,
   calculateSellPrice as calculateSellPriceUtil,
   calculateCraftExperience,
+  createWeapon,
 } from '@/lib/store-utils/craft-utils'
 import {
   calculateSacrificeValue as calculateSacrificeValueUtil,
@@ -97,6 +97,9 @@ import {
   type WeaponForExpedition,
 } from '@/lib/store-utils/expedition-utils'
 
+// Expedition event system
+import { selectEventsForExpedition } from '@/lib/expedition-event-selector'
+
 // ================================
 // ADDITIONAL TYPE IMPORTS
 // ================================
@@ -107,7 +110,9 @@ import {
   Adventurer,
   ActiveExpedition,
   RecoveryQuest,
-  getGuildLevel,
+  getGuildReputationLevel,
+  getMaxActiveExpeditions,
+  calculateReputationGain,
   GUILD_LEVELS,
 } from '@/types/guild'
 import type { AdventurerExtended } from '@/types/adventurer-extended'
@@ -138,6 +143,8 @@ import { ExpeditionResult } from './slices/guild-slice'
 import { createOrdersSlice } from './slices/orders-slice'
 import type { OrdersSlice, NPCOrder } from './slices/orders-slice'
 import { initialOrdersState } from './slices/orders-slice'
+import { type OrderGenerationContext } from '@/lib/store-utils/order-achievable-utils'
+import { calculateGoldReward } from '@/lib/store-utils/order-utils'
 
 import { createTutorialSlice } from './slices/tutorial-slice'
 import type { TutorialSlice, TutorialState, TutorialActions } from './slices/tutorial-slice'
@@ -163,9 +170,12 @@ interface CrossSliceActions {
   fireWorkerWithRefund: (workerId: string) => void
   upgradeBuildingWithCost: (buildingId: string) => boolean
 
+  // Craft V2 + Resources + Player
+  setShouldPurchaseMaterials: (should: boolean) => void
+  
   // Craft + Resources + Player
   startCraftWithResources: (recipe: WeaponRecipe) => boolean
-  completeCraftWithExperience: () => CraftedWeapon | null
+  completeCraftWithExperience: () => CraftedWeaponV2 | null
 
   // Refining + Resources + Player
   startRefiningWithResources: (recipe: RefiningRecipe, amount: number) => boolean
@@ -173,7 +183,7 @@ interface CrossSliceActions {
 
   // Weapons + Resources + Statistics
   sellWeaponWithGold: (weaponId: string) => boolean
-  addWeaponWithStats: (weapon: CraftedWeapon) => void
+  addWeaponWithStats: (weapon: CraftedWeaponV2) => void
   addWeaponV2: (weapon: CraftedWeaponV2) => void
 
   // Enchantments + Resources + Statistics
@@ -185,7 +195,7 @@ interface CrossSliceActions {
   repairWeaponWithResources: (weaponId: string) => { success: boolean; cost: number; repairedAmount: number }
 
   // Guild + Resources + Craft + Player
-  startExpeditionFull: (expedition: ExpeditionTemplate, adventurer: Adventurer, weapon: CraftedWeapon, extendedAdventurer?: AdventurerExtended) => boolean
+  startExpeditionFull: (expedition: ExpeditionTemplate, adventurer: Adventurer, weapon: CraftedWeaponV2, extendedAdventurer?: AdventurerExtended) => boolean
   completeExpeditionFull: (expeditionId: string) => ExpeditionResult | null
 
   // Emergency
@@ -193,7 +203,7 @@ interface CrossSliceActions {
   getEmergencyHelp: () => boolean
 
   // Orders
-  generateOrder: () => NPCOrder | null
+  generateOrder: (context: OrderGenerationContext) => NPCOrder | null
   acceptOrder: (orderId: string) => boolean
   completeOrder: (orderId: string, weaponId: string) => boolean
   expireOrder: (orderId: string) => void
@@ -223,6 +233,7 @@ interface CrossSliceActions {
   completeRecoveryQuest: (questId: string) => boolean
   declineRecoveryQuest: (questId: string) => void
   addGlory: (amount: number) => void
+  addReputation: (amount: number) => void
   getAdventurerById: (id: string) => Adventurer | undefined
   getActiveExpeditionById: (id: string) => ActiveExpedition | undefined
   isWeaponInExpedition: (weaponId: string) => boolean
@@ -230,7 +241,7 @@ interface CrossSliceActions {
   // Known Adventurers
   getKnownAdventurer: (adventurerId: string) => KnownAdventurer | undefined
   getMetBadge: (adventurerId: string) => { isKnown: boolean; text: string; className: string } | null
-  calculateExpedition: (adventurer: AdventurerExtended, expedition: ExpeditionTemplate, weapon: CraftedWeapon) => ExpeditionCalculation
+  calculateExpedition: (adventurer: AdventurerExtended, expedition: ExpeditionTemplate, weapon: CraftedWeaponV2) => ExpeditionCalculation
 
   // Repair helpers
   getRepairOptions: (weaponId: string) => RepairOption[]
@@ -239,7 +250,7 @@ interface CrossSliceActions {
   getMaxRepairPercent: (weaponId: string) => number
 
   // Craft helpers
-  getWeaponById: (weaponId: string) => CraftedWeapon | undefined
+  getWeaponById: (weaponId: string) => CraftedWeaponV2 | undefined
   isRecipeUnlocked: (recipeId: string) => boolean
   getRecipeSource: (recipeId: string) => RecipeSource | undefined
   setCurrentScreen: (screen: GameScreen) => void
@@ -249,18 +260,43 @@ interface CrossSliceActions {
   isRefining: () => boolean
   updateCraftProgress: (progress: number) => void
   updateRefiningProgress: (progress: number) => void
+
+  // Craft V2 persistence
+  setCraftV2Persisted: (data: Partial<CraftV2Persisted>) => void
+
+  // Game state
+  resetGame: () => void
 }
 
 // ================================
 // ADDITIONAL STATE (не в slices)
 // ================================
 
+export interface CraftV2Persisted {
+  activeCraft: ActiveCraftV2 | null
+  plan: CraftPlan | null
+  completedWeapon: CraftedWeaponV2 | null
+  stage: 'planning' | 'crafting' | 'completed'
+  preview: any | null
+  weaponName: any | null
+}
+
+export const initialCraftV2Persisted: CraftV2Persisted = {
+  activeCraft: null,
+  plan: null,
+  completedWeapon: null,
+  stage: 'planning',
+  preview: null,
+  weaponName: null,
+}
+
 interface AdditionalState {
   currentScreen: GameScreen
   guild: GuildState
   knownAdventurers: KnownAdventurer[]
-  // Tutorial state как вложенный объект (для совместимости с компонентами)
   tutorial: TutorialState
+  craftV2Persisted: CraftV2Persisted
+  shouldPurchaseMaterials: boolean // Добавил для галочки закупки
 }
 
 const initialAdditionalState: AdditionalState = {
@@ -268,6 +304,8 @@ const initialAdditionalState: AdditionalState = {
   guild: initialGuildState,
   knownAdventurers: [],
   tutorial: initialTutorialState,
+  craftV2Persisted: initialCraftV2Persisted,
+  shouldPurchaseMaterials: false, // Добавил для галочки закупки
 }
 
 // ================================
@@ -280,9 +318,14 @@ type GameStore = PlayerSlice & ResourcesSlice & WorkersSlice & CraftSlice & Orde
 // STORE CREATION
 // ================================
 
+const STORE_VERSION = 1
+const STORE_NAME = 'swordcraft-store-v2'
+
 export const useGameStore = create<GameStore>()(
   persist(
-    (set, get) => ({
+    (set, get) => {
+      const ordersSlice = createOrdersSlice(set as any, get as any, {} as any)
+      return ({
       // === SLICE STATES ===
       // Player slice
       ...createPlayerSlice(set as any, get as any, {} as any),
@@ -297,62 +340,10 @@ export const useGameStore = create<GameStore>()(
       ...createCraftSlice(set as any, get as any, {} as any),
 
       // Orders slice
-      ...createOrdersSlice(set as any, get as any, {} as any),
+      ...ordersSlice,
 
       // Encyclopedia slice
       ...createEncyclopediaSlice(set as any, get as any, {} as any),
-
-      // Override generateOrder with wrapper that passes player stats
-      generateOrder: () => {
-        const state = get()
-        const playerLevel = state.player.level
-        const playerFame = state.player.fame
-        
-        // Inline order generation logic (to avoid recursion)
-        const activeOrders = state.orders.filter(o => o.status === 'available').length
-        if (activeOrders >= 3) return null
-        
-        // Generate client using the generator from slice
-        const { generateId, generateClientName } = require('@/lib/store-utils/generators')
-        const client = generateClientName()
-        const weaponTypes = ['sword', 'dagger', 'axe', 'mace', 'spear', 'hammer']
-        const materials = ['iron', 'bronze', 'steel', 'silver', 'gold']
-        
-        const weaponType = weaponTypes[Math.floor(Math.random() * weaponTypes.length)]
-        const material = materials[Math.floor(Math.random() * materials.length)]
-        const minQuality = 30 + Math.floor(Math.random() * 30) + playerLevel * 2
-        const goldReward = 50 + Math.floor(Math.random() * 50) + playerLevel * 20
-        const fameReward = 5 + Math.floor(Math.random() * 10) + playerLevel * 2
-        const deadline = Date.now() + (300 + Math.floor(Math.random() * 300)) * 1000
-        
-        const order = {
-          id: generateId(),
-          clientName: client.name,
-          clientTitle: client.title,
-          clientIcon: client.icon,
-          weaponType,
-          material,
-          minQuality,
-          minAttack: minQuality + 10,
-          goldReward,
-          fameReward,
-          deadline,
-          status: 'available' as const,
-          requiredLevel: Math.max(1, playerLevel - 2),
-          requiredFame: Math.max(0, playerFame - 20),
-        }
-        
-        // Check if client already exists
-        if (state.orders.some(o => o.clientName === client.name && o.status === 'available')) {
-          return null
-        }
-        
-        set((s: any) => ({
-          orders: [...s.orders, order]
-        }))
-        
-        return order
-      },
 
       // Tutorial actions (без state - state в AdditionalState)
       nextTutorialStep: () => set((state) => {
@@ -466,21 +457,43 @@ export const useGameStore = create<GameStore>()(
         const state = get()
         if (!state.activeCraft.recipeId) return null
 
-        // Получаем рецепт (нужно найти по ID)
-        // TODO: импортировать weaponRecipes
         const recipeId = state.activeCraft.recipeId
+        const recipe = weaponRecipes.find(r => r.id === recipeId)
+
+        if (!recipe) return null
 
         // Рассчитываем качество
         const workersQuality = state.getWorkersQuality()
-        // TODO: нужна информация о рецепте для расчёта
+
+        // Создаём уникальное оружие
+        const weapon = createWeapon({
+          recipeId: recipe.id,
+          recipeName: recipe.name,
+          recipeType: recipe.type,
+          recipeTier: recipe.tier,
+          recipeMaterial: recipe.material,
+          recipeBaseSellPrice: recipe.baseSellPrice,
+          recipeCost: recipe.cost,
+          workersQuality: workersQuality,
+          playerLevel: state.player.level,
+        })
+
+        // Добавляем в инвентарь
+        state.addWeapon(weapon)
+
+        // Начисляем опыт
+        const exp = calculateCraftExperience(weapon.quality)
+        state.addExperience(exp)
+
+        // Обновляем статистику
+        state.updateStatistics({ totalCrafts: state.statistics.totalCrafts + 1 })
 
         // Очищаем активный крафт
         set((s) => ({
           activeCraft: initialActiveCraft
         }))
 
-        // Возвращаем оружие (будет создано в вызывающем коде)
-        return null
+        return weapon
       },
 
       // Refining + Resources + Player
@@ -558,9 +571,19 @@ export const useGameStore = create<GameStore>()(
       },
 
       addWeaponV2: (weapon: CraftedWeaponV2) => {
-        // Конвертируем в CraftedWeapon если нужно
         const state = get()
-        // TODO: реализовать конвертацию
+        
+        // Проверка лимита слотов
+        if (state.weaponInventory.weapons.length >= state.weaponInventory.maxSlots) {
+          console.warn('Инвентарь полон')
+          return
+        }
+        
+        // Добавляем оружие
+        state.addWeapon(weapon)
+        
+        // Обновляем статистику
+        state.updateStatistics({ totalCrafts: state.statistics.totalCrafts + 1 })
       },
 
       // Enchantments + Resources + Statistics
@@ -685,33 +708,45 @@ export const useGameStore = create<GameStore>()(
       startExpeditionFull: (expedition, adventurer, weapon, extendedAdventurer) => {
         const state = get()
 
+        // Проверяем лимит активных экспедиций
+        const maxActive = getMaxActiveExpeditions(state.guild.level)
+        if (state.guild.activeExpeditions.length >= maxActive) {
+          return false
+        }
+
         // Проверяем ресурсы
         const totalCost = expedition.cost.supplies + expedition.cost.deposit
         if (!state.canAfford({ gold: totalCost })) return false
 
-        // Проверяем оружие
-        if (weapon.durability <= 10) return false
-        if (weapon.attack < expedition.minWeaponAttack) return false
+        // Проверяем оружие (используем новые поля CraftedWeaponV2)
+        if (weapon.currentDurability <= 10) return false
+        if (weapon.stats.attack < expedition.minWeaponAttack) return false
 
         // Списываем
         state.spendResource('gold', totalCost)
 
-        // Создаём экспедицию
+        // Генерируем события для экспедиции
+        const startedAt = Date.now()
+        const eventResult = selectEventsForExpedition(expedition, startedAt)
+
+        // Создаём экспедицию с правильными полями типа ActiveExpedition
         const newExpedition: ActiveExpedition = {
           id: generateId(),
           expeditionId: expedition.id,
           expeditionName: expedition.name,
+          expeditionIcon: expedition.icon,
           adventurerId: adventurer.id,
           adventurerName: getAdventurerFullName(adventurer),
+          adventurerData: adventurer,
+          adventurerExtended: extendedAdventurer,
           weaponId: weapon.id,
-          weaponName: weapon.name,
-          startTime: Date.now(),
-          endTime: Date.now() + expedition.duration * 1000,
-          status: 'active',
-          cost: {
-            supplies: expedition.cost.supplies,
-            deposit: expedition.cost.deposit,
-          },
+          weaponName: weapon.fullName,
+          weaponData: weapon,
+          startedAt: startedAt,
+          endsAt: startedAt + expedition.duration * 1000,
+          deposit: expedition.cost.deposit,
+          suppliesCost: expedition.cost.supplies,
+          events: eventResult.events, // Добавляем сгенерированные события
         }
 
         set((s) => ({
@@ -735,23 +770,71 @@ export const useGameStore = create<GameStore>()(
         const weapon = state.weaponInventory.weapons.find(w => w.id === expedition.weaponId)
         if (!weapon) return null
 
-        const adventurer = state.guild.adventurers.find(a => a.id === expedition.adventurerId)
+        // Используем extended данные искателя если есть
+        const adventurerExtended = expedition.adventurerExtended
 
-        // Рассчитываем результат
-        const result = calculateExpeditionOutcome(
+        // Рассчитываем результат используя калькулятор v2
+        const calculation = calculateExpeditionResultV2(
+          adventurerExtended || {
+            id: expedition.adventurerId,
+            identity: { firstName: expedition.adventurerName, lastName: '', gender: 'male' },
+            combat: { level: 10, rarity: 'common', power: 25, precision: 25, endurance: 25, luck: 25, combatStyle: 'berserker', preferredWeapons: [], avoidedWeapons: [] },
+            personality: { primaryTrait: 'brave', secondaryTrait: 'honourable', motivations: ['gold'], socialTags: [], riskTolerance: 'balanced' },
+            strengths: [],
+            weaknesses: [],
+            requirements: { minAttack: 0 },
+            createdAt: Date.now(),
+            expiresAt: Date.now() + 86400000,
+          },
           template,
-          adventurer || { id: expedition.adventurerId, name: expedition.adventurerName, skill: 50, requirements: {} },
-          weapon,
           state.guild.level,
-          state.guild.glory
+          weapon.stats.attack,
+          weapon.currentDurability,
+          weapon.type as any,
+          weapon.id
         )
+
+        // Определяем успех на основе шанса
+        const roll = Math.random() * 100
+        const success = roll < calculation.successChance
+        const isCrit = success && Math.random() * 100 < calculation.critChance
+
+        // Рассчитываем финальные награды
+        const commission = Math.floor(calculation.commission * (isCrit ? 1.5 : 1))
+        const warSoul = Math.floor(calculation.warSoul * (isCrit ? 1.5 : 1))
+        const glory = Math.floor((template.reward.baseWarSoul * 0.1 + (success ? 5 : 2)) * (isCrit ? 1.5 : 1))
+
+        // Рассчитываем износ оружия
+        const weaponWear = calculation.weaponWear
+
+        // Определяем потерю оружия при провале
+        const weaponLossChance = calculation.weaponLossChance
+        const weaponLost = !success && Math.random() * 100 < weaponLossChance
+
+        const result: ExpeditionResult = {
+          success,
+          commission,
+          warSoul,
+          bonusGold: 0,
+          glory,
+          reputation: success ? calculateReputationGain('expedition', template.reward.baseGold, state.player.level) : 0,
+          weaponWear,
+          weaponLost,
+          isCrit,
+        }
 
         // Начисляем награды
         if (result.commission > 0) {
           state.addResource('gold', result.commission)
         }
         if (result.warSoul > 0 && weapon) {
-          state.addWarSoulToWeapon(weapon.id, result.warSoul)
+          // Расчёт эпичности для экспедиций (базовый + бонус за успех/крит)
+          const baseEpicGain = 0.05
+          const successBonus = result.success ? 0.03 : 0
+          const critBonus = result.isCrit ? 0.05 : 0
+          const epicGain = baseEpicGain + successBonus + critBonus + (Math.random() * 0.02)
+          
+          state.addWarSoulToWeapon(weapon.id, result.warSoul, result.weaponWear, epicGain)
         }
         if (result.glory) {
           // Добавляем славу гильдии
@@ -762,32 +845,35 @@ export const useGameStore = create<GameStore>()(
             },
           }))
         }
-        if (result.bonusResources) {
-          for (const bonus of result.bonusResources) {
-            state.addResource(bonus.resource as ResourceKey, bonus.amount)
-          }
-        }
 
-        // Обновляем оружие
-        if (!result.weaponLost && weapon) {
+        // Начисляем репутацию за экспедицию (только при успехе)
+        // Репутация уже включена в result.reputation
+
+        // Обработка потери оружия при провале
+        if (result.weaponLost) {
+          const recoveryQuest: RecoveryQuest = {
+            id: generateId(),
+            lostWeaponId: weapon.id,
+            lostWeaponData: weapon,
+            originalExpeditionId: expedition.expeditionId,
+            originalExpeditionName: expedition.expeditionName,
+            cost: Math.floor(expedition.deposit * 0.5),
+            duration: template.duration * 2,
+            status: 'available',
+          }
           set((s) => ({
-            weaponInventory: {
-              ...s.weaponInventory,
-              weapons: s.weaponInventory.weapons.map(w =>
-                w.id === weapon.id
-                  ? { ...w, durability: Math.max(0, w.durability - result.weaponWear) }
-                  : w
-              ),
+            guild: {
+              ...s.guild,
+              recoveryQuests: [...s.guild.recoveryQuests, recoveryQuest],
             },
           }))
-        } else if (result.weaponLost) {
           state.removeWeapon(weapon.id)
         }
 
         // Даём опыт
         state.addExperience(result.success ? 20 : 5)
 
-        // Удаляем экспедицию
+        // Удаляем экспедицию и добавляем в историю
         set((s) => ({
           guild: {
             ...s.guild,
@@ -795,10 +881,18 @@ export const useGameStore = create<GameStore>()(
             history: [...s.guild.history, {
               id: generateId(),
               expeditionName: expedition.expeditionName,
+              expeditionIcon: expedition.expeditionIcon,
               adventurerName: expedition.adventurerName,
+              adventurerData: expedition.adventurerData,
+              adventurerExtended: expedition.adventurerExtended,
               weaponName: expedition.weaponName,
+              completedAt: Date.now(),
               success: result.success,
-              timestamp: Date.now(),
+              commission: result.commission,
+              warSoul: result.warSoul,
+              glory: result.glory,
+              weaponLost: result.weaponLost,
+              isCrit: result.isCrit,
             }],
           },
         }))
@@ -822,22 +916,84 @@ export const useGameStore = create<GameStore>()(
         return true
       },
 
-      // Orders - delegating to slice (no wrapper needed, slice methods are available directly)
-      acceptOrder: (orderId) => get().acceptOrder(orderId),
+      // Orders slice methods are available directly from createOrdersSlice
+      // No delegation needed to avoid infinite recursion
+      takeAdvance: (orderId, amount) => {
+        const state = get()
+        const order = state.orders.find(o => o.id === orderId)
+        if (!order) return { success: false, taken: 0 }
+
+        const result = ordersSlice.takeAdvance(orderId, amount)
+        if (result.success) {
+          state.addResource('gold', result.taken)
+        }
+        return result
+      },
+
       completeOrder: (orderId, weaponId) => {
         const state = get()
         const weapon = state.weaponInventory.weapons.find(w => w.id === weaponId)
         if (!weapon) return false
-        const result = state.completeOrder(orderId, weaponId, {
+
+        // Получаем заказ для расчёта репутации
+        const order = state.orders.find(o => o.id === orderId)
+        if (!order) return false
+
+        // Рассчитываем награду динамически на основе качества оружия
+        const baseReward = calculateGoldReward(
+          weapon.quality,
+          order.weaponType,
+          order.material,
+          state.player.level,
+          order.materialCost || 0
+        )
+
+        // Если был аванс материалов, вычитаем его из награды
+        const advanceTaken = order.advanceTaken || 0
+        const materialAdvanceCost = order.materialAdvance?.totalCost || 0
+        const totalAdvance = advanceTaken + materialAdvanceCost
+        const finalGoldReward = Math.max(1, baseReward - totalAdvance)
+
+        const result = ordersSlice.completeOrder(orderId, weaponId, {
           quality: weapon.quality,
-          attack: weapon.attack,
+          attack: weapon.stats.attack,
           type: weapon.type,
           recipeId: weapon.recipeId,
+          hiddenTags: weapon.hiddenTags, // Добавляем hiddenTags для проверки заказа
         })
-        return result.success
+        if (!result.success) return false
+
+        // Перезаписываем награду динамически рассчитанным значением
+        result.rewards.gold = finalGoldReward
+
+        // Награды за заказ (уже рассчитаны с учётом аванса)
+        state.addResource('gold', result.rewards.gold)
+        state.addFame(result.rewards.fame)
+
+        // Начисляем репутацию за выполнение заказа
+        const reputationGain = calculateReputationGain('craft', result.rewards.gold, state.player.level)
+        state.addReputation(reputationGain)
+
+        // Бонусные предметы заказа
+        if (result.rewards.bonusItems) {
+          for (const bonus of result.rewards.bonusItems) {
+            if (bonus.resource in state.resources) {
+              state.addResource(bonus.resource as ResourceKey, bonus.amount)
+            }
+          }
+        }
+
+        // Сдача заказа расходует выбранное оружие
+        state.removeWeapon(weaponId)
+
+        // Обновляем статистику
+        state.updateStatistics({
+          ordersCompleted: state.statistics.ordersCompleted + 1,
+          totalGoldEarned: state.statistics.totalGoldEarned + finalGoldReward,
+        })
+
+        return true
       },
-      expireOrder: (orderId) => get().expireOrder(orderId),
-      getActiveOrder: () => get().getActiveOrder(),
 
       // Enchantments (simple)
       enchantWeapon: (weaponId, enchantmentId) => {
@@ -905,7 +1061,7 @@ export const useGameStore = create<GameStore>()(
         const weapon = state.weaponInventory.weapons.find(w => w.id === weaponId)
         if (!weapon) return false
 
-        const newDurability = Math.max(0, weapon.durability - durabilityLoss)
+        const newDurability = Math.max(0, weapon.currentDurability - durabilityLoss)
         const newEpicMultiplier = Math.min(5.0, weapon.epicMultiplier + epicGain)
 
         set((s) => ({
@@ -915,8 +1071,8 @@ export const useGameStore = create<GameStore>()(
               w.id === weaponId
                 ? {
                     ...w,
-                    warSoul: w.warSoul + points,
-                    durability: newDurability,
+                    warSoul: Math.min(w.maxWarSoul ?? Infinity, w.warSoul + points),
+                    currentDurability: newDurability,
                     epicMultiplier: newEpicMultiplier,
                     adventureCount: w.adventureCount + 1,
                   }
@@ -1005,8 +1161,8 @@ export const useGameStore = create<GameStore>()(
         const expedition = state.guild.activeExpeditions.find(e => e.id === expeditionId)
         if (!expedition) return false
 
-        // Возвращаем часть затрат
-        const refund = Math.floor(expedition.cost.supplies * 0.5)
+        // Возвращаем часть затрат (используем suppliesCost вместо cost.supplies)
+        const refund = Math.floor(expedition.suppliesCost * 0.5)
         state.addResource('gold', refund)
 
         set((s) => ({
@@ -1028,11 +1184,14 @@ export const useGameStore = create<GameStore>()(
 
         state.spendResource('gold', quest.cost)
 
+        const startedAt = Date.now()
+        const endsAt = startedAt + quest.duration * 1000
+
         set((s) => ({
           guild: {
             ...s.guild,
             recoveryQuests: s.guild.recoveryQuests.map(q =>
-              q.id === questId ? { ...q, status: 'in_progress', startTime: Date.now() } : q
+              q.id === questId ? { ...q, status: 'active', startedAt, endsAt } : q
             ),
           },
         }))
@@ -1043,11 +1202,11 @@ export const useGameStore = create<GameStore>()(
       completeRecoveryQuest: (questId) => {
         const state = get()
         const quest = state.guild.recoveryQuests.find(q => q.id === questId)
-        if (!quest || quest.status !== 'in_progress') return false
+        if (!quest || quest.status !== 'active') return false
 
-        // Возвращаем оружие
+        // Возвращаем оружие (добавляем как CraftedWeaponV2)
         if (quest.lostWeaponData) {
-          state.addWeapon(quest.lostWeaponData)
+          state.addWeaponV2(quest.lostWeaponData)
         }
 
         set((s) => ({
@@ -1078,6 +1237,36 @@ export const useGameStore = create<GameStore>()(
         }))
       },
 
+      addReputation: (amount) => {
+        set((s) => {
+          const newReputation = s.guild.reputation + amount
+          const newTotalReputation = s.guild.totalReputation + amount
+
+          // Рассчитываем новый уровень гильдии на основе репутации
+          const newLevel = getGuildReputationLevel(newReputation)
+          const oldLevel = s.guild.level
+
+          // Если уровень вырос, обновляем maxKnownAdventurers
+          let newMaxKnownAdventurers = s.guild.maxKnownAdventurers
+          if (newLevel > oldLevel) {
+            const levelData = GUILD_LEVELS.find(l => l.level === newLevel)
+            if (levelData) {
+              newMaxKnownAdventurers = levelData.maxKnownAdventurers
+            }
+          }
+
+          return {
+            guild: {
+              ...s.guild,
+              reputation: newReputation,
+              totalReputation: newTotalReputation,
+              level: newLevel,
+              maxKnownAdventurers: newMaxKnownAdventurers,
+            },
+          }
+        })
+      },
+
       getAdventurerById: (id) => get().guild.adventurers.find(a => a.id === id),
       getActiveExpeditionById: (id) => get().guild.activeExpeditions.find(e => e.id === id),
 
@@ -1103,7 +1292,19 @@ export const useGameStore = create<GameStore>()(
       },
 
       calculateExpedition: (adventurer, expedition, weapon) => {
-        return calculateExpeditionResultV2(adventurer, expedition, weapon, get().guild.level, get().guild.glory)
+        return calculateExpeditionResultV2(
+          adventurer,
+          expedition,
+          get().guild.level,
+          weapon.stats.attack,
+          weapon.currentDurability,
+          weapon.type as any,
+          weapon.id,
+          weapon.qualityRank,
+          weapon.epicMultiplier,
+          weapon.combatMaterialId,
+          weapon.quality
+        )
       },
 
       // Repair helpers
@@ -1154,39 +1355,76 @@ export const useGameStore = create<GameStore>()(
       updateRefiningProgress: (progress) => set((s) => ({
         activeRefining: { ...s.activeRefining, progress: Math.min(100, progress) }
       })),
-    }),
-    {
-      name: 'swordcraft-store',
-      version: 3,
-      partialize: (state) => ({
-        // Сохраняем только персистентное состояние
-        player: state.player,
-        resources: state.resources,
-        workers: state.workers,
-        buildings: state.buildings,
-        weaponInventory: state.weaponInventory,
-        unlockedRecipes: state.unlockedRecipes,
-        recipeSources: state.recipeSources,
-        unlockedEnchantments: state.unlockedEnchantments,
-        guild: state.guild,
-        knownAdventurers: state.knownAdventurers,
-        orders: state.orders.filter(o => o.status !== 'expired'),
-        tutorial: state.tutorial,
-        playTime: state.playTime,
-        saveVersion: state.saveVersion,
-      }),
-      migrate: (persistedState: any, version: number) => {
-        // Миграция с версии 2 на 3
-        if (version === 2) {
-          // Удаляем просроченные заказы при первой загрузке v3
-          if (persistedState.orders) {
-            persistedState.orders = persistedState.orders.filter((o: any) => o.status !== 'expired')
-          }
-        }
-        return persistedState
+
+      setCraftV2Persisted: (data: Partial<CraftV2Persisted>) => {
+        set((state) => ({
+          craftV2Persisted: { ...state.craftV2Persisted, ...data },
+        }))
       },
-    }
-  )
+
+      setShouldPurchaseMaterials: (should: boolean) => {
+        set({ shouldPurchaseMaterials: should })
+      },
+
+      resetGame: () => {
+        const initialState = {
+          player: initialPlayer,
+          resources: initialResources,
+          workers: [],
+          buildings: initialBuildings,
+          weaponInventory: initialWeaponInventory,
+          unlockedRecipes: initialUnlockedRecipes,
+          recipeSources: [],
+          unlockedEnchantments: [],
+          guild: initialGuildState,
+          knownAdventurers: [],
+          orders: initialOrdersState.orders,
+          tutorial: initialTutorialState,
+          statistics: initialStatistics,
+          activeCraft: initialActiveCraft,
+          activeRefining: initialActiveRefining,
+          craftV2Persisted: initialCraftV2Persisted,
+        }
+
+        set(initialState as any)
+
+        // Очищаем хранилища браузера
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('swordcraft-store')
+          localStorage.removeItem('swordcraft-offline-backup')
+          localStorage.removeItem('swordcraft-last-session')
+          localStorage.removeItem(STORE_NAME)
+        }
+      },
+    })
+  },
+  {
+    name: STORE_NAME,
+    version: STORE_VERSION,
+    storage: createJSONStorage(() => localStorage),
+    // Сохраняем только важные части состояния
+    partialize: (state) => ({
+      player: state.player,
+      resources: state.resources,
+      statistics: state.statistics,
+      workers: state.workers,
+      buildings: state.buildings,
+      maxWorkers: state.maxWorkers,
+      weaponInventory: state.weaponInventory,
+      unlockedRecipes: state.unlockedRecipes,
+      recipeSources: state.recipeSources,
+      unlockedEnchantments: state.unlockedEnchantments,
+      guild: state.guild,
+      knownAdventurers: state.knownAdventurers,
+      orders: state.orders,
+      activeOrderId: state.activeOrderId,
+      tutorial: state.tutorial,
+      currentScreen: state.currentScreen,
+      craftV2Persisted: state.craftV2Persisted,
+      shouldPurchaseMaterials: state.shouldPurchaseMaterials,
+    }),
+  }
+)
 )
 
 // ================================
@@ -1214,7 +1452,6 @@ export {
   workerClassData,
 
   // Craft
-  CraftedWeapon,
   ActiveCraft,
   ActiveRefining,
   WeaponInventory,

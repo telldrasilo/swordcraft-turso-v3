@@ -43,12 +43,16 @@ export interface CraftV2State {
     masterpieces: number
     legendaryItems: number
   }
+  
+  /** Нужно ли закупать материалы */
+  shouldPurchaseMaterials: boolean
 }
 
 export interface CraftV2Actions {
   // Планирование
   startCraft: (plan: CraftPlan) => void
   cancelCraft: () => void
+  setShouldPurchaseMaterials: (should: boolean) => void // Добавил для галочки закупки
   
   // Выполнение
   updateCraftProgress: (elapsedMs: number) => void
@@ -84,6 +88,7 @@ export const initialCraftV2State: CraftV2State = {
     masterpieces: 0,
     legendaryItems: 0,
   },
+  shouldPurchaseMaterials: false,
 }
 
 // ================================
@@ -136,6 +141,7 @@ export const craftV2Slice = {
   getUnlockedTechniques: (state: CraftV2State) => state.unlockedTechniques,
   getAvailableMaterials: (state: CraftV2State) => state.availableMaterials,
   getCraftStats: (state: CraftV2State) => state.stats,
+  getShouldPurchaseMaterials: (state: CraftV2State) => state.shouldPurchaseMaterials,
   
   // Проверки
   isCrafting: (state: CraftV2State) => state.activeCraft !== null,
@@ -170,6 +176,12 @@ export const craftV2Slice = {
         ...state,
         activeCraft,
         completedWeapon: null,
+      }
+    },
+    setShouldPurchaseMaterials: (state: CraftV2State, should: boolean) => {
+      return {
+        ...state,
+        shouldPurchaseMaterials: should,
       }
     },
     
@@ -348,11 +360,17 @@ export const craftV2Slice = {
         craftedWeapons: [],
       }
     },
+    setShouldPurchaseMaterials: (state: CraftV2State, should: boolean) => {
+      return {
+        ...state,
+        shouldPurchaseMaterials: should,
+      }
+    },
   },
 }
 
 // ================================
-// ЭКСПОРТ ТИПОВ
+// EXPORT TYPES
 // ================================
 
 export type CraftV2Slice = typeof craftV2Slice

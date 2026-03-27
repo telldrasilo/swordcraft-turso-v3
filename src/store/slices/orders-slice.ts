@@ -4,11 +4,56 @@
  * Использует utils для генерации
  */
 
-import { StateCreator } from 'zustand'
-import { ResourceKey } from './resources-slice'
+import type { StateCreator } from 'zustand'
 
 // Импорт утилит
-import { generateId, generateClientName } from '@/lib/store-utils/generators'
+import {
+  generateAchievableOrder,
+  type OrderGenerationContext,
+  type MaterialAdvance
+} from '@/lib/store-utils/order-achievable-utils'
+
+// ================================
+// ХЕЛПЕР: Проверка соответствия оружия заказу
+// ================================
+
+/**
+ * Проверяет, соответствует ли оружие требованиям заказа
+ * Использует новую систему hiddenTags с fallback на старую
+ */
+function checkWeaponMatchesOrder(
+  weapon: {
+    quality: number
+    attack: number
+    type: string
+    recipeId?: string
+    hiddenTags?: string[]
+  },
+  order: NPCOrder
+): boolean {
+  // Проверка качества
+  if (weapon.quality < order.minQuality) return false
+  
+  // Проверка атаки
+  if (order.minAttack && weapon.attack < order.minAttack) return false
+  
+  // Новая система: проверяем hiddenTags
+  if (weapon.hiddenTags && weapon.hiddenTags.length > 0) {
+    // Проверка типа оружия
+    if (!weapon.hiddenTags.includes(order.weaponType)) return false
+    
+    // Проверка материала
+    if (order.material && !weapon.hiddenTags.includes(order.material)) return false
+  } else {
+    // Fallback: старая система проверки
+    if (weapon.type !== order.weaponType) return false
+    if (order.material && weapon.recipeId && !weapon.recipeId.includes(order.material)) {
+      return false
+    }
+  }
+  
+  return true
+}
 
 // ================================
 // ТИПЫ
@@ -30,7 +75,9 @@ export interface NPCOrder {
   goldReward: number
   fameReward: number
   bonusItems?: OrderBonusItem[]
-  deadline: number
+  materialAdvance?: MaterialAdvance
+  advanceTaken?: number  // Сколько аванса было взято
+  materialCost?: number   // Точная стоимость материалов для расчёта награды
   status: OrderStatus
   acceptedAt?: number
   completedAt?: number
@@ -52,23 +99,22 @@ export interface OrdersState {
 
 /** Actions для заказов */
 export interface OrdersActions {
-  generateOrder: (playerLevel: number, playerFame: number) => NPCOrder | null
+  generateOrder: (context: OrderGenerationContext) => NPCOrder | null
   acceptOrder: (orderId: string) => boolean
-  completeOrder: (orderId: string, weaponId: string, weapon: { 
+  cancelOrder: (orderId: string) => { success: boolean; penalty: number }
+  takeAdvance: (orderId: string, amount: number) => { success: boolean; taken: number }
+  completeOrder: (orderId: string, weaponId: string, weapon: {
     quality: number
     attack: number
     type: string
     recipeId?: string
+    hiddenTags?: string[]
   }) => { success: boolean; rewards: { gold: number; fame: number; bonusItems?: OrderBonusItem[] } }
-  expireOrder: (orderId: string) => void
   getActiveOrder: () => NPCOrder | undefined
-  removeWeaponFromInventory: (weaponId: string) => void
-  addResources: (resources: Record<string, number>) => void
-  addPlayerFame: (fame: number) => void
-  addStatisticsValue: (key: string, value: number) => void
+  refreshOrders: () => void  // Обновить список доступных заказов
 }
 
-/** Полный тип slice */
+/** Полный тип slice - только действия и состояние */
 export type OrdersSlice = OrdersState & OrdersActions
 
 // ================================
@@ -79,14 +125,6 @@ export const initialOrdersState: OrdersState = {
   orders: [],
   activeOrderId: null,
 }
-
-// ================================
-// ДАННЫЕ ДЛЯ ГЕНЕРАЦИИ
-// ================================
-
-const weaponTypes = ['sword', 'dagger', 'axe', 'mace', 'spear', 'hammer']
-
-const materials = ['iron', 'bronze', 'steel', 'silver', 'gold']
 
 // ================================
 // SLICE
@@ -103,49 +141,42 @@ export const createOrdersSlice: StateCreator<
   activeOrderId: null,
 
   // Actions
-  generateOrder: (playerLevel, playerFame) => {
+  generateOrder: (context) => {
     const state = get()
-    
+
     // Проверяем лимит заказов
     const activeOrders = state.orders.filter(o => o.status === 'available').length
-    if (activeOrders >= 3) return null
-    
-    // Проверяем cooldown (не чаще 1 заказа в 30 секунд)
-    const lastOrder = state.orders[state.orders.length - 1]
-    if (lastOrder && Date.now() - lastOrder.deadline < -250000) return null
+    if (activeOrders >= 3) {
+      console.log('[Orders Slice] Order limit reached (3)')
+      return null
+    }
 
-    // Генерируем клиента через утилиту
-    const client = generateClientName()
-    const weaponType = weaponTypes[Math.floor(Math.random() * weaponTypes.length)]
-    const material = materials[Math.floor(Math.random() * materials.length)]
+    console.log('[Orders Slice] Attempting to generate order, player level:', context.playerLevel, 'unlocked recipes:', context.unlockedRecipes.weaponRecipes.length)
 
-    // Требования и награды масштабируются по уровню
-    const minQuality = 30 + Math.floor(Math.random() * 30) + playerLevel * 2
-    const goldReward = 50 + Math.floor(Math.random() * 50) + playerLevel * 20
-    const fameReward = 5 + Math.floor(Math.random() * 10) + playerLevel * 2
-    const deadline = Date.now() + (300 + Math.floor(Math.random() * 300)) * 1000 // 5-10 минут
+    // Генерируем достижимый заказ с помощью новой утилиты
+    const existingClients = state.orders
+      .filter(o => o.status === 'available')
+      .map(o => o.clientName)
 
-    const order: NPCOrder = {
-      id: generateId(),
-      clientName: client.name,
-      clientTitle: client.title,
-      clientIcon: client.icon,
-      weaponType,
-      material,
-      minQuality,
-      minAttack: minQuality + 10,
-      goldReward,
-      fameReward,
-      deadline,
-      status: 'available',
-      requiredLevel: Math.max(1, playerLevel - 2),
-      requiredFame: Math.max(0, playerFame - 20),
+    const generationContext = {
+      ...context,
+      existingClients,
+    }
+
+    const order = generateAchievableOrder(generationContext)
+
+    if (!order) {
+      console.warn('[Orders Slice] Failed to generate order')
+      return null
     }
 
     // Проверяем, нет ли уже такого клиента
-    if (state.orders.some(o => o.clientName === client.name && o.status === 'available')) {
+    if (state.orders.some(o => o.clientName === order.clientName && o.status === 'available')) {
+      console.warn('[Orders Slice] Client already has an active order:', order.clientName)
       return null
     }
+
+    console.log('[Orders Slice] Order generated successfully:', order.id, order.weaponType, order.material)
 
     set((state) => ({
       orders: [...state.orders, order]
@@ -156,15 +187,18 @@ export const createOrdersSlice: StateCreator<
 
   acceptOrder: (orderId) => {
     const state = get()
-    
+
     const order = state.orders.find(o => o.id === orderId)
     if (!order || order.status !== 'available') return false
     if (state.activeOrderId) return false // Уже есть активный заказ
 
+    // Если есть аванс материалов, добавляем их в ресурсы (будет списано через composed store)
+    // Примечание: здесь только логика, списание ресурсов происходит в composed store
+
     set((state) => ({
-      orders: state.orders.map(o => 
-        o.id === orderId 
-          ? { ...o, status: 'in_progress' as const, acceptedAt: Date.now() }
+      orders: state.orders.map(o =>
+        o.id === orderId
+          ? { ...o, status: 'in_progress' as const, acceptedAt: Date.now(), advanceTaken: 0 }
           : o
       ),
       activeOrderId: orderId,
@@ -173,61 +207,92 @@ export const createOrdersSlice: StateCreator<
     return true
   },
 
-  completeOrder: (orderId, weaponId, weapon) => {
+  takeAdvance: (orderId, amount) => {
+    const state = get()
+
+    const order = state.orders.find(o => o.id === orderId)
+    if (!order || order.status !== 'in_progress') {
+      return { success: false, taken: 0 }
+    }
+
+    // Максимальный аванс - 50% от награды
+    const maxAdvance = Math.floor(order.goldReward * 0.5)
+    const alreadyTaken = order.advanceTaken || 0
+    const availableAdvance = maxAdvance - alreadyTaken
+
+    if (availableAdvance <= 0) {
+      console.warn('[Orders Slice] No advance available for order:', orderId)
+      return { success: false, taken: 0 }
+    }
+
+    // Ограничиваем запрошенную сумму доступным авансом
+    const amountToTake = Math.min(amount, availableAdvance)
+
+    // Примечание: добавление золота происходит в composed store
+
+    set((state) => ({
+      orders: state.orders.map(o =>
+        o.id === orderId
+          ? { ...o, advanceTaken: (o.advanceTaken || 0) + amountToTake }
+          : o
+      ),
+    }))
+
+    console.log('[Orders Slice] Advance taken:', amountToTake, 'from order:', orderId)
+    return { success: true, taken: amountToTake }
+  },
+
+  cancelOrder: (orderId) => {
     const state = get()
     
+    const order = state.orders.find(o => o.id === orderId)
+    if (!order || order.status !== 'in_progress') {
+      return { success: false, penalty: 0 }
+    }
+
+    // Рассчитать штраф: 10% от награды или минимум 5 золота
+    const penalty = Math.max(5, Math.floor(order.goldReward * 0.1))
+
+    // Примечание: списание штрафа происходит в composed store
+
+    // Вернуть заказ в статус available
+    set((state) => ({
+      orders: state.orders.map(o =>
+        o.id === orderId
+          ? { ...o, status: 'available' as const, acceptedAt: undefined }
+          : o
+      ),
+      activeOrderId: null,
+    }))
+
+    return { success: true, penalty }
+  },
+
+  completeOrder: (orderId, _weaponId, weapon) => {
+    const state = get()
+
     const order = state.orders.find(o => o.id === orderId)
     if (!order || order.status !== 'in_progress') {
       return { success: false, rewards: { gold: 0, fame: 0 } }
     }
 
-    // Проверяем требования
-    if (weapon.quality < order.minQuality) {
-      return { success: false, rewards: { gold: 0, fame: 0 } }
-    }
-    if (order.minAttack && weapon.attack < order.minAttack) {
-      return { success: false, rewards: { gold: 0, fame: 0 } }
-    }
-    if (order.material && weapon.recipeId && !weapon.recipeId.includes(order.material)) {
-      return { success: false, rewards: { gold: 0, fame: 0 } }
-    }
-    if (order.weaponType !== weapon.type) {
+    // Проверяем требования с помощью новой функции
+    const matches = checkWeaponMatchesOrder(weapon, order)
+    if (!matches) {
       return { success: false, rewards: { gold: 0, fame: 0 } }
     }
 
-    // Удаляем оружие
-    state.removeWeaponFromInventory(weaponId)
-
-    // Начисляем награды
+    // Награды будут рассчитаны в composed store на основе качества оружия
     const rewards = {
-      gold: order.goldReward,
+      gold: order.goldReward, // Временное значение, будет перезаписано в composed store
       fame: order.fameReward,
       bonusItems: order.bonusItems,
     }
 
-    // Добавляем золото
-    state.addResources({ gold: order.goldReward })
-
-    // Добавляем бонусные предметы
-    if (order.bonusItems) {
-      const bonusResources: Record<string, number> = {}
-      order.bonusItems.forEach(item => {
-        bonusResources[item.resource] = item.amount
-      })
-      state.addResources(bonusResources)
-    }
-
-    // Добавляем славу
-    state.addPlayerFame(order.fameReward)
-
-    // Обновляем статистику
-    state.addStatisticsValue('ordersCompleted', 1)
-    state.addStatisticsValue('totalGoldEarned', order.goldReward)
-
     // Обновляем статус заказа
     set((state) => ({
-      orders: state.orders.map(o => 
-        o.id === orderId 
+      orders: state.orders.map(o =>
+        o.id === orderId
           ? { ...o, status: 'completed' as const, completedAt: Date.now() }
           : o
       ),
@@ -237,28 +302,23 @@ export const createOrdersSlice: StateCreator<
     return { success: true, rewards }
   },
 
-  expireOrder: (orderId) => {
-    const state = get()
-    
-    set((state) => ({
-      orders: state.orders.map(o => 
-        o.id === orderId 
-          ? { ...o, status: 'expired' as const }
-          : o
-      ),
-      activeOrderId: state.activeOrderId === orderId ? null : state.activeOrderId,
-    }))
-  },
-
   getActiveOrder: () => {
     const state = get()
     if (!state.activeOrderId) return undefined
     return state.orders.find(o => o.id === state.activeOrderId)
   },
 
-  // Заглушки для методов, которые будут делегированы в основной store
-  removeWeaponFromInventory: () => {},
-  addResources: () => {},
-  addPlayerFame: () => {},
-  addStatisticsValue: () => {},
+  refreshOrders: () => {
+    const state = get()
+    
+    // Удаляем все доступные заказы (не помечаем, а именно удаляем)
+    // Оставляем только активные, выполненные и просроченные
+    const updatedOrders = state.orders.filter(o => o.status !== 'available')
+    
+    set({ orders: updatedOrders })
+    
+    // После этого useEffect в контейнере увидит изменение orders.length 
+    // и автоматически сгенерирует новые заказы
+    console.log('[Orders Slice] Orders refreshed, available orders removed. Total orders:', updatedOrders.length)
+  },
 })

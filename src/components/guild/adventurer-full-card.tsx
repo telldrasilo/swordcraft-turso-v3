@@ -164,7 +164,7 @@ export const AdventurerFullCard: React.FC<AdventurerFullCardProps> = ({
                 <TooltipContent>
                   <p className="font-semibold">{rarityConfig.nameRu} искатель</p>
                   <p className="text-xs text-stone-300">
-                    Уровень {adventurer.combat.level} • Сила {adventurer.combat.power} • Меткость {adventurer.combat.precision}
+                    Уровень {Math.round(adventurer.combat.level)} • Сила {Math.round(adventurer.combat.power)} • Меткость {Math.round(adventurer.combat.precision)}
                   </p>
                 </TooltipContent>
               </Tooltip>
@@ -191,7 +191,7 @@ export const AdventurerFullCard: React.FC<AdventurerFullCardProps> = ({
                 </Tooltip>
               </TooltipProvider>
 
-              <span className="text-stone-400 text-xs">Ур. {adventurer.combat.level}</span>
+              <span className="text-stone-400 text-xs">Ур. {Math.round(adventurer.combat.level)}</span>
 
               {combatStyle && (
                 <TooltipProvider>

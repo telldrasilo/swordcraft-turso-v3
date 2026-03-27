@@ -1,6 +1,7 @@
 /**
  * Генератор имён оружия
- * Создаёт имя по формуле: [Префикс] [База] [Суффикс]
+ * Создаёт имя по формуле: [РанговыйПрефикс] [Материал] [База] [Суффикс]
+ * Пример: "Обычный Стальной меч остроты II"
  * 
  * @see docs/CRAFT_SYSTEM_CONCEPT.md - секция 8.1 Система именования
  */
@@ -9,22 +10,27 @@ import type {
   Material, 
   WeaponRecipe, 
   DominantPropertyType,
-  QualityGrade 
+  QualityGrade,
+  QualityRank 
 } from '@/types/craft-v2'
 import { 
   SUFFIX_RULES, 
   ROMAN_NUMERALS, 
-  calculateSuffixLevel 
+  calculateSuffixLevel,
+  getQualityRank,
+  getQualityRankPrefix 
 } from '@/types/craft-v2'
 
 /**
  * Результат генерации имени
  */
 export interface WeaponNameResult {
-  prefix: string
-  baseName: string
-  suffix: string
-  fullName: string
+  prefix: string              // "Стальной" (от материала)
+  baseName: string            // "меч"
+  suffix: string             // "остроты II"
+  fullName: string           // "Обычный Стальной меч остроты II"
+  qualityRank: QualityRank   // "C"
+  qualityPrefix: string      // "Хороший"
 }
 
 /**
@@ -32,29 +38,37 @@ export interface WeaponNameResult {
  * 
  * @param recipe Рецепт оружия
  * @param combatMaterial Материал боевой части (лезвие для меча)
+ * @param quality Качество оружия (0-100) для определения ранга
  */
 export function generateWeaponName(
   recipe: WeaponRecipe,
-  combatMaterial: Material | null
+  combatMaterial: Material | null,
+  quality: number = 50
 ): WeaponNameResult {
   // 1. База — всегда из рецепта
   const baseName = recipe.name
   
-  // 2. Префикс — из материала боевой части
-  const prefix = combatMaterial?.adjective || ''
+  // 2. Префикс материала — из материала боевой части
+  const materialPrefix = combatMaterial?.adjective || ''
   
   // 3. Суффикс — из доминирующего свойства материала
   const suffix = generateSuffix(combatMaterial)
   
-  // 4. Полное имя
-  const parts = [prefix, baseName, suffix].filter(Boolean)
+  // 4. Ранговый префикс от качества
+  const qualityRank = getQualityRank(quality)
+  const qualityPrefix = getQualityRankPrefix(qualityRank)
+  
+  // 5. Полное имя: [РанговыйПрефикс] [Материал] [База] [Суффикс]
+  const parts = [qualityPrefix, materialPrefix, baseName, suffix].filter(Boolean)
   const fullName = parts.join(' ')
   
   return {
-    prefix,
+    prefix: materialPrefix,
     baseName,
     suffix,
     fullName,
+    qualityRank,
+    qualityPrefix,
   }
 }
 

@@ -368,19 +368,19 @@ export const ExpeditionHistoryEntryComponent: React.FC<ExpeditionHistoryEntryPro
                   <div className="grid grid-cols-2 gap-3">
                     <div className="flex justify-between">
                       <span className="text-stone-400 text-sm">Сила:</span>
-                      <span className="text-red-400 font-medium">{extended.combat.power}</span>
+                      <span className="text-red-400 font-medium">{Math.round(extended.combat.power)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-stone-400 text-sm">Меткость:</span>
-                      <span className="text-green-400 font-medium">{extended.combat.precision}</span>
+                      <span className="text-green-400 font-medium">{Math.round(extended.combat.precision)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-stone-400 text-sm">Выносливость:</span>
-                      <span className="text-blue-400 font-medium">{extended.combat.endurance}</span>
+                      <span className="text-blue-400 font-medium">{Math.round(extended.combat.endurance)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-stone-400 text-sm">Удача:</span>
-                      <span className="text-purple-400 font-medium">{extended.combat.luck}</span>
+                      <span className="text-purple-400 font-medium">{Math.round(extended.combat.luck)}</span>
                     </div>
                   </div>
                   

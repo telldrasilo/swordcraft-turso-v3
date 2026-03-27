@@ -162,11 +162,16 @@ export function calculateExpeditionResult(
   expedition: ExpeditionTemplate,
   guildLevel: number,
   weaponAttack: number,
-  weaponQuality: number = 50,
+  weaponDurability: number = 50,
   weaponType: string = 'sword',
-  weaponId: string = 'weapon_0'
+  weaponId: string = 'weapon_0',
+  // Новые параметры для CraftedWeaponV2 (опциональные для обратной совместимости)
+  weaponQualityRank?: string,
+  weaponEpicMultiplier?: number,
+  weaponCombatMaterialId?: string,
+  weaponQuality?: number
 ): ExpeditionCalculation {
-  // ===== 1. ПОДГОТОВКА КОНТЕКСТА =====
+  // ===== 1. ПОДГОТОВКА КОНТЕКСТА (v2 - с новыми полями оружия) =====
   const context: ModifierContext = {
     adventurer,
     expedition: {
@@ -181,7 +186,12 @@ export function calculateExpeditionResult(
       id: weaponId,
       type: weaponType as any,
       attack: weaponAttack,
-      quality: weaponQuality,
+      quality: weaponQuality ?? 50,
+      qualityRank: weaponQualityRank,
+      epicMultiplier: weaponEpicMultiplier,
+      combatMaterialId: weaponCombatMaterialId,
+      durability: weaponDurability,
+      currentDurability: weaponDurability,
     },
     guild: {
       level: guildLevel,
@@ -301,12 +311,12 @@ export function calculateExpeditionResult(
   
   // ===== 7. ВОЗВРАТ РЕЗУЛЬТАТА =====
   return {
-    successChance: finalSuccess,
+    successChance: Math.round(finalSuccess),
     commission: finalCommission,
     warSoul: finalWarSoul,
-    weaponWear: finalWeaponWear,
-    weaponLossChance: finalWeaponLoss,
-    critChance: finalCritChance,
+    weaponWear: Math.round(finalWeaponWear),
+    weaponLossChance: Math.round(finalWeaponLoss),
+    critChance: Math.round(finalCritChance),
     
     successModifiers: result.byTarget.successChance.filter(m => m.applied).map(toModifierDetail),
     goldModifiers: result.byTarget.gold.filter(m => m.applied).map(toModifierDetail),
@@ -325,7 +335,8 @@ export function calculateExpeditionResult(
 // ================================
 
 export function formatModifierValue(value: number): string {
-  return value > 0 ? `+${value}%` : `${value}%`
+  const roundedValue = Math.round(value)
+  return roundedValue > 0 ? `+${roundedValue}%` : `${roundedValue}%`
 }
 
 export function getRatingColor(rating: string): string {

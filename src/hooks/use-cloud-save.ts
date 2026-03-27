@@ -1,6 +1,6 @@
 /**
  * Хук для синхронизации игры с сервером
- * Автоматическое сохранение и загрузка
+ * Автоматическое сохранение и загрузка с поддержкой офлайн-режима
  */
 
 import { useEffect, useCallback, useRef, useState } from 'react'
@@ -17,6 +17,7 @@ interface CloudSaveResult {
   isSaving: boolean
   lastSavedAt: Date | null
   error: string | null
+  isOnline: boolean
   save: () => Promise<boolean>
   load: () => Promise<boolean>
   reset: () => Promise<boolean>
@@ -43,6 +44,9 @@ function getTitleByLevel(level: number): string {
   return 'Новичок'
 }
 
+const OFFLINE_BACKUP_KEY = 'swordcraft-offline-backup'
+const TIMESTAMP_KEY = 'swordcraft-last-save-timestamp'
+
 export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult {
   const { autoSaveInterval = 60000, enableAutoSave = true, playerId = 'demo-player' } = options
 
@@ -50,18 +54,31 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
   const [isSaving, setIsSaving] = useState(false)
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [isOnline, setIsOnline] = useState(navigator.onLine)
 
   const isLoadingRef = useRef(false)
+
+  // Отслеживаем состояние сети
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(navigator.onLine)
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOnline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOnline)
+    }
+  }, [])
 
   // Сбор данных для сохранения
   const collectSaveData = useCallback(() => {
     const state = useGameStore.getState()
 
     return {
+      timestamp: Date.now(),
       player: {
         level: state.player?.level || 1,
         experience: state.player?.experience || 0,
-        fame: state.player?.fame || 0,
+        fame: state.player?.fame || 1,
       },
       resources: state.resources || {},
       statistics: state.statistics || {},
@@ -76,15 +93,35 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
       unlockedEnchantments: state.unlockedEnchantments || [],
       guild: state.guild || {},
       knownAdventurers: state.knownAdventurers || [],
-      orders: {
-        active: (state as any).active || [],
-        completed: (state as any).completed || [],
-        expired: (state as any).expired || [],
-      },
+      orders: state.orders || [],
       tutorial: state.tutorial || { isActive: true, currentStep: 0 },
       playTime: state.statistics?.playTime || 0,
-      saveVersion: 2,
+      craftV2Persisted: state.craftV2Persisted || null,
+      saveVersion: 3,
     }
+  }, [])
+
+  // Сохранение в localStorage (офлайн-бэкап)
+  const saveToLocalStorage = useCallback((data: any) => {
+    try {
+      localStorage.setItem(OFFLINE_BACKUP_KEY, JSON.stringify(data))
+      localStorage.setItem(TIMESTAMP_KEY, data.timestamp.toString())
+    } catch (e) {
+      console.error('[CloudSave] Failed to save to localStorage:', e)
+    }
+  }, [])
+
+  // Загрузка из localStorage
+  const loadFromLocalStorage = useCallback(() => {
+    try {
+      const backup = localStorage.getItem(OFFLINE_BACKUP_KEY)
+      if (backup) {
+        return JSON.parse(backup)
+      }
+    } catch (e) {
+      console.error('[CloudSave] Failed to load from localStorage:', e)
+    }
+    return null
   }, [])
 
   // Применение загруженных данных
@@ -113,7 +150,9 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
       unlockedEnchantments: data.unlockedEnchantments || [],
       guild: data.guild || {},
       knownAdventurers: data.knownAdventurers || [],
+      orders: data.orders || [],
       tutorial: data.tutorial || { isActive: true, currentStep: 0 },
+      craftV2Persisted: data.craftV2Persisted || null,
     })
   }, [])
 
@@ -124,72 +163,138 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
     setIsSaving(true)
     setError(null)
 
-    try {
-      const saveData = collectSaveData()
+    const saveData = collectSaveData()
 
-      const response = await fetch('/api/save', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-player-id': playerId,
-        },
-        body: JSON.stringify(saveData),
-      })
+    // Всегда сохраняем в localStorage как бэкап
+    saveToLocalStorage(saveData)
 
-      const result = await response.json()
+    // Если онлайн - сохраняем на сервер
+    if (isOnline) {
+      try {
+        const response = await fetch('/api/save', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-player-id': playerId,
+          },
+          body: JSON.stringify(saveData),
+        })
 
-      if (result.success) {
-        setLastSavedAt(new Date())
-        console.log('[CloudSave] Saved successfully')
-        return true
-      } else {
-        setError(result.error || 'Save failed')
+        const result = await response.json()
+
+        if (result.success) {
+          setLastSavedAt(new Date())
+          console.log('[CloudSave] Saved to server successfully')
+          return true
+        } else {
+          setError(result.error || 'Save failed')
+          return false
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Network error')
+        console.error('[CloudSave] Server save error:', err)
         return false
+      } finally {
+        setIsSaving(false)
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Network error')
-      console.error('[CloudSave] Save error:', err)
-      return false
-    } finally {
+    } else {
+      // Офлайн - сохранено только в localStorage
+      console.log('[CloudSave] Offline - saved to localStorage')
+      setLastSavedAt(new Date())
       setIsSaving(false)
+      return true
     }
-  }, [collectSaveData, playerId, isSaving])
+  }, [collectSaveData, isOnline, isSaving, playerId, saveToLocalStorage])
 
   // Загрузка
   const load = useCallback(async (): Promise<boolean> => {
+    // #region agent log
+    fetch('http://127.0.0.1:7756/ingest/6a59fcb2-1024-4589-94d8-127641c9bb5c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d59723'},body:JSON.stringify({sessionId:'d59723',location:'use-cloud-save.ts:load-start',message:'load called',data:{isLoadingRef:isLoadingRef.current},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     if (isLoadingRef.current) return false
 
     isLoadingRef.current = true
     setIsLoading(true)
     setError(null)
 
+    let loadedData: any = null
+    let source = 'none'
+
     try {
-      const response = await fetch('/api/save', {
-        method: 'GET',
-        headers: {
-          'x-player-id': playerId,
-        },
-      })
+      // Сначала пробуем загрузить с сервера
+      if (isOnline) {
+        // #region agent log
+        fetch('http://127.0.0.1:7756/ingest/6a59fcb2-1024-4589-94d8-127641c9bb5c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d59723'},body:JSON.stringify({sessionId:'d59723',location:'use-cloud-save.ts:load-fetch',message:'fetching from server',data:{playerId},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+        const response = await fetch('/api/save', {
+          method: 'GET',
+          headers: {
+            'x-player-id': playerId,
+          },
+        })
 
-      const result = await response.json()
+        const result = await response.json()
+        // #region agent log
+        fetch('http://127.0.0.1:7756/ingest/6a59fcb2-1024-4589-94d8-127641c9bb5c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d59723'},body:JSON.stringify({sessionId:'d59723',location:'use-cloud-save.ts:load-server-result',message:'server response',data:{success:result.success,hasData:!!result.data},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
 
-      if (result.success && result.data) {
-        applyLoadedData(result.data)
-        console.log('[CloudSave] Loaded successfully, isNew:', result.isNew)
-        return true
-      } else {
-        setError(result.error || 'Load failed')
-        return false
+        if (result.success && result.data) {
+          loadedData = result.data
+          source = 'server'
+        }
       }
+
+      // Проверяем localStorage на наличие более свежего офлайн-сохранения
+      const localBackup = loadFromLocalStorage()
+      // #region agent log
+      fetch('http://127.0.0.1:7756/ingest/6a59fcb2-1024-4589-94d8-127641c9bb5c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d59723'},body:JSON.stringify({sessionId:'d59723',location:'use-cloud-save.ts:load-local',message:'local backup check',data:{hasBackup:!!localBackup,hasTimestamp:!!localBackup?.timestamp,hasCraftV2:!!localBackup?.craftV2Persisted,craftV2Stage:localBackup?.craftV2Persisted?.stage,craftV2HasActive:!!localBackup?.craftV2Persisted?.activeCraft},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+      if (localBackup && localBackup.timestamp) {
+        if (!loadedData || localBackup.timestamp > (loadedData.timestamp || 0)) {
+          loadedData = localBackup
+          source = 'local'
+          console.log('[CloudSave] Using newer local backup')
+        }
+      }
+
+      // Применяем данные
+      if (loadedData) {
+        // #region agent log
+        fetch('http://127.0.0.1:7756/ingest/6a59fcb2-1024-4589-94d8-127641c9bb5c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d59723'},body:JSON.stringify({sessionId:'d59723',location:'use-cloud-save.ts:load-apply',message:'applying loaded data',data:{source,hasCraftV2:!!loadedData.craftV2Persisted,craftV2Stage:loadedData.craftV2Persisted?.stage},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+        applyLoadedData(loadedData)
+        console.log(`[CloudSave] Loaded from ${source}, timestamp:`, new Date(loadedData.timestamp))
+        // #region agent log
+        fetch('http://127.0.0.1:7756/ingest/6a59fcb2-1024-4589-94d8-127641c9bb5c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d59723'},body:JSON.stringify({sessionId:'d59723',location:'use-cloud-save.ts:load-applied',message:'data applied successfully',data:{source},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+        return true
+      }
+
+      return false
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Network error')
+      // #region agent log
+      fetch('http://127.0.0.1:7756/ingest/6a59fcb2-1024-4589-94d8-127641c9bb5c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d59723'},body:JSON.stringify({sessionId:'d59723',location:'use-cloud-save.ts:load-error',message:'load error',data:{error:err instanceof Error?err.message:String(err)},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+      setError(err instanceof Error ? err.message : 'Load error')
       console.error('[CloudSave] Load error:', err)
+
+      // Пробуем загрузить из localStorage как fallback
+      const localBackup = loadFromLocalStorage()
+      if (localBackup) {
+        applyLoadedData(localBackup)
+        console.log('[CloudSave] Loaded from local backup as fallback')
+        return true
+      }
+
       return false
     } finally {
+      // #region agent log
+      fetch('http://127.0.0.1:7756/ingest/6a59fcb2-1024-4589-94d8-127641c9bb5c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d59723'},body:JSON.stringify({sessionId:'d59723',location:'use-cloud-save.ts:load-finally',message:'load finally block',data:{},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       setIsLoading(false)
       isLoadingRef.current = false
     }
-  }, [applyLoadedData, playerId])
+  }, [applyLoadedData, isOnline, loadFromLocalStorage, playerId])
 
   // Сброс
   const reset = useCallback(async (): Promise<boolean> => {
@@ -204,7 +309,8 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
       const result = await response.json()
 
       if (result.success) {
-        localStorage.removeItem('swordcraft-store')
+        localStorage.removeItem(OFFLINE_BACKUP_KEY)
+        localStorage.removeItem(TIMESTAMP_KEY)
         window.location.reload()
         return true
       }
@@ -215,10 +321,12 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
     }
   }, [playerId])
 
-  // Загрузка при монтировании
+  // Загрузка при монтировании (только один раз)
+  const loadRef = useRef(load)
+  loadRef.current = load
   useEffect(() => {
-    load()
-  }, [load])
+    loadRef.current()
+  }, [])
 
   // Автосохранение
   useEffect(() => {
@@ -235,19 +343,24 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
   useEffect(() => {
     const handleBeforeUnload = () => {
       const saveData = collectSaveData()
-      const blob = new Blob([JSON.stringify(saveData)], { type: 'application/json' })
-      navigator.sendBeacon('/api/save', blob)
+      saveToLocalStorage(saveData)
+
+      if (isOnline) {
+        const blob = new Blob([JSON.stringify(saveData)], { type: 'application/json' })
+        navigator.sendBeacon('/api/save', blob)
+      }
     }
 
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [collectSaveData])
+  }, [collectSaveData, isOnline, saveToLocalStorage])
 
   return {
     isLoading,
     isSaving,
     lastSavedAt,
     error,
+    isOnline,
     save,
     load,
     reset,

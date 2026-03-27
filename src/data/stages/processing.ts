@@ -7,6 +7,27 @@ import type { StageTypeDefinition } from '@/types/craft-v2'
 
 export const processingStages: StageTypeDefinition[] = [
   {
+    id: 'proc_purchasing',
+    category: 'processing',
+    type: 'purchasing',
+    name: 'Закупка материалов',
+    description: 'Покупка недостающих материалов в магазине',
+    baseDuration: 30,
+    durationModifiers: {},
+    messages: {
+      start: [
+        'Отправляюсь за материалами...',
+        'Закупаю сырьё на рынке...',
+        'Проверяю наличие материалов...',
+      ],
+      complete: [
+        'Материалы закуплены.',
+        'Сырьё доставлено.',
+        'Недостающие материалы получены.',
+      ],
+    },
+  },
+  {
     id: 'proc_smelting',
     category: 'processing',
     type: 'smelting',

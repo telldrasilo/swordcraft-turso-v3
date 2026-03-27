@@ -30,6 +30,7 @@ import {
   AlertTriangle,
   Package,
   Target,
+  Flame,
 } from 'lucide-react'
 
 interface MaterialCardProps {
@@ -46,7 +47,7 @@ export function MaterialCard({ material, knowledge, onClick }: MaterialCardProps
   const expertise = knowledge?.expertise || 0
   const threshold = getKnowledgeThreshold(expertise)
   const thresholdLabel = KNOWLEDGE_LABELS[threshold]
-  const impact = calculateExpertiseImpact(expertise)
+  const impact = calculateExpertiseImpact(material, expertise)
 
   // Что показывать
   const showBasic = expertise >= 10
@@ -89,7 +90,11 @@ export function MaterialCard({ material, knowledge, onClick }: MaterialCardProps
             </div>
           </div>
           <div className="w-12 h-12 rounded-lg bg-stone-800/50 flex items-center justify-center">
-            <Mountain className={cn('w-6 h-6', RARITY_COLORS[rarity])} />
+            {material.identity.id === 'coal' ? (
+              <Flame className={cn('w-6 h-6', RARITY_COLORS[rarity])} />
+            ) : (
+              <Mountain className={cn('w-6 h-6', RARITY_COLORS[rarity])} />
+            )}
           </div>
         </div>
       </CardHeader>
@@ -104,39 +109,45 @@ export function MaterialCard({ material, knowledge, onClick }: MaterialCardProps
           <Progress value={expertise} className="h-2" />
           <div className="flex items-center justify-between mt-1">
             <span className="text-xs text-stone-500">{thresholdLabel}</span>
+            {material.identity.id === 'coal' && (
+              <span className="text-xs text-orange-400">Огонь</span>
+            )}
           </div>
         </div>
 
         {/* Влияние на крафт (если есть экспертиза) */}
         {expertise > 0 && (
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="flex items-center gap-1">
-              <Clock className="w-3 h-3 text-blue-400" />
-              <span className="text-stone-400">Время:</span>
-              <span className="text-green-400">
-                -{Math.round((1 - impact.timeMultiplier) * 100)}%
-              </span>
-            </div>
-            <div className="flex items-center gap-1">
-              <AlertTriangle className="w-3 h-3 text-amber-400" />
-              <span className="text-stone-400">Риск:</span>
-              <span className="text-green-400">
-                -{Math.round((1 - impact.defectRiskMultiplier) * 100)}%
-              </span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Package className="w-3 h-3 text-purple-400" />
-              <span className="text-stone-400">Отходы:</span>
-              <span className="text-green-400">
-                -{Math.round((1 - impact.materialWasteMultiplier) * 100)}%
-              </span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Target className="w-3 h-3 text-cyan-400" />
-              <span className="text-stone-400">Прогноз:</span>
-              <span className="text-cyan-400">
-                {Math.round(impact.predictionAccuracy)}%
-              </span>
+          <div>
+            <p className="text-xs text-stone-500 mb-2">Бонусы к крафту:</p>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="flex items-center gap-1">
+                <Clock className="w-3 h-3 text-blue-400" />
+                <span className="text-stone-400">Скорость:</span>
+                <span className="text-green-400">
+                  -{Math.round((1 - impact.timeMultiplier) * 100)}%
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3 text-amber-400" />
+                <span className="text-stone-400">Надёжность:</span>
+                <span className="text-green-400">
+                  -{Math.round((1 - impact.defectRiskMultiplier) * 100)}%
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Package className="w-3 h-3 text-purple-400" />
+                <span className="text-stone-400">Экономия:</span>
+                <span className="text-green-400">
+                  -{Math.round((1 - impact.materialWasteMultiplier) * 100)}%
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Target className="w-3 h-3 text-cyan-400" />
+                <span className="text-stone-400">Точность:</span>
+                <span className="text-cyan-400">
+                  {Math.round(impact.predictionAccuracy)}%
+                </span>
+              </div>
             </div>
           </div>
         )}
@@ -159,13 +170,13 @@ export function MaterialCard({ material, knowledge, onClick }: MaterialCardProps
         {/* Плюсы/минусы */}
         {showStrengths && (
           <div className="space-y-1">
-            {material.summary.strengths.slice(0, 2).map((strength, i) => (
+            {material.summary.strengths.slice(0, 2).map((strength: string, i: number) => (
               <div key={i} className="flex items-center gap-1 text-xs">
                 <TrendingUp className="w-3 h-3 text-green-400 shrink-0" />
                 <span className="text-green-300">{strength}</span>
               </div>
             ))}
-            {material.summary.weaknesses.slice(0, 1).map((weakness, i) => (
+            {material.summary.weaknesses.slice(0, 1).map((weakness: string, i: number) => (
               <div key={i} className="flex items-center gap-1 text-xs">
                 <TrendingDown className="w-3 h-3 text-red-400 shrink-0" />
                 <span className="text-red-300">{weakness}</span>

@@ -221,14 +221,6 @@ export function addWarSoul(
 }
 
 /**
- * Рассчитать бонус атаки от души войны
- */
-export function calculateWarSoulAttackBonus(warSoul: number): number {
-  // Каждые 10 единиц души войны = +1 к атаке
-  return Math.floor(warSoul / 10)
-}
-
-/**
  * Рассчитать бонус к качеству от эпичности
  */
 export function calculateEpicQualityBonus(epicMultiplier: number): number {

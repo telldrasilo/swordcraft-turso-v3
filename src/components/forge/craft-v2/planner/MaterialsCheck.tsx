@@ -24,6 +24,15 @@ interface MaterialsCheckProps {
   recipe: WeaponRecipe | null
   gold: number
   onBuyMaterials?: (materials: MaterialToBuy[], totalCost: number) => void
+  shouldPurchaseMaterials?: boolean // Включена ли галочка закупки
+  onTogglePurchaseMaterials?: (checked: boolean) => void // Обработчик изменения галочки
+  activeOrderId?: string | null // ID активного заказа
+  activeOrder?: {
+    goldReward: number
+    advanceTaken?: number
+  } | null // Данные активного заказа для расчёта аванса
+  shouldTakeAdvance?: boolean // Включена ли галочка аванса
+  onToggleTakeAdvance?: (checked: boolean) => void // Обработчик изменения галочки аванса
 }
 
 export function MaterialsCheck({
@@ -32,6 +41,12 @@ export function MaterialsCheck({
   recipe,
   gold,
   onBuyMaterials,
+  shouldPurchaseMaterials = false,
+  onTogglePurchaseMaterials,
+  activeOrderId = null,
+  activeOrder = null,
+  shouldTakeAdvance = false,
+  onToggleTakeAdvance,
 }: MaterialsCheckProps) {
   if (!recipe) return null
   
@@ -127,38 +142,89 @@ export function MaterialsCheck({
           </div>
         </details>
         
-        {/* Кнопка покупки */}
-        {!checkResult.canCraft && checkResult.canPurchaseMissing && onBuyMaterials && (
+        {/* Галочка и информация о закупке */}
+        {!checkResult.canCraft && checkResult.canPurchaseMissing && onTogglePurchaseMaterials && (
           <div className="pt-3 border-t border-stone-700 space-y-2">
-            <p className="text-xs text-amber-400">
-              💡 Можно купить недостающие материалы
-            </p>
-            <div className="bg-amber-900/20 border border-amber-600/30 rounded-lg p-3">
-              <p className="text-xs text-stone-400 mb-2">К покупке:</p>
-              {checkResult.materialsToBuy.map(mat => (
-                <div key={mat.resourceKey} className="flex justify-between text-sm">
-                  <span className="text-stone-300">{mat.resourceName} ×{mat.quantity}</span>
-                  <span className="text-amber-400 font-mono">{mat.totalPrice} 💰</span>
-                </div>
-              ))}
-              <div className="flex justify-between text-sm pt-2 mt-2 border-t border-stone-600 font-bold">
-                <span className="text-stone-200">Итого:</span>
-                <span className={cn(
-                  "font-mono",
-                  canAffordPurchase ? "text-amber-400" : "text-red-400"
-                )}>
-                  {checkResult.totalPurchaseCost} 💰
-                </span>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={shouldPurchaseMaterials}
+                onChange={(e) => onTogglePurchaseMaterials(e.target.checked)}
+                className="w-5 h-5 rounded border-stone-600 bg-stone-800 text-amber-500 focus:ring-amber-500 focus:ring-offset-0"
+              />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-stone-200">
+                  Закупить недостающие материалы
+                </p>
+                <p className="text-xs text-stone-500">
+                  {!canAffordPurchase ? (
+                    <span className="text-red-400">
+                      ⚠️ Недостаточно золота (нужно {checkResult.totalPurchaseCost}, есть {gold})
+                    </span>
+                  ) : (
+                    <span className="text-amber-400">
+                      💰 Стоимость: {checkResult.totalPurchaseCost}
+                    </span>
+                  )}
+                </p>
               </div>
-            </div>
-            <Button
-              className="w-full bg-amber-600 hover:bg-amber-500"
-              disabled={!canAffordPurchase}
-              onClick={() => onBuyMaterials(checkResult.materialsToBuy, checkResult.totalPurchaseCost)}
-            >
-              <ShoppingBag className="w-4 h-4 mr-2" />
-              Купить за {checkResult.totalPurchaseCost} 💰
-            </Button>
+            </label>
+            {shouldPurchaseMaterials && (
+              <div className="bg-amber-900/20 border border-amber-600/30 rounded-lg p-3">
+                <p className="text-xs text-stone-400 mb-2">К покупке:</p>
+                {checkResult.materialsToBuy.map(mat => (
+                  <div key={mat.resourceKey} className="flex justify-between text-sm">
+                    <span className="text-stone-300">{mat.resourceName} ×{mat.quantity}</span>
+                    <span className="text-amber-400 font-mono">{mat.totalPrice} 💰</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Галочка аванса на закупку материалов */}
+        {!checkResult.canCraft &&
+         checkResult.canPurchaseMissing &&
+         activeOrderId &&
+         activeOrder &&
+         gold < checkResult.totalPurchaseCost &&
+         checkResult.materialsToBuy.every(m => m.canBuy) &&
+         onToggleTakeAdvance && (
+          <div className="pt-3 border-t border-stone-700">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={shouldTakeAdvance}
+                onChange={(e) => onToggleTakeAdvance(e.target.checked)}
+                className="w-5 h-5 rounded border-stone-600 bg-stone-800 text-blue-500 focus:ring-blue-500 focus:ring-offset-0"
+              />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-stone-200">
+                  💰 Взять аванс на закупку материалов
+                </p>
+                <p className="text-xs text-stone-500">
+                  {(() => {
+                    const maxAdvance = Math.min(
+                      Math.floor(activeOrder.goldReward * 0.5),
+                      checkResult.totalPurchaseCost
+                    )
+                    const alreadyTaken = activeOrder.advanceTaken || 0
+                    const availableAdvance = Math.max(0, maxAdvance - alreadyTaken)
+
+                    if (availableAdvance <= 0) {
+                      return <span className="text-red-400">⚠️ Аванс уже взят</span>
+                    }
+
+                    return (
+                      <span className="text-blue-400">
+                        Доступно: {availableAdvance} (50% от награды)
+                      </span>
+                    )
+                  })()}
+                </p>
+              </div>
+            </label>
           </div>
         )}
       </CardContent>

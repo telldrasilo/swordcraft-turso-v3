@@ -145,7 +145,7 @@ export function RecipeCard({ recipe, isCrafting }: RecipeCardProps) {
                 Уровень {recipe.requiredLevel}
               </Button>
             ) : (
-              <Button 
+              <Button
                 className="w-full bg-gradient-to-r from-amber-800 to-amber-900 hover:from-amber-700 hover:to-amber-800 text-amber-100"
                 disabled={!canCraft}
                 onClick={() => startCraft(recipe)}

@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { calculateSacrificeValue } from '@/data/enchantments'
-import { qualityGrades, weaponTypeStats } from '@/data/weapon-recipes'
+import { qualityGrades, weaponTypeStats, getQualityGrade, type QualityGrade } from '@/data/weapon-recipes'
 
 interface SacrificeWeaponCardProps {
   weapon: any
@@ -25,8 +25,12 @@ export function SacrificeWeaponCard({
   onSacrifice,
   sacrificing
 }: SacrificeWeaponCardProps) {
-  const qualityInfo = qualityGrades[weapon.qualityGrade]
-  const typeStats = weaponTypeStats[weapon.type]
+  // Получаем грейд качества из числового значения quality
+  const qualityGrade: QualityGrade = weapon.quality !== undefined 
+    ? getQualityGrade(weapon.quality) 
+    : (weapon.qualityGrade || 'normal')
+  const qualityInfo = qualityGrades[qualityGrade] || qualityGrades.normal
+  const typeStats = weaponTypeStats[weapon.type] || { icon: '⚔️' }
   const sacrificeValue = calculateSacrificeValue(weapon.quality, weapon.tier, weapon.warSoul || 0, weapon.epicMultiplier || 1)
   
   return (

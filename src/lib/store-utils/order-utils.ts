@@ -1,15 +1,33 @@
 /**
  * Order Utilities
  * Чистые функции для логики заказов (NPC заказы)
+ * 
+ * НОВАЯ ФОРМУЛА НАГРАД:
+ * Награда = (Стоимость материалов × 2.0 + Крафт-бонус) × (1 + Качество/100) × (1 + Уровень×0.05)
+ * Где Крафт-бонус = 20-40 золота в зависимости от сложности
+ * 
+ * Пример: Железный кинжал (23 золота материалы)
+ * = (23 × 2.0 + 25) × 1.4 × 1.05 = 46 + 25 = 71 × 1.47 = 104 → Округляем до 45-55 для баланса
+ * 
+ * Упрощенная формула для баланса:
+ * Награда = Материалы × 2.0 + Базовый бонус (15-30) + Качество × 0.5
+ * Минимум 30, максимум 200
  */
 
 import { generateId, generateClientName, randomInt, randomElement } from './generators'
 import { ORDER_MIN_QUALITY, ORDER_MAX_QUALITY, ORDER_BASE_GOLD_REWARD, ORDER_BASE_FAME_REWARD } from './constants'
 import type { OrderCompletionParams, OrderCompletionResult } from './types'
+import type { WeaponRecipe } from '@/data/weapon-recipes'
+import { getCraftingCost } from '@/lib/craft/inventory-check'
 
 // ================================
 // ТИПЫ
 // ================================
+
+export interface MaterialAdvance {
+  materials: { resource: string; amount: number }[]
+  totalCost: number
+}
 
 export interface NPCOrder {
   id: string
@@ -23,7 +41,7 @@ export interface NPCOrder {
   goldReward: number
   fameReward: number
   bonusItems?: { resource: string; amount: number }[]
-  deadline: number
+  materialAdvance?: MaterialAdvance
   status: 'available' | 'in_progress' | 'completed' | 'expired'
   acceptedAt?: number
   requiredLevel: number
@@ -60,43 +78,111 @@ const BONUS_ITEMS: { resource: string; minAmount: number; maxAmount: number }[] 
 // ================================
 
 /**
- * Рассчитать награду золотом
+ * Рассчитать награду золотом на основе стоимости материалов
+ * 
+ * Новая формула:
+ * 1. Получаем стоимость материалов для крафта
+ * 2. Базовая награда = Стоимость материалов × 2.0 (100% markup за работу)
+ * 3. Добавляем бонус за качество (minQuality × 0.3)
+ * 4. Добавляем бонус за уровень (playerLevel × 2)
+ * 5. Округляем до целого числа
+ * 
+ * Диапазон: 30-200 золота
  */
 export function calculateGoldReward(
   minQuality: number,
   weaponType: string,
   material: string | undefined,
-  playerLevel: number
+  playerLevel: number,
+  recipeOrCost?: WeaponRecipe | number  // Рецепт или готовая стоимость материалов
 ): number {
-  const baseGold = ORDER_BASE_GOLD_REWARD
-
-  // Множитель за качество
-  const qualityMult = minQuality / 50
-
-  // Множитель за тип оружия
-  const typeMult: Record<string, number> = {
-    sword: 1.2,
-    dagger: 0.8,
-    axe: 1.1,
-    mace: 1.0,
-    spear: 1.0,
-    hammer: 1.3,
+  // Определяем стоимость материалов
+  let materialCost = 0
+  
+  if (typeof recipeOrCost === 'number') {
+    // Передана готовая стоимость материалов
+    materialCost = recipeOrCost
+  } else if (recipeOrCost) {
+    // Передан рецепт — считаем точную стоимость материалов
+    const materialCostMap = getCraftingCost(recipeOrCost, {})
+    
+    // Переводим ресурсы в золото (примерные цены)
+    const resourcePrices: Record<string, number> = {
+      iron: 2, wood: 1, stone: 1, coal: 1,
+      ironIngot: 5, steelIngot: 12, bronzeIngot: 8,
+      copper: 3, tin: 3, silver: 10, mithril: 25,
+      leather: 3, planks: 2
+    }
+    
+    materialCost = Object.entries(materialCostMap).reduce((total, [resource, amount]) => {
+      const price = resourcePrices[resource] || 1
+      return total + (amount || 0) * price
+    }, 0)
+  } else {
+    // Приблизительная стоимость если нет данных
+    const materialCosts: Record<string, number> = {
+      iron: 15, bronze: 25, steel: 35, silver: 50, gold: 80, mithril: 120
+    }
+    materialCost = materialCosts[material || 'iron'] || 15
   }
-
-  // Множитель за материал
-  const materialMult: Record<string, number> = {
-    iron: 1.0,
-    bronze: 1.2,
-    steel: 1.5,
-    silver: 1.8,
-    gold: 2.0,
-    mithril: 3.0,
+  
+  // Базовая награда: материалы × 2.0 (возмещение + оплата работы)
+  let reward = materialCost * 2.0
+  
+  // Бонус за качество (0.3 золота за каждое очко качества)
+  const qualityBonus = minQuality * 0.3
+  reward += qualityBonus
+  
+  // Бонус за уровень игрока (2 золота за уровень)
+  const levelBonus = playerLevel * 2
+  reward += levelBonus
+  
+  // Бонус за тип оружия (сложность крафта)
+  const typeBonus: Record<string, number> = {
+    sword: 10, dagger: 5, axe: 8, mace: 8, spear: 8, hammer: 12
   }
+  reward += typeBonus[weaponType] || 8
+  
+  // Округляем до целого
+  reward = Math.floor(reward)
+  
+  // Ограничиваем диапазон
+  return Math.max(30, Math.min(200, reward))
+}
 
-  const base = baseGold * qualityMult * (typeMult[weaponType] || 1)
-  const matBonus = material ? (materialMult[material] || 1) : 1
-
-  return Math.floor(base * matBonus * (1 + playerLevel * 0.05))
+/**
+ * Рассчитать диапазон награды золотом (минимум и максимум)
+ * 
+ * Минимум: за минимальное требуемое качество
+ * Максимум: за качество 100 (или максимально возможное)
+ * 
+ * Используется для отображения в UI заказов
+ */
+export function calculateGoldRewardRange(
+  minQuality: number,
+  weaponType: string,
+  material: string | undefined,
+  playerLevel: number,
+  recipeOrCost?: WeaponRecipe | number // Можно передать рецепт или готовую стоимость материалов
+): { min: number; max: number; current: (quality: number) => number } {
+  // Рассчитываем награду за минимальное качество
+  const minReward = calculateGoldReward(minQuality, weaponType, material, playerLevel, recipeOrCost)
+  
+  // Рассчитываем награду за максимальное качество (100)
+  const maxReward = calculateGoldReward(100, weaponType, material, playerLevel, recipeOrCost)
+  
+  // Функция для расчета награды за конкретное качество
+  const getRewardForQuality = (quality: number): number => {
+    // Награда растет линейно от minQuality до 100
+    if (quality <= minQuality) return minReward
+    if (quality >= 100) return maxReward
+    
+    // Линейная интерполяция
+    const progress = (quality - minQuality) / (100 - minQuality)
+    return Math.floor(minReward + (maxReward - minReward) * progress)
+  }
+  
+  return { min: minReward, max: maxReward, current: getRewardForQuality }
 }
 
 /**
@@ -109,40 +195,6 @@ export function calculateFameReward(
   const baseFame = ORDER_BASE_FAME_REWARD
   const qualityBonus = Math.floor(minQuality / 20)
   return baseFame + qualityBonus
-}
-
-/**
- * Рассчитать срок выполнения
- */
-export function calculateDeadline(weaponType: string, material: string | undefined): number {
-  // Базовое время - 5 минут
-  let minutes = 5
-
-  // Увеличение за сложность оружия
-  const typeExtra: Record<string, number> = {
-    sword: 3,
-    dagger: 1,
-    axe: 2,
-    mace: 2,
-    spear: 2,
-    hammer: 4,
-  }
-  minutes += typeExtra[weaponType] || 2
-
-  // Увеличение за материал
-  if (material) {
-    const materialExtra: Record<string, number> = {
-      iron: 0,
-      bronze: 1,
-      steel: 2,
-      silver: 3,
-      gold: 4,
-      mithril: 6,
-    }
-    minutes += materialExtra[material] || 2
-  }
-
-  return Date.now() + minutes * 60 * 1000
 }
 
 /**
@@ -205,9 +257,6 @@ export function generateOrder(params: OrderGenerationParams): OrderGenerationRes
   const fameReward = calculateFameReward(minQuality, playerFame)
   const bonusItems = generateBonusItems()
 
-  // Дедлайн
-  const deadline = calculateDeadline(weaponType, material)
-
   const order: NPCOrder = {
     id: generateId(),
     clientName: client.name,
@@ -220,7 +269,6 @@ export function generateOrder(params: OrderGenerationParams): OrderGenerationRes
     goldReward,
     fameReward,
     bonusItems,
-    deadline,
     status: 'available',
     requiredLevel: Math.max(1, playerLevel - 2),
     requiredFame: Math.max(0, playerFame - 50),

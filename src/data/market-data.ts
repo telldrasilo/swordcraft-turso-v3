@@ -16,26 +16,34 @@ export interface NPCOrder {
   clientName: string
   clientTitle: string // "Гвардия", "Торговая компания", "Благородный лорд"
   clientIcon: string
-  
+
   // Требования к оружию
   weaponType: WeaponType
   material?: MaterialType // Опционально
   minQuality: number // Минимальное качество (0-100)
   minAttack?: number // Опционально
-  
+
   // Награда
   goldReward: number
   fameReward: number
   bonusItems?: { resource: string; amount: number }[]
-  
+  materialAdvance?: {
+    materials: { resource: string; amount: number }[]
+    totalCost: number
+  }
+
+  // Точная стоимость материалов для расчета награды
+  // Храним здесь чтобы показывать точный диапазон в UI
+  materialCost?: number
+
   // Таймер
   deadline: number // Время в секундах
-  
+
   // Состояние
   status: 'available' | 'in_progress' | 'completed' | 'expired'
   acceptedAt?: number
   completedAt?: number
-  
+
   // Требования для появления
   requiredLevel: number
   requiredFame: number

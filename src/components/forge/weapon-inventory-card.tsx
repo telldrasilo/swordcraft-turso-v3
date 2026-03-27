@@ -5,8 +5,8 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { 
-  Sword, Heart, Star, Coins, Trash2, Map, Crown, Sparkles, Zap,
+import {
+  Sword, Heart, Star, Coins, Trash2, Map as MapIcon, Crown, Sparkles, Zap,
   Package, Wrench, Hammer
 } from 'lucide-react'
 import { useState } from 'react'
@@ -22,15 +22,21 @@ import { useGameStore } from '@/store'
 import { 
   weaponRecipes, 
   weaponTypeStats, 
-  qualityGrades,
-  type CraftedWeapon
 } from '@/data/weapon-recipes'
-import type { WeaponMaterialUsed } from '@/store/slices/craft-slice'
+import type { CraftedWeaponV2 } from '@/types/craft-v2'
+import { getQualityGrade, getQualityColor, getQualityNameRu } from '@/types/craft-v2'
 import { cn } from '@/lib/utils'
 import { WeaponIcon, qualityColors } from './forge-utils'
+import {
+  getWarSoulTier,
+  getProgressToNextTier,
+  getWarSoulTierIcon,
+  getWarSoulTierColor,
+  getWarSoulTierBgColor,
+} from '@/lib/war-soul-utils'
 
 interface WeaponInventoryCardProps {
-  weapon: CraftedWeapon
+  weapon: CraftedWeaponV2
 }
 
 export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
@@ -39,7 +45,28 @@ export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
   const [isSelling, setIsSelling] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   
-  const qualityInfo = qualityGrades[weapon.qualityGrade]
+  // Для будущей возможности разблокирования (когда будет реализована система разблокировок)
+  const [showLocked, setShowLocked] = useState(false)
+  
+  const qualityGrade = getQualityGrade(weapon.quality)
+  const qualityColor = getQualityColor(qualityGrade)
+  const qualityNameRu = getQualityNameRu(qualityGrade)
+  
+  const qualityInfo = {
+    grade: qualityGrade,
+    name: qualityNameRu,
+    multiplier: weapon.quality / 100,
+    color: qualityColor,
+  }
+
+  const qualityBgColor = {
+    'text-gray-400': 'bg-gray-600',
+    'text-green-400': 'bg-green-600',
+    'text-blue-400': 'bg-blue-600',
+    'text-purple-400': 'bg-purple-600',
+    'text-amber-400': 'bg-amber-700',
+    'text-rose-400': 'bg-rose-600',
+  }[qualityInfo.color] || 'bg-gray-600'
   const typeStats = weaponTypeStats[weapon.type]
   const recipe = weaponRecipes.find(r => r.id === weapon.recipeId)
   
@@ -47,17 +74,28 @@ export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
   const inExpedition = isWeaponInExpedition(weapon.id)
   
   // Прочность для индикаторов
-  const durability = weapon.durability ?? 100
-  const durabilityColor = durability > 50 ? 'text-green-400' : durability > 25 ? 'text-yellow-400' : 'text-red-400'
-  const durabilityBgColor = durability > 50 ? 'bg-green-500' : durability > 25 ? 'bg-yellow-500' : 'bg-red-500'
+  const durability = weapon.currentDurability ?? weapon.stats.durability
+  const durabilityPercent = Math.round((durability / weapon.stats.maxDurability) * 100)
+  const durabilityColor = durabilityPercent > 50 ? 'text-green-400' : durabilityPercent > 25 ? 'text-yellow-400' : 'text-red-400'
+  const durabilityBgColor = durabilityPercent > 50 ? 'bg-green-500' : durabilityPercent > 25 ? 'bg-yellow-500' : 'bg-red-500'
   
-  // Тир оружия
-  const tier = recipe?.tier || 'common'
-  const tierColor = qualityColors[tier]
+  // Тир оружия (число в строку для отображения)
+  const tierNum = weapon.tier
+  const tierStr = tierNum <= 1 ? 'common' : tierNum <= 2 ? 'uncommon' : tierNum <= 3 ? 'rare' : tierNum <= 4 ? 'epic' : 'legendary'
+  const tierColor = qualityColors[tierStr]
   const tierNames: Record<string, string> = {
     common: 'Обычное', uncommon: 'Необычное', rare: 'Редкое',
     epic: 'Эпическое', legendary: 'Легендарное', mythic: 'Мифическое'
   }
+  
+  // Тир Души Войны
+  const warSoulTier = weapon.warSoul > 0 || (weapon.maxWarSoul ?? 0) > 0 
+    ? getWarSoulTier(weapon.warSoul, weapon.maxWarSoul ?? 100)
+    : null
+  
+  const warSoulProgress = warSoulTier 
+    ? getProgressToNextTier(weapon.warSoul, weapon.maxWarSoul ?? 100)
+    : 0
   
   const handleSell = () => {
     setIsSelling(true)
@@ -83,7 +121,7 @@ export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
         {/* Фоновое свечение качества */}
         <div className={cn(
           'absolute inset-0 opacity-10 pointer-events-none',
-          qualityInfo.color.replace('text-', 'bg-')
+          qualityInfo.color
         )} />
         
         {/* Индикатор экспедиции */}
@@ -102,15 +140,9 @@ export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
                 <WeaponIcon type={weapon.type} />
               </div>
               <div>
-                <h4 className="font-semibold text-stone-200">{weapon.name}</h4>
+                <h4 className="font-semibold text-stone-200">{weapon.fullName}</h4>
                 <div className="flex items-center gap-2 mt-0.5">
                   <span className="text-xs text-stone-500">{typeStats?.name}</span>
-                  {recipe?.material && (
-                    <>
-                      <span className="text-stone-600">•</span>
-                      <span className="text-xs text-stone-500 capitalize">{recipe.material}</span>
-                    </>
-                  )}
                 </div>
               </div>
             </div>
@@ -129,8 +161,22 @@ export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
                 </TooltipContent>
               </Tooltip>
               <Badge variant="outline" className={cn('text-xs cursor-help', tierColor.text, tierColor.border)}>
-                {tierNames[tier]}
+                Тир {tierNum}
               </Badge>
+              {/* Бейдж тира Души Войны */}
+              {warSoulTier && (
+                <Badge 
+                  className={cn(
+                    'text-xs font-semibold gap-1',
+                    warSoulTier.bgColor,
+                    warSoulTier.color
+                  )}
+                  title={`${warSoulTier.icon} ${warSoulTier.name}: +${warSoulTier.bonus.successBonus}% успеха, +${warSoulTier.bonus.goldBonus}% золота, +${warSoulTier.bonus.warSoulBonus}% душ`}
+                >
+                  <span>{warSoulTier.icon}</span>
+                  <span>{warSoulTier.name}</span>
+                </Badge>
+              )}
             </div>
           </div>
 
@@ -144,13 +190,13 @@ export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
                   <Sword className="w-5 h-5 text-red-400" />
                   <div className="flex-1">
                     <div className="text-xs text-stone-500 mb-0.5">Атака</div>
-                    <div className="text-xl font-bold text-red-400">{weapon.attack}</div>
+                    <div className="text-xl font-bold text-red-400">{weapon.stats.attack}</div>
                   </div>
                   <div className="text-xs text-stone-500">{typeStats?.name}</div>
                 </div>
               </TooltipTrigger>
               <TooltipContent side="top">
-                <p className="font-semibold text-red-400">Атака: {weapon.attack}</p>
+                <p className="font-semibold text-red-400">Атака: {weapon.stats.attack}</p>
                 <p className="text-xs text-stone-400">Определяет урон в бою и эффективность экспедиций</p>
               </TooltipContent>
             </Tooltip>
@@ -163,19 +209,19 @@ export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
                   <div className="flex-1">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs text-stone-500">Прочность</span>
-                      <span className={cn('text-xs font-medium', durabilityColor)}>{durability}%</span>
+                      <span className={cn('text-xs font-medium', durabilityColor)}>{durability}/{weapon.stats.maxDurability}</span>
                     </div>
                     <div className="h-2 bg-stone-800 rounded-full overflow-hidden">
                       <div 
-                        className={cn('h-full rounded-full transition-all', durabilityBgColor)}
-                        style={{ width: `${durability}%` }}
+                        className={cn('h-full rounded-full transition-all', durabilityBgColor)} 
+                        style={{ width: `${durabilityPercent}%` }} 
                       />
                     </div>
                   </div>
                 </div>
               </TooltipTrigger>
               <TooltipContent side="top">
-                <p className="font-semibold">Прочность: {durability}%</p>
+                <p className="font-semibold">Прочность: {durability}/{weapon.stats.maxDurability}</p>
                 <p className="text-xs text-stone-400">Уменьшается в экспедициях. При 0% оружие непригодно</p>
               </TooltipContent>
             </Tooltip>
@@ -188,19 +234,19 @@ export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
                   <div className="flex-1">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs text-stone-500">Качество</span>
-                      <span className={cn('text-xs font-medium', qualityInfo.color)}>{weapon.quality}%</span>
+                      <span className={cn('text-xs font-medium', qualityInfo.color)}>{weapon.quality}/100</span>
                     </div>
                     <div className="h-2 bg-stone-800 rounded-full overflow-hidden">
                       <div 
-                        className={cn('h-full rounded-full transition-all', qualityInfo.color.replace('text-', 'bg-'))}
-                        style={{ width: `${weapon.quality}%` }}
+                        className={cn('h-full rounded-full transition-all', qualityBgColor)} 
+                        style={{ width: `${weapon.quality}%` }} 
                       />
                     </div>
                   </div>
                 </div>
               </TooltipTrigger>
               <TooltipContent side="top">
-                <p className={cn('font-semibold', qualityInfo.color)}>Качество: {weapon.quality}%</p>
+                <p className={cn('font-semibold', qualityInfo.color)}>Качество: {weapon.quality}/100</p>
                 <p className="text-xs text-stone-400">Влияет на атаку и цену. Зависит от навыков кузнецов</p>
               </TooltipContent>
             </Tooltip>
@@ -213,7 +259,7 @@ export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
               Накопленные свойства
             </p>
             <div className="flex flex-wrap gap-2">
-              {/* Душа Войны */}
+            {/* Душа Войны с тиром и прогресс-баром */}
               <Tooltip delayDuration={200}>
                 <TooltipTrigger asChild>
                   <div className={cn(
@@ -230,15 +276,31 @@ export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="max-w-xs">
-                  <p className="font-semibold text-purple-400">Душа Войны: {weapon.warSoul}</p>
-                  <p className="text-xs text-stone-400 mt-1">
-                    {weapon.warSoul > 0 
-                      ? 'Накоплена в экспедициях. Используется для зачарований в Алтаре.'
-                      : 'Накапливается в экспедициях. Чем больше душ — тем сильнее зачарования!'}
-                  </p>
+                  {(() => {
+                    const tier = getWarSoulTier(weapon.warSoul, weapon.maxWarSoul ?? 100)
+                    const progress = getProgressToNextTier(weapon.warSoul, weapon.maxWarSoul ?? 100)
+                    const tierBonuses = tier.bonus
+                    return (
+                      <>
+                        <p className="font-semibold text-purple-400">
+                          {tier.icon} {tier.name}: {weapon.warSoul}/{weapon.maxWarSoul ?? 100} Души Войны
+                        </p>
+                        <p className="text-xs text-stone-400 mt-1">
+                          Прогресс к следующему тиру: {progress}%
+                        </p>
+                        <div className="mt-2 pt-2 border-t border-stone-700/50">
+                          <p className="text-xs font-medium text-stone-300 mb-1">Бонусы текущего тира:</p>
+                          {tierBonuses.successBonus > 0 && <p className="text-xs text-stone-400">+{tierBonuses.successBonus}% шанс успеха</p>}
+                          {tierBonuses.goldBonus > 0 && <p className="text-xs text-stone-400">+{tierBonuses.goldBonus}% золота</p>}
+                          {tierBonuses.warSoulBonus > 0 && <p className="text-xs text-stone-400">+{tierBonuses.warSoulBonus}% душ</p>}
+                          {tierBonuses.critChance > 0 && <p className="text-xs text-stone-400">+{tierBonuses.critChance}% крита</p>}
+                        </div>
+                      </>
+                    )
+                  })()}
                 </TooltipContent>
               </Tooltip>
-              
+
               {/* Эпический множитель */}
               {(weapon.epicMultiplier ?? 1) > 1 && (
                 <Tooltip delayDuration={200}>
@@ -255,13 +317,13 @@ export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
                   </TooltipContent>
                 </Tooltip>
               )}
-              
+
               {/* Количество экспедиций */}
               {(weapon.adventureCount ?? 0) > 0 && (
                 <Tooltip delayDuration={200}>
                   <TooltipTrigger asChild>
                     <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-stone-800/80 border border-stone-700/50 text-stone-400 cursor-help">
-                      <Map className="w-3.5 h-3.5" />
+                      <MapIcon className="w-3.5 h-3.5" />
                       <span className="text-xs text-stone-400">Вылазок:</span>
                       <span className="text-sm font-semibold text-stone-300">{weapon.adventureCount ?? 0}</span>
                     </div>
@@ -276,26 +338,26 @@ export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
           </div>
 
           {/* ===== МАТЕРИАЛЫ ===== */}
-          {weapon.materialsUsed && weapon.materialsUsed.length > 0 && (
+          {weapon.materials && weapon.materials.length > 0 && (
             <div className="pt-2 border-t border-stone-700/50 mb-3">
               <p className="text-xs text-stone-500 mb-2 flex items-center gap-1">
                 <Package className="w-3 h-3" />
                 Состав оружия
               </p>
-              <div className="space-y-1.5">
-                {weapon.materialsUsed.map((mat, idx) => (
-                  <div 
-                    key={idx}
-                    className="flex items-center justify-between text-xs bg-stone-800/50 rounded px-2 py-1.5"
-                  >
-                    <span className="text-stone-500">{mat.partName}:</span>
-                    <span className="text-stone-300 font-medium">
-                      {mat.materialName}
-                      {mat.quantity > 1 && <span className="text-stone-500 ml-1">×{mat.quantity}</span>}
-                    </span>
+              {(() => {
+                const uniqueMaterials = Array.from(
+                  new Map(weapon.materials.map(m => [m.materialId, m])).values()
+                );
+                return (
+                  <div className="flex flex-wrap gap-2">
+                    {uniqueMaterials.map((mat, idx) => (
+                      <Badge key={idx} variant="outline" className="text-xs bg-stone-800/60 border-stone-600/50">
+                        <span className="text-stone-400">{mat.materialName}</span>
+                      </Badge>
+                    ))}
                   </div>
-                ))}
-              </div>
+                );
+              })()}
             </div>
           )}
 
@@ -320,7 +382,7 @@ export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
             </div>
           )}
 
-          {/* Цена продажи */}
+          {/* ===== ТЕХНИКИ ===== */}
           <div className="flex items-center justify-between pt-2 border-t border-stone-700/50 mb-3">
             <span className="text-xs text-stone-500">Цена продажи:</span>
             <div className="flex items-center gap-1.5 text-amber-400 font-semibold">
@@ -328,53 +390,6 @@ export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
               <span>{weapon.sellPrice}</span>
             </div>
           </div>
-          
-          {/* Кнопка продажи */}
-          {inExpedition ? (
-            <Button 
-              size="sm"
-              className="w-full"
-              disabled
-            >
-              <Map className="w-4 h-4 mr-2" />
-              В экспедиции
-            </Button>
-          ) : !showConfirm ? (
-            <Button 
-              size="sm"
-              className="w-full bg-gradient-to-r from-green-800 to-green-900 hover:from-green-700 hover:to-green-800 text-green-100"
-              onClick={() => setShowConfirm(true)}
-            >
-              <Coins className="w-4 h-4 mr-2" />
-              Продать за {weapon.sellPrice} 💰
-            </Button>
-          ) : (
-            <div className="flex gap-2">
-              <Button 
-                size="sm"
-                variant="outline"
-                className="flex-1 border-stone-600 text-stone-400"
-                onClick={() => setShowConfirm(false)}
-              >
-                Отмена
-              </Button>
-              <Button 
-                size="sm"
-                className="flex-1 bg-red-800 hover:bg-red-700 text-red-100"
-                onClick={handleSell}
-                disabled={isSelling}
-              >
-                {isSelling ? (
-                  <Zap className="w-4 h-4 animate-pulse" />
-                ) : (
-                  <>
-                    <Trash2 className="w-4 h-4 mr-1" />
-                    Подтвердить
-                  </>
-                )}
-              </Button>
-            </div>
-          )}
         </CardContent>
       </Card>
     </motion.div>

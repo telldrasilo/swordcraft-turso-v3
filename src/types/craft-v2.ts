@@ -290,6 +290,12 @@ export interface RecipePart {
   minQuantity: number
   maxQuantity: number
   optional?: boolean
+  
+  // Главное свойство материала для этой части
+  dominantProperty?: 'hardness' | 'elasticity' | 'toughness' | 'weight' | 'conductivity'
+  
+  // Вторая характеристика материала для этой части (для отображения)
+  secondaryProperty?: 'hardness' | 'elasticity' | 'toughness' | 'weight' | 'conductivity'
 }
 
 /** Базовые параметры рецепта */
@@ -349,7 +355,8 @@ export interface CraftPlan {
   recipeId: string
   materials: MaterialAssignment
   techniques: string[]            // ID выбранных техник
-  
+  shouldPurchaseMaterials: boolean // Нужно ли закупать материалы
+
   // Предварительный расчёт
   estimatedTime: number
   estimatedStats: WeaponStats
@@ -410,6 +417,36 @@ export interface CraftLogEntry {
 export { WeaponEnchantment } from './shared/enchantment'
 
 // ================================
+// РАНГ КАЧЕСТВА (для нейминга)
+// ================================
+
+/** Ранг качества оружия от F до S */
+export type QualityRank = 'F' | 'D' | 'C' | 'B' | 'A' | 'S'
+
+/** Получить ранг качества от числового значения */
+export function getQualityRank(quality: number): QualityRank {
+  if (quality >= 96) return 'S'
+  if (quality >= 86) return 'A'
+  if (quality >= 71) return 'B'
+  if (quality >= 51) return 'C'
+  if (quality >= 31) return 'D'
+  return 'F'
+}
+
+/** Получить префикс имени от ранга качества */
+export function getQualityRankPrefix(rank: QualityRank): string {
+  const prefixes: Record<QualityRank, string> = {
+    'F': 'Обычный',
+    'D': 'Стандартный',
+    'C': 'Хороший',
+    'B': 'Отличный',
+    'A': 'Мастерский',
+    'S': 'Легендарный',
+  }
+  return prefixes[rank]
+}
+
+// ================================
 // ГОТОВОЕ ОРУЖИЕ v2
 // ================================
 
@@ -422,7 +459,7 @@ export interface CraftedWeaponV2 {
   prefix: string                  // "Стальной"
   baseName: string                // "меч"
   suffix: string                  // "остроты II"
-  fullName: string                // "Стальной меч остроты II"
+  fullName: string                // "Обычный Стальной меч остроты II"
   
   // Тип и тир
   type: string
@@ -442,6 +479,7 @@ export interface CraftedWeaponV2 {
   // Качество
   quality: number
   qualityGrade: QualityGrade
+  qualityRank: QualityRank        // Новое: ранг F-S
   
   // Душа Войны
   warSoul: number
@@ -456,6 +494,29 @@ export interface CraftedWeaponV2 {
   
   // Цена
   sellPrice: number
+
+  // ================================
+  // СКРЫТЫЕ ТЕГИ (для системы заказов)
+  // ================================
+
+  /** Скрытые теги для поиска оружия ["sword", "iron", "q:45", "rank:C"] */
+  hiddenTags: string[]
+  
+  /** ID материала combatPart (определяет материал оружия) */
+  combatMaterialId: string
+
+  // ================================
+  // RUNTIME-ПОЛЯ (изменяются в процессе игры)
+  // ================================
+
+  /** Текущая прочность оружия (уменьшается в экспедициях) */
+  currentDurability: number
+
+  /** Эпический множитель наград (растёт с каждым приключением, база = 1.0) */
+  epicMultiplier: number
+
+  /** Список использованных техник при создании оружия */
+  techniquesUsed: string[]
 }
 
 // ================================

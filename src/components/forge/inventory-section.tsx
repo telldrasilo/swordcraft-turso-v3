@@ -40,7 +40,7 @@ export function InventorySection() {
   const stats = useMemo(() => {
     const totalValue = weapons.reduce((sum, w) => sum + w.sellPrice, 0)
     const avgAttack = weapons.length > 0
-      ? Math.round(weapons.reduce((sum, w) => sum + w.attack, 0) / weapons.length)
+      ? Math.round(weapons.reduce((sum, w) => sum + w.stats.attack, 0) / weapons.length)
       : 0
     const masterpieceCount = weapons.filter(
       w => w.qualityGrade === 'masterwork' || w.qualityGrade === 'legendary'
@@ -92,7 +92,7 @@ export function InventorySection() {
         {[
           { id: 'all', label: 'Все' },
           { id: 'legendary', label: 'Легенда', color: 'text-amber-400' },
-          { id: 'masterwork', label: 'Шедевр', color: 'text-purple-400' },
+          { id: 'masterpiece', label: 'Шедевр', color: 'text-purple-400' },
           { id: 'excellent', label: 'Отличное', color: 'text-blue-400' },
           { id: 'good', label: 'Хорошее', color: 'text-green-400' },
         ].map((f) => (

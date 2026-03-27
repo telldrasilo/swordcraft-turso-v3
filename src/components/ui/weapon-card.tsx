@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { InfoTooltip } from '@/components/ui/game-tooltip'
 import { cn } from '@/lib/utils'
+import { useMemo } from 'react'
 import {
   CraftedWeapon,
   qualityGrades,
@@ -23,6 +24,11 @@ import {
 } from '@/data/weapon-recipes'
 import { weaponRecipes } from '@/data/weapon-recipes'
 import type { WeaponMaterialUsed } from '@/store/slices/craft-slice'
+import { 
+  getWarSoulTier,
+  getProgressToNextTier,
+  formatWarSoulTier,
+} from '@/lib/war-soul-utils'
 
 // ================================
 // ТИПЫ СВОЙСТВ ОРУЖИЯ
@@ -240,7 +246,7 @@ export function extractWeaponProperties(weapon: CraftedWeapon): WeaponProperty[]
   })
 
   // Прочность
-  const durability = weapon.durability ?? 100
+  const durability = weapon.currentDurability ?? 100
   properties.push({
     id: 'durability',
     name: 'Прочность',
@@ -270,17 +276,21 @@ export function extractWeaponProperties(weapon: CraftedWeapon): WeaponProperty[]
     priority: 3,
   })
 
-  // Душа Войны (если есть)
-  if (weapon.warSoul > 0) {
+  // Душа Войны с тиром и прогресс-баром
+  if (weapon.warSoul > 0 || (weapon.maxWarSoul ?? 0) > 0) {
+    const tier = getWarSoulTier(weapon.warSoul, weapon.maxWarSoul ?? 100)
+    const progress = getProgressToNextTier(weapon.warSoul, weapon.maxWarSoul ?? 100)
+    
     properties.push({
       id: 'warSoul',
-      name: 'Душа Войны',
+      name: tier.name,
       value: weapon.warSoul,
-      icon: config.warSoul.icon,
-      color: config.warSoul.color,
-      bgColor: config.warSoul.bgColor,
-      tooltip: `${config.warSoul.tooltipTitle}: ${config.warSoul.tooltipDesc}`,
-      displayType: 'value',
+      maxValue: weapon.maxWarSoul ?? 100,
+      icon: tier.icon,
+      color: tier.color,
+      bgColor: tier.bgColor,
+      tooltip: `${tier.icon} ${tier.name}: ${weapon.warSoul}/${weapon.maxWarSoul ?? 100} Души Войны\nПрогресс к следующему тиру: ${progress}%\n\nБонусы текущего тира:\n+${tier.bonus.successBonus}% шанс успеха\n+${tier.bonus.goldBonus}% золота\n+${tier.bonus.warSoulBonus}% душ${tier.bonus.critChance > 0 ? `\n+${tier.bonus.critChance}% крита` : ''}`,
+      displayType: 'bar',
       category: 'special',
       priority: 4,
     })
@@ -346,6 +356,8 @@ export function PropertyDisplay({ property, compact = false }: PropertyDisplayPr
         return String(property.value)
       case 'percent':
         return `${property.value}%`
+      case 'bar':
+        return `${property.value}/${property.maxValue ?? 100}`
       case 'multiplier':
         return `×${(property.value as number).toFixed(2)}`
       default:
@@ -354,7 +366,7 @@ export function PropertyDisplay({ property, compact = false }: PropertyDisplayPr
   }
 
   const renderBar = () => {
-    if (property.displayType !== 'percent' || !property.maxValue) return null
+    if ((property.displayType !== 'percent' && property.displayType !== 'bar') || !property.maxValue) return null
     
     const percent = ((property.value as number) / property.maxValue) * 100
     
@@ -365,7 +377,7 @@ export function PropertyDisplay({ property, compact = false }: PropertyDisplayPr
             'h-full rounded-full transition-all',
             property.color.replace('text-', 'bg-')
           )}
-          style={{ width: `${percent}%` }}
+          style={{ width: `${Math.min(100, percent)}%` }}
         />
       </div>
     )
@@ -400,11 +412,11 @@ export function PropertyDisplay({ property, compact = false }: PropertyDisplayPr
         getBorderColor()
       )}>
         <span className={property.color}>{property.icon}</span>
-        {property.displayType === 'percent' && property.maxValue ? (
+        {(property.displayType === 'percent' || property.displayType === 'bar') && property.maxValue ? (
           <>
-            <span className="text-stone-400 text-xs min-w-16">{property.name}:</span>
+            <span className="text-stone-400 text-xs min-w-20">{property.name}:</span>
             {renderBar()}
-            <span className={cn('font-semibold min-w-12 text-right', property.color)}>{renderValueText()}</span>
+            <span className={cn('font-semibold min-w-16 text-right', property.color)}>{renderValueText()}</span>
           </>
         ) : (
           <>
@@ -495,12 +507,12 @@ interface WeaponCardProps {
   isExpedition?: boolean
 }
 
-export function WeaponCard({ 
-  weapon, 
-  onSell, 
+export function WeaponCard({
+  weapon,
+  onSell,
   onSelect,
   selected = false,
-  showSellButton = true,
+  showSellButton = false,  // Отключено по умолчанию - продажа только через заказы
   compact = false,
   isExpedition = false
 }: WeaponCardProps) {
@@ -511,6 +523,12 @@ export function WeaponCard({
   
   const tier = recipe?.tier || 'common'
   const tierColor = qualityColors[tier]
+
+  // Мемоизация расчёта тира Души Войны для оптимизации
+  const warSoulTier = useMemo(() => {
+    if (weapon.warSoul <= 0) return null
+    return getWarSoulTier(weapon.warSoul, weapon.maxWarSoul ?? 100)
+  }, [weapon.warSoul, weapon.maxWarSoul])
 
   // Разделяем свойства по категориям
   const primaryProps = properties.filter(p => p.category === 'primary')
@@ -575,9 +593,25 @@ export function WeaponCard({
               <Badge className={cn('font-semibold cursor-help', qualityInfo.color)}>
                 {qualityInfo.name}
               </Badge>
-              <Badge variant="outline" className={cn('text-xs', tierColor.text, tierColor.border)}>
-                {tierNames[tier]}
-              </Badge>
+              <div className="flex items-center gap-1">
+                <Badge variant="outline" className={cn('text-xs', tierColor.text, tierColor.border)}>
+                  {tierNames[tier]}
+                </Badge>
+                {/* Бейдж тира Души Войны */}
+                {warSoulTier && (
+                  <Badge 
+                    className={cn(
+                      'text-xs font-semibold gap-1',
+                      warSoulTier.bgColor,
+                      warSoulTier.color
+                    )}
+                    title={`${warSoulTier.icon} ${warSoulTier.name}: +${warSoulTier.bonus.successBonus}% успеха, +${warSoulTier.bonus.goldBonus}% золота, +${warSoulTier.bonus.warSoulBonus}% душ`}
+                  >
+                    <span>{warSoulTier.icon}</span>
+                    <span>{warSoulTier.name}</span>
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
 
@@ -691,7 +725,13 @@ export function WeaponMiniCard({ weapon, selected, onSelect, disabled }: WeaponM
   const recipe = weaponRecipes.find(r => r.id === weapon.recipeId)
   const tier = recipe?.tier || 'common'
   const tierColor = qualityColors[tier]
-  const durability = weapon.durability ?? 100
+  const durability = weapon.currentDurability ?? 100
+  
+  // Мемоизация расчёта тира Души Войны
+  const warSoulTier = useMemo(() => {
+    if (weapon.warSoul <= 0) return null
+    return getWarSoulTier(weapon.warSoul, weapon.maxWarSoul ?? 100)
+  }, [weapon.warSoul, weapon.maxWarSoul])
 
   return (
     <motion.div
@@ -720,7 +760,22 @@ export function WeaponMiniCard({ weapon, selected, onSelect, disabled }: WeaponM
           
           {/* Информация */}
           <div className="flex-1 min-w-0">
-            <h5 className="font-medium text-stone-200 truncate">{weapon.name}</h5>
+            <div className="flex items-center gap-2">
+              <h5 className="font-medium text-stone-200 truncate">{weapon.name}</h5>
+              {/* Бейдж тира Души Войны в компактном виде */}
+              {warSoulTier && (
+                <span 
+                  className={cn(
+                    'text-xs px-1.5 py-0.5 rounded',
+                    warSoulTier.bgColor,
+                    warSoulTier.color
+                  )}
+                  title={`${warSoulTier.name}: +${warSoulTier.bonus.successBonus}% успеха`}
+                >
+                  {warSoulTier.icon}
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-3 text-xs">
               {/* Атака */}
               <span className="flex items-center gap-1 text-red-400">

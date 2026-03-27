@@ -138,12 +138,17 @@ export interface ModifierContext {
     enemyTypes?: string[]
   }
   
-  // Оружие
+  // Оружие (v2 - обновлено для CraftedWeaponV2)
   weapon: {
     id: string
     type: WeaponType
     attack: number
     quality: number
+    qualityRank?: string  // F, D, C, B, A, S
+    epicMultiplier?: number
+    combatMaterialId?: string
+    durability?: number
+    currentDurability?: number
   }
   
   // Гильдия

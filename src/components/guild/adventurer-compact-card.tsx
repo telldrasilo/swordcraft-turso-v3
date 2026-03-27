@@ -111,7 +111,7 @@ export const AdventurerCompactCard: React.FC<AdventurerCompactCardProps> = ({
             </span>
           </div>
           <div className="text-xs text-stone-400">
-            Ур.{adventurer.combat.level}
+            Ур.{Math.round(adventurer.combat.level)}
           </div>
         </div>
 

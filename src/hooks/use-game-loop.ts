@@ -62,11 +62,11 @@ export function useGameLoop() {
   // Переработка и крафт
   const activeRefining = useGameStore((state) => state.activeRefining)
   const updateRefiningProgress = useGameStore((state) => state.updateRefiningProgress)
-  const completeRefining = useGameStore((state) => state.completeRefining)
+  const completeRefining = useGameStore((state) => state.completeRefiningWithResources)
   
   const activeCraft = useGameStore((state) => state.activeCraft)
   const updateCraftProgress = useGameStore((state) => state.updateCraftProgress)
-  const completeCraft = useGameStore((state) => state.completeCraft)
+  const completeCraft = useGameStore((state) => state.completeCraftWithExperience)
   
   // Расчёт расхода стамины для рабочего на конкретном здании
   const getStaminaDrain = useCallback((worker: Worker, building: ProductionBuilding): number => {
@@ -182,7 +182,7 @@ export function useGameLoop() {
       updateRefiningProgress(progress)
       
       if (progress >= 100) {
-        completeRefining()
+        completeRefiningWithResources()
       }
     }
     

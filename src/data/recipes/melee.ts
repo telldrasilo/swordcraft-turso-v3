@@ -19,30 +19,38 @@ export const daggerRecipes: WeaponRecipe[] = [
         materialTypes: ['metal', 'alloy'],
         minQuantity: 1,
         maxQuantity: 2,
+        dominantProperty: 'hardness',  // твёрдость = урон
+        secondaryProperty: 'weight',    // плотность (вес/баланс)
       },
       {
         id: 'guard',
         name: 'Гарда',
         materialTypes: ['metal', 'alloy'],
-        minQuantity: 0.1,
-        maxQuantity: 0.3,
+        minQuantity: 1,
+        maxQuantity: 1,
         optional: true,
+        dominantProperty: 'hardness',  // твёрдость = защита
+        secondaryProperty: 'toughness', // прочность (стойкость к ударам)
       },
       {
         id: 'grip',
         name: 'Рукоять',
         materialTypes: ['wood', 'leather'],
-        minQuantity: 0.2,
-        maxQuantity: 0.4,
+        minQuantity: 1,
+        maxQuantity: 1,
         optional: false,
+        dominantProperty: 'elasticity', // гибкость = удобство
+        secondaryProperty: 'weight',    // плотность (вес/баланс)
       },
       {
         id: 'pommel',
         name: 'Навершие',
         materialTypes: ['metal', 'alloy'],
-        minQuantity: 0.1,
-        maxQuantity: 0.3,
+        minQuantity: 1,
+        maxQuantity: 1,
         optional: true,
+        dominantProperty: 'weight',    // вес = баланс
+        secondaryProperty: 'toughness', // прочность (стойкость к ударам)
       },
     ],
     
@@ -104,15 +112,19 @@ export const axeRecipes: WeaponRecipe[] = [
         name: 'Лезвие',
         materialTypes: ['metal', 'alloy'],
         minQuantity: 2,
-        maxQuantity: 3.5,
+        maxQuantity: 4,
+        dominantProperty: 'hardness',   // твёрдость = урон
+        secondaryProperty: 'toughness', // прочность (стойкость к ударам)
       },
       {
         id: 'grip',
         name: 'Рукоять',
         materialTypes: ['wood'],
-        minQuantity: 0.5,
+        minQuantity: 1,
         maxQuantity: 1,
         optional: false,
+        dominantProperty: 'elasticity', // гибкость = удобство
+        secondaryProperty: 'weight',    // плотность (вес/баланс)
       },
     ],
     
@@ -179,14 +191,18 @@ export const axeRecipes: WeaponRecipe[] = [
         materialTypes: ['metal', 'alloy'],
         minQuantity: 3,
         maxQuantity: 5,
+        dominantProperty: 'hardness',   // твёрдость = урон
+        secondaryProperty: 'toughness', // прочность (стойкость к ударам)
       },
       {
         id: 'grip',
         name: 'Рукоять',
         materialTypes: ['wood'],
-        minQuantity: 0.8,
-        maxQuantity: 1.5,
+        minQuantity: 1,
+        maxQuantity: 2,
         optional: false,
+        dominantProperty: 'elasticity', // гибкость = удобство
+        secondaryProperty: 'weight',    // плотность (вес/баланс)
       },
     ],
     

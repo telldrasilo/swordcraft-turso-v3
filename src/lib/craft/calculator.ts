@@ -21,6 +21,12 @@ import {
   getQualityNameRu,
   QUALITY_GRADES_CONFIG 
 } from '@/types/craft-v2'
+import type {
+  WeaponForecast,
+  StatRange,
+  QualityScore,
+  QualityRank
+} from '@/types/forecast'
 
 /**
  * Полный результат расчёта оружия
@@ -258,7 +264,7 @@ export function getQualityInfo(quality: number): {
   const grade = getQualityGrade(quality)
   const config = QUALITY_GRADES_CONFIG.find(g => g.grade === grade)
   const nextConfig = QUALITY_GRADES_CONFIG.find(g => g.min > quality)
-  
+
   return {
     grade,
     multiplier: config?.multiplier ?? 1.0,
@@ -269,7 +275,99 @@ export function getQualityInfo(quality: number): {
   }
 }
 
+// ================================
+// ПРОГНОЗ РЕЗУЛЬТАТА
+// ================================
+
+/**
+ * Рассчитать прогноз результата оружия
+ * Использует те же формулы, что и calculateWeapon, но добавляет разброс на основе экспертизы
+ */
+export function calculateForecast(
+  recipe: WeaponRecipe,
+  materials: MaterialAssignment,
+  techniques: Technique[],
+  blacksmithLevel: number,
+  materialExpertise: Record<string, number>
+): WeaponForecast {
+  // Рассчитываем базовые характеристики используя те же формулы, что и при крафте
+  const baseResult = calculateWeapon(recipe, materials, techniques, blacksmithLevel)
+
+  // Рассчитываем среднюю экспертизу для определения разброса
+  const avgExpertise = calculateAverageExpertise(materials, materialExpertise)
+  const varianceMultiplier = (100 - avgExpertise) / 100 * 0.3
+
+  // Рассчитываем диапазоны характеристик
+  const attack: StatRange = {
+    min: Math.max(0, Math.round(baseResult.stats.attack * (1 - varianceMultiplier))),
+    max: Math.round(baseResult.stats.attack * (1 + varianceMultiplier * 0.5)),
+    variance: varianceMultiplier
+  }
+
+  const durability: StatRange = {
+    min: Math.max(0, Math.round(baseResult.stats.durability * (1 - varianceMultiplier))),
+    max: Math.round(baseResult.stats.maxDurability * (1 + varianceMultiplier * 0.5)),
+    variance: varianceMultiplier
+  }
+
+  const weight: StatRange = {
+    min: Math.max(0, Math.round(baseResult.stats.weight * (1 - varianceMultiplier * 0.5))),
+    max: Math.round(baseResult.stats.weight * (1 + varianceMultiplier * 0.3)),
+    variance: varianceMultiplier
+  }
+
+  const soulCapacity: StatRange = {
+    min: Math.max(0, Math.round(baseResult.stats.soulCapacity * (1 - varianceMultiplier))),
+    max: Math.round(baseResult.stats.soulCapacity * (1 + varianceMultiplier * 0.5)),
+    variance: varianceMultiplier
+  }
+
+  // Диапазон качества
+  const quality: QualityScore = {
+    value: baseResult.quality,
+    min: Math.max(0, Math.round(baseResult.quality * (1 - varianceMultiplier))),
+    max: Math.min(100, Math.round(baseResult.quality * (1 + varianceMultiplier * 0.5))),
+    rank: getQualityRankFromQuality(baseResult.quality),
+    progress: 0.5
+  }
+
+  const predictionAccuracy = 50 + avgExpertise * 0.5
+
+  return {
+    attack,
+    durability,
+    weight,
+    soulCapacity,
+    quality,
+    predictionAccuracy
+  }
+}
+
+/**
+ * Рассчитать среднюю экспертизу по материалам
+ */
+function calculateAverageExpertise(
+  materials: MaterialAssignment,
+  materialExpertise: Record<string, number>
+): number {
+  const values = Object.values(materials).map(m => materialExpertise[m.materialId] || 0)
+  return values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0
+}
+
+/**
+ * Получить ранг качества по числовому значению
+ */
+function getQualityRankFromQuality(quality: number): QualityRank {
+  if (quality >= 95) return 'S'
+  if (quality >= 85) return 'A'
+  if (quality >= 70) return 'B'
+  if (quality >= 55) return 'C'
+  if (quality >= 40) return 'D'
+  return 'F'
+}
+
 export default {
   calculateWeapon,
   getQualityInfo,
+  calculateForecast,
 }

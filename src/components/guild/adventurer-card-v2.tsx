@@ -1,6 +1,6 @@
 /**
  * Компонент карточки искателя — улучшенная версия
- * Версия 3.0 — Большие черты, полные tooltips, аналитика миссии
+ * Версия 5.0 — Индивидуальность + компактный UX/UI + исправленные layout проблемы
  */
 
 'use client'
@@ -16,7 +16,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { motion } from 'framer-motion'
-import { Clock, Zap, Shield, TrendingUp, AlertTriangle, CheckCircle, Timer, Swords, Sparkles } from 'lucide-react'
+import { Clock, Zap, Shield, TrendingUp, CheckCircle, Swords, Sparkles } from 'lucide-react'
 import type { AdventurerExtended } from '@/types/adventurer-extended'
 import { getRarityConfig, getRarityStars } from '@/data/adventurer-rarity'
 import { getPersonalityTraitById } from '@/data/adventurer-tags/personality-traits'
@@ -28,9 +28,12 @@ import {
   formatModifierValue,
   type ExpeditionCalculation
 } from '@/lib/expedition-calculator-v2'
-import { FullModifierBreakdown } from '@/components/ui/modifier-breakdown'
 import { generateAdvice, type Advice } from '@/lib/adventurer-advice'
 import { MetBadge } from '@/components/ui/met-badge'
+
+// Импорт новых компонентов
+import { SuccessFactorsBlock, SuccessFactor } from './SuccessFactorsBlock'
+import { getAdventurerQuote } from './adventurer-quotes'
 
 // ================================
 // ПРОПСЫ
@@ -49,6 +52,7 @@ interface AdventurerCardV2Props {
     failureChance: number
     weaponLossChance: number
     minWeaponAttack: number
+    minGuildLevel: number
   }
   guildLevel: number
   weaponAttack: number
@@ -59,44 +63,79 @@ interface AdventurerCardV2Props {
 }
 
 // ================================
-// ВСПОМОГАТЕЛЬНЫЙ КОМПОНЕНТ TOOLTIP
+// ГЕНЕРАТОР ФАКТОРОВ УСПЕХА
 // ================================
 
-interface InfoRowProps {
-  label: string
-  value: React.ReactNode
-  icon?: React.ReactNode
-  tooltipTitle: string
-  tooltipContent: string
-  valueColor?: string
+const generateSuccessFactors = (
+  calc: ExpeditionCalculation,
+  adventurer: AdventurerExtended,
+  expedition: { difficulty: string, type: string, minGuildLevel: number }
+): { blockType: 'ideal' | 'balanced' | 'risky', factors: SuccessFactor[] } => {
+  const factors: SuccessFactor[] = []
+  let blockType: 'ideal' | 'balanced' | 'risky' = 'ideal'
+  
+  // Фактор 1: Уровень vs требования
+  const levelDiff = adventurer.combat.level - expedition.minGuildLevel
+  if (levelDiff >= 5) {
+    factors.push({
+      type: 'positive',
+      icon: '⭐',
+      text: `Уровень ${Math.round(adventurer.combat.level)} намного выше рекомендованного ${expedition.minGuildLevel}`,
+      value: '+15% к успеху'
+    })
+    blockType = 'ideal'
+  } else if (levelDiff < -5) {
+    factors.push({
+      type: 'negative',
+      icon: '⚠️',
+      text: `Уровень ${Math.round(adventurer.combat.level)} значительно ниже ${expedition.minGuildLevel}`,
+      value: '-25% к успеху'
+    })
+    blockType = 'risky'
+  }
+  
+  // Фактор 2: Сильные стороны
+  const applicableStrengths = adventurer.strengths.filter(s => {
+    const strengthData = getStrengthById(s.id)
+    return strengthData && doesStrengthApply(strengthData, expedition.difficulty as any, expedition.type as any)
+  })
+  
+  if (applicableStrengths.length > 0) {
+    const strength = applicableStrengths[0]
+    const data = getStrengthById(strength.id)
+    factors.push({
+      type: 'positive',
+      icon: data.icon,
+      text: data.name,
+      value: data.effects.successBonus > 0 ? `+${data.effects.successBonus}% к успеху` : undefined
+    })
+  }
+  
+  // Фактор 3: Характер
+  if (adventurer.personality.primaryTrait === 'brave' || 
+      adventurer.personality.primaryTrait === 'daring') {
+    factors.push({
+      type: 'positive',
+      icon: '💪',
+      text: 'Храбрый характер',
+      value: '+5% к успеху'
+    })
+  }
+  
+  // Определение итогового типа блока
+  const positiveCount = factors.filter(f => f.type === 'positive').length
+  const negativeCount = factors.filter(f => f.type === 'negative').length
+  
+  if (positiveCount >= 2 && negativeCount === 0) {
+    blockType = 'ideal'
+  } else if (positiveCount >= 1 && negativeCount <= 1) {
+    blockType = 'balanced'
+  } else if (negativeCount >= 2) {
+    blockType = 'risky'
+  }
+  
+  return { blockType, factors }
 }
-
-const InfoRow: React.FC<InfoRowProps> = ({
-  label,
-  value,
-  icon,
-  tooltipTitle,
-  tooltipContent,
-  valueColor = 'text-stone-200'
-}) => (
-  <TooltipProvider>
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <div className="flex justify-between items-center cursor-help">
-          <span className="text-stone-400 text-xs flex items-center gap-1">
-            {icon}
-            {label}
-          </span>
-          <span className={`font-medium text-sm ${valueColor}`}>{value}</span>
-        </div>
-      </TooltipTrigger>
-      <TooltipContent side="top" className="max-w-xs">
-        <p className="font-semibold text-amber-400">{tooltipTitle}</p>
-        <p className="text-xs text-stone-300">{tooltipContent}</p>
-      </TooltipContent>
-    </Tooltip>
-  </TooltipProvider>
-)
 
 // ================================
 // ОСНОВНОЙ КОМПОНЕНТ
@@ -118,7 +157,7 @@ export const AdventurerCardV2: React.FC<AdventurerCardV2Props> = ({
     [adventurer.combat.rarity]
   )
   
-  // Полный расчёт экспедиции через V2 калькулятор (система модификаторов)
+  // Полный расчёт экспедиции через V2 калькулятор
   const calc = useMemo(() => {
     const template = {
       id: expedition.id,
@@ -169,16 +208,14 @@ export const AdventurerCardV2: React.FC<AdventurerCardV2Props> = ({
     [adventurer.combat.combatStyle]
   )
   
-  // Черты (traits) — ВАЖНО!
-  const traits = useMemo(() => adventurer.traits || [], [adventurer.traits])
-  
-  // Умный совет
+  // Совет
   const advice = useMemo<Advice | null>(() => {
     return generateAdvice(
       adventurer,
       { 
         ...expedition,
-        description: '', icon: '', cost: { supplies: 0, deposit: 0 },
+        description: '', icon: '',
+        cost: { supplies: 0, deposit: 0 },
         minGuildLevel: 1, recommendedWeaponTypes: []
       },
       calc.successChance,
@@ -193,13 +230,30 @@ export const AdventurerCardV2: React.FC<AdventurerCardV2Props> = ({
     if (calc.successChance >= 50) return 'text-amber-400'
     return 'text-red-400'
   }, [calc.successChance])
-
-  // Расчёт времени с модификаторами
+  
+  // Цвет риска
+  const riskColor = useMemo(() => {
+    if (calc.weaponLossChance > 15) return 'text-red-400'
+    if (calc.weaponLossChance >= 5) return 'text-amber-400'
+    return 'text-stone-400'
+  }, [calc.weaponLossChance])
+  
+  // Расчёт времени
   const durationMinutes = useMemo(() => {
-    const baseMinutes = Math.floor(expedition.duration / 60)
-    // Можно добавить модификаторы скорости
-    return baseMinutes
+    return Math.floor(expedition.duration / 60)
   }, [expedition.duration])
+
+  // Цвет прогресс-бара успеха
+  const progressColor = useMemo(() => {
+    if (calc.successChance >= 75) return 'bg-green-500'
+    if (calc.successChance >= 50) return 'bg-amber-500'
+    return 'bg-red-500'
+  }, [calc.successChance])
+
+  // Цитата искателя (мемоизируется на основе ID искателя и типа экспедиции)
+  const quote = useMemo(() => {
+    return getAdventurerQuote(adventurer, expedition)
+  }, [adventurer.id, expedition.type])
 
   return (
     <motion.div
@@ -216,8 +270,8 @@ export const AdventurerCardV2: React.FC<AdventurerCardV2Props> = ({
         }`}
         onClick={onSelect}
       >
-        <CardContent className="p-3 space-y-2 flex-1 flex flex-col overflow-hidden">
-          {/* ===== ЗАГОЛОВОК С ИМЕНЕМ ===== */}
+        <CardContent className="p-3 space-y-2 flex-1 flex-col overflow-hidden min-h-0">
+          {/* ===== ЗАГОЛОВОК ===== */}
           <div className="flex items-start justify-between gap-2 flex-shrink-0">
             <div className="flex-1 min-w-0">
               <TooltipProvider>
@@ -230,16 +284,17 @@ export const AdventurerCardV2: React.FC<AdventurerCardV2Props> = ({
                   <TooltipContent>
                     <p className="font-semibold">{rarityConfig.nameRu} искатель</p>
                     <p className="text-xs text-stone-300">
-                      Уровень {adventurer.combat.level} • Сила {adventurer.combat.power}
+                      Уровень {Math.round(adventurer.combat.level)} • Сила {Math.round(adventurer.combat.power)} • Меткость {Math.round(adventurer.combat.precision)}
                     </p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
               
-              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+              <div className="flex items-center gap-1.5 mt-0.5">
+                {/* Звёзды редкости */}
                 <TooltipProvider>
                   <Tooltip>
-                    <TooltipTrigger>
+                    <TooltipTrigger asChild>
                       <span className="text-amber-400 text-xs cursor-help">
                         {'★'.repeat(getRarityStars(adventurer.combat.rarity))}
                       </span>
@@ -257,15 +312,16 @@ export const AdventurerCardV2: React.FC<AdventurerCardV2Props> = ({
                   </Tooltip>
                 </TooltipProvider>
                 
+                {/* Уровень */}
                 <TooltipProvider>
                   <Tooltip>
-                    <TooltipTrigger>
+                    <TooltipTrigger asChild>
                       <Badge variant="outline" className="text-[10px] px-1.5 py-0 cursor-help">
-                        Ур. {adventurer.combat.level}
+                        Ур. {Math.round(adventurer.combat.level)}
                       </Badge>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p className="font-semibold">Уровень {adventurer.combat.level}</p>
+                      <p className="font-semibold">Уровень {Math.round(adventurer.combat.level)}</p>
                       <p className="text-xs text-stone-300">
                         {calc.levelMatch.match === 'optimal' && '✓ Идеальное соответствие миссии'}
                         {calc.levelMatch.match === 'underlevel' && '⚠ Немного ниже рекомендованного'}
@@ -279,10 +335,11 @@ export const AdventurerCardV2: React.FC<AdventurerCardV2Props> = ({
                 {/* Бейдж "Уже встречали" */}
                 <MetBadge adventurerId={adventurer.id} compact />
                 
+                {/* Стиль боя */}
                 {combatStyle && (
                   <TooltipProvider>
                     <Tooltip>
-                      <TooltipTrigger>
+                      <TooltipTrigger asChild>
                         <Badge variant="secondary" className="text-[10px] px-1.5 py-0 cursor-help">
                           {combatStyle.icon} {combatStyle.name}
                         </Badge>
@@ -297,12 +354,12 @@ export const AdventurerCardV2: React.FC<AdventurerCardV2Props> = ({
               </div>
             </div>
             
-            {/* Большой шанс успеха */}
+            {/* Шанс успеха */}
             <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger>
+                <TooltipTrigger asChild>
                   <div className={`text-right flex-shrink-0 cursor-help ${successColor}`}>
-                    <div className="text-2xl font-bold leading-none">{calc.successChance}%</div>
+                    <div className="text-3xl font-bold leading-none">{calc.successChance}%</div>
                     <div className="text-[10px] text-stone-400">успех</div>
                   </div>
                 </TooltipTrigger>
@@ -316,242 +373,123 @@ export const AdventurerCardV2: React.FC<AdventurerCardV2Props> = ({
             </TooltipProvider>
           </div>
 
-          {/* ===== ЧЕРТЫ (TRAITS) — УВЕЛИЧЕННЫЕ ===== */}
-          {traits.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 flex-shrink-0">
-              {traits.slice(0, 3).map((trait) => (
-                <TooltipProvider key={trait.id}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Badge 
-                        variant="outline" 
-                        className="text-sm px-2 py-1 bg-purple-900/40 text-purple-200 border-purple-500/50 font-medium"
-                      >
-                        {trait.icon} {trait.name}
-                      </Badge>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      <p className="font-semibold text-purple-300">{trait.name}</p>
-                      <p className="text-sm text-stone-300">{trait.description}</p>
-                      {trait.effects && Object.keys(trait.effects).length > 0 && (
-                        <div className="mt-1 pt-1 border-t border-stone-600 text-xs">
-                          {Object.entries(trait.effects).map(([key, value]) => (
-                            <p key={key} className="text-purple-200">
-                              {key}: {value > 0 ? '+' : ''}{value}%
-                            </p>
-                          ))}
-                        </div>
-                      )}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              ))}
-            </div>
-          )}
+          {/* ===== БЛОК ОБЪЯСНЕНИЯ ФАКТОРОВ ===== */}
+          {(() => {
+            const { blockType, factors } = generateSuccessFactors(calc, adventurer, expedition)
 
-          {/* ===== СИЛЬНЫЕ СТОРОНЫ И СЛАБОСТИ ===== */}
-          <div className="flex flex-wrap gap-1 flex-shrink-0">
-            {/* Сильные стороны */}
-            {adventurer.strengths.slice(0, 2).map((s) => {
-              const data = getStrengthById(s.id)
-              if (!data) return null
-              const applies = doesStrengthApply(data, expedition.difficulty, expedition.type)
-              return (
-                <TooltipProvider key={s.id}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Badge 
-                        variant="outline" 
-                        className={`text-[10px] cursor-help ${applies ? 'bg-green-900/30 text-green-300 border-green-600/40' : 'bg-stone-800/30 text-stone-500 border-stone-600/30'}`}
-                      >
-                        {data.icon} {data.name}
-                        {applies && data.effects.successBonus > 0 && (
-                          <span className="ml-1 text-green-400">+{data.effects.successBonus}%</span>
-                        )}
-                      </Badge>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      <p className="font-medium text-green-300">{data.name}</p>
-                      <p className="text-sm text-stone-300">{data.description}</p>
-                      {applies ? (
-                        <div className="mt-1 pt-1 border-t border-stone-600 text-xs space-y-0.5">
-                          {data.effects.successBonus !== 0 && <p className="text-green-300">✓ Успех: +{data.effects.successBonus}%</p>}
-                          {data.effects.goldBonus !== 0 && <p className="text-yellow-300">✓ Золото: +{data.effects.goldBonus}%</p>}
-                          {data.effects.warSoulBonus !== 0 && <p className="text-purple-300">✓ Души: +{data.effects.warSoulBonus}%</p>}
-                          {data.effects.weaponLossReduction !== 0 && <p className="text-blue-300">✓ Потеря оружия: -{data.effects.weaponLossReduction}%</p>}
-                        </div>
-                      ) : (
-                        <p className="text-xs text-stone-500 mt-1">Не применяется на этой миссии</p>
-                      )}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )
-            })}
-            
-            {/* Слабости */}
-            {adventurer.weaknesses.slice(0, 2).map((w) => {
-              const data = getWeaknessById(w.id)
-              if (!data) return null
-              const applies = doesWeaknessApply(data, expedition.difficulty, expedition.type)
-              if (!applies) return null
-              return (
-                <TooltipProvider key={w.id}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Badge 
-                        variant="outline" 
-                        className="text-[10px] cursor-help bg-red-900/30 text-red-300 border-red-600/40"
-                      >
-                        ⚠️ {data.name}
-                        {data.effects.successPenalty < 0 && (
-                          <span className="ml-1 text-red-400">{data.effects.successPenalty}%</span>
-                        )}
-                      </Badge>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      <p className="font-medium text-red-300">{data.name}</p>
-                      <p className="text-sm text-stone-300">{data.description}</p>
-                      <div className="mt-1 pt-1 border-t border-stone-600 text-xs space-y-0.5">
-                        {data.effects.successPenalty !== 0 && <p className="text-red-300">✗ Успех: {data.effects.successPenalty}%</p>}
-                        {data.effects.goldPenalty !== 0 && <p className="text-red-300">✗ Золото: -{data.effects.goldPenalty}%</p>}
-                        {data.effects.refuseChanceBonus > 0 && <p className="text-orange-300">✗ Отказ: +{data.effects.refuseChanceBonus}%</p>}
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )
-            })}
-          </div>
+            return (
+              <div className="mt-3 space-y-2">
+                <SuccessFactorsBlock
+                  successChance={calc.successChance}
+                  factors={factors}
+                  blockType={blockType}
+                  adventurerName={displayName}
+                  quote={quote.text}
+                />
+              </div>
+            )
+          })()}
 
-          {/* ===== МОДИФИКАТОРЫ ===== */}
-          <div className="flex flex-wrap gap-0.5 text-[10px] flex-shrink-0">
-            {calc.successModifiers.slice(0, 4).map((mod, i) => (
-              <TooltipProvider key={i}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className={`px-1 py-0.5 rounded cursor-help ${
-                      mod.type === 'positive' ? 'bg-green-900/30 text-green-400' :
-                      mod.type === 'negative' ? 'bg-red-900/30 text-red-400' :
-                      'bg-stone-800/30 text-stone-400'
-                    }`}>
-                      {mod.sourceIcon} {mod.value > 0 ? '+' : ''}{mod.value}%
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-sm font-medium">{mod.source}</p>
-                    <p className="text-xs text-stone-300">{mod.description}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            ))}
-            {calc.successModifiers.length > 4 && (
-              <span className="text-stone-500 px-1">+{calc.successModifiers.length - 4}</span>
-            )}
-          </div>
-
-          {/* ===== АНАЛИТИКА ПРЕДСКАЗАНИЯ МИССИИ ===== */}
-          <div className="bg-stone-900/60 rounded-lg p-2 border border-stone-700/50 space-y-1.5 flex-shrink-0">
+          {/* ===== ПРОГНОЗ МИССИИ ===== */}
+          <div className="bg-stone-950/80 rounded-lg p-3 border border-stone-700 space-y-2">
+            {/* Заголовок прогноза */}
             <div className="flex items-center justify-between">
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="text-xs font-medium text-stone-300 flex items-center gap-1 cursor-help">
-                      <TrendingUp className="w-3 h-3" />
+                    <span className="text-xs font-medium text-stone-300 uppercase tracking-wider flex items-center gap-2 cursor-help">
+                      <TrendingUp className="w-4 h-4" />
                       Прогноз миссии
                     </span>
                   </TooltipTrigger>
-                  <TooltipContent>
+                  <TooltipContent className="max-w-xs">
                     <p className="font-semibold">Расчёт результатов миссии</p>
                     <p className="text-xs text-stone-300">
-                      Предварительный расчёт на основе параметров искателя, оружия и условий миссии.
+                      Предварительный расчёт на основе всех параметров искателя, оружия и условий миссии.
                     </p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-              
+
               {advice && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded cursor-help ${
-                        advice.type === 'excellent' ? 'bg-green-900/50 text-green-300' :
-                        advice.type === 'good' ? 'bg-blue-900/50 text-blue-300' :
-                        advice.type === 'risky' ? 'bg-amber-900/50 text-amber-300' :
-                        advice.type === 'dangerous' ? 'bg-red-900/50 text-red-300' :
-                        advice.type === 'warning' ? 'bg-orange-900/50 text-orange-300' :
-                        'bg-purple-900/50 text-purple-300'
-                      }`}>
-                        {advice.icon} {advice.text.length > 20 ? advice.text.slice(0, 20) + '...' : advice.text}
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="font-semibold">{advice.text}</p>
-                      {advice.detail && <p className="text-xs text-stone-300">{advice.detail}</p>}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <Badge className={`
+                  ${advice.type === 'excellent' ? 'bg-green-900/60 text-green-300' : ''}
+                  ${advice.type === 'good' ? 'bg-blue-900/60 text-blue-300' : ''}
+                  ${advice.type === 'risky' ? 'bg-amber-900/60 text-amber-300' : ''}
+                  ${advice.type === 'dangerous' ? 'bg-red-900/60 text-red-300' : ''}
+                  ${advice.type === 'warning' ? 'bg-orange-900/60 text-orange-300' : ''}
+                  ${advice.type === 'special' ? 'bg-purple-900/60 text-purple-300' : ''}
+                  text-xs cursor-help
+                `}>
+                  {advice.icon} {advice.text}
+                </Badge>
               )}
             </div>
-            
-            {/* Основные показатели */}
-            <div className="grid grid-cols-2 gap-x-2 gap-y-1">
-              <InfoRow
-                label="Шанс успеха"
-                value={<span className={successColor}>{calc.successChance}%</span>}
-                icon={<CheckCircle className="w-3 h-3" />}
-                tooltipTitle="Шанс успешного выполнения"
-                tooltipContent={`Базовый шанс модифицируется уровнем искателя, оружием, сильными и слабыми сторонами. Итоговый шанс: ${calc.successChance}%`}
-                valueColor={successColor}
-              />
-              
-              <InfoRow
-                label="Длительность"
-                value={`${durationMinutes} мин`}
-                icon={<Clock className="w-3 h-3" />}
-                tooltipTitle="Время выполнения миссии"
-                tooltipContent={`Миссия займёт примерно ${durationMinutes} минут реального времени. После завершения придёт отчёт.`}
-              />
-              
-              <InfoRow
-                label="Комиссия"
-                value={<span className="text-amber-400">{calc.commission} 💰</span>}
-                icon={<Sparkles className="w-3 h-3" />}
-                tooltipTitle="Заработок гильдии"
-                tooltipContent={`При успехе гильдия получит ${calc.commission} золота. Учитывается уровень гильдии и редкость искателя.`}
-                valueColor="text-amber-400"
-              />
-              
-              <InfoRow
-                label="Души войны"
-                value={<span className="text-purple-400">~{calc.warSoul} ✨</span>}
-                icon={<Zap className="w-3 h-3" />}
-                tooltipTitle="Души войны за миссию"
-                tooltipContent={`Души войны используются для улучшения оружия. При успехе: ~${calc.warSoul} душ. Зависит от редкости искателя.`}
-                valueColor="text-purple-400"
-              />
-              
-              <InfoRow
-                label="Износ оружия"
-                value={`${calc.weaponWear}%`}
-                icon={<Swords className="w-3 h-3" />}
-                tooltipTitle="Износ оружия при миссии"
-                tooltipContent={`Оружие потеряет ~${calc.weaponWear}% прочности. При достижении 0% оружие сломается.`}
-              />
-              
-              <InfoRow
-                label="Риск потери"
-                value={<span className={calc.weaponLossChance > 10 ? 'text-red-400' : 'text-stone-300'}>{calc.weaponLossChance}%</span>}
-                icon={<Shield className="w-3 h-3" />}
-                tooltipTitle="Шанс потери оружия"
-                tooltipContent={`При провале есть ${calc.weaponLossChance}% шанс потерять оружие навсегда. Можно восстановить за золото.`}
-                valueColor={calc.weaponLossChance > 10 ? 'text-red-400' : 'text-stone-300'}
-              />
+
+            {/* Критические метрики (шанс успеха + доход) */}
+            <div className="grid grid-cols-2 gap-2">
+              {/* Шанс успеха */}
+              <div className="p-3 rounded-lg bg-green-900/20 border border-green-800/30">
+                <span className="text-xs text-green-300 block mb-1">Шанс успеха</span>
+                <div className="flex items-center justify-between">
+                  <span className={`text-2xl font-bold ${successColor}`}>{calc.successChance}%</span>
+                </div>
+                <div className="w-full bg-stone-700 rounded-full h-1.5">
+                  <div
+                    className={`h-1.5 rounded-full ${progressColor}`}
+                    style={{ width: `${calc.successChance}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Доход */}
+              <div className="p-3 rounded-lg bg-amber-900/20 border border-amber-800/30">
+                <span className="text-xs text-amber-300 block mb-1">Доход</span>
+                <div className="text-2xl font-bold text-amber-400">
+                  💰 {calc.commission}
+                </div>
+              </div>
             </div>
-            
-            {/* ===== ДЕТАЛИЗАЦИЯ МОДИФИКАТОРОВ ===== */}
-            <div className="mt-3 pt-2 border-t border-stone-700/50">
-              <FullModifierBreakdown calculation={calc} compact />
+
+            {/* Второстепенные метрики (длительность + души войны) */}
+            <div className="grid grid-cols-2 gap-2">
+              {/* Длительность */}
+              <div className="p-3 rounded-lg bg-stone-800/50 border border-stone-700">
+                <span className="text-xs text-stone-400 block mb-1">Длительность</span>
+                <div className="flex items-center gap-1 text-lg font-semibold text-stone-200">
+                  <Clock className="w-4 h-4" />
+                  {durationMinutes} мин
+                </div>
+              </div>
+
+              {/* Души войны */}
+              <div className="p-3 rounded-lg bg-purple-900/20 border border-purple-800/30">
+                <span className="text-xs text-purple-300 block mb-1">Души войны</span>
+                <div className="text-lg font-semibold text-purple-400">
+                  ~{calc.warSoul}
+                </div>
+              </div>
+            </div>
+
+            {/* Риски */}
+            <div className="grid grid-cols-2 gap-2">
+              {/* Износ оружия */}
+              <div className="p-3 rounded-lg bg-stone-800/50 border border-stone-700">
+                <span className="text-xs text-stone-400 block mb-1">Износ оружия</span>
+                <div className="flex items-center gap-1 text-sm font-bold text-stone-200">
+                  <Swords className="w-3 h-3" />
+                  -{calc.weaponWear}%
+                </div>
+              </div>
+
+              {/* Риск потери */}
+              <div className="p-3 rounded-lg bg-red-900/20 border border-red-800/30">
+                <span className="text-xs text-red-300 block mb-1">Риск потери</span>
+                <div className="flex items-center gap-1 text-sm font-bold text-stone-200">
+                  <Shield className="w-3 h-3" />
+                  <span className={riskColor}>{calc.weaponLossChance}%</span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -560,12 +498,12 @@ export const AdventurerCardV2: React.FC<AdventurerCardV2Props> = ({
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button 
+                  <Button
                     onClick={(e) => {
                       e.stopPropagation()
                       onSelect()
                     }}
-                    className={`w-full mt-1 flex-shrink-0 ${selected ? 'bg-amber-600 hover:bg-amber-500' : ''}`}
+                    className={`w-full mt-auto flex-shrink-0 ${selected ? 'bg-amber-600 hover:bg-amber-500' : ''}`}
                     variant={selected ? 'default' : 'outline'}
                     size="sm"
                   >
@@ -579,7 +517,8 @@ export const AdventurerCardV2: React.FC<AdventurerCardV2Props> = ({
                   <p className="text-xs text-stone-300">
                     {selected 
                       ? 'Нажмите "Отправить в экспедицию" для подтверждения'
-                      : 'Нажмите для выбора этого искателя на миссию'}
+                      : 'Нажмите для выбора этого искателя на миссию'
+                    }
                   </p>
                 </TooltipContent>
               </Tooltip>

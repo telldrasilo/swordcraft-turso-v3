@@ -36,6 +36,7 @@ export interface Resources {
   mithrilIngot: number
   planks: number
   stoneBlocks: number
+  leather: number  // Кожа для рукоятей
 }
 
 /** Ключи ресурсов */
@@ -70,17 +71,17 @@ export const initialResources: Resources = {
   gold: 200,
   soulEssence: 0,
   // Сырьё
-  wood: 50,
-  stone: 30,
-  iron: 30,
-  coal: 25,
+  wood: 0,
+  stone: 0,
+  iron: 0,
+  coal: 0,
   copper: 0,
   tin: 0,
   silver: 0,
   goldOre: 0,
   mithril: 0,
   // Переработанные
-  ironIngot: 10,
+  ironIngot: 0,
   copperIngot: 0,
   tinIngot: 0,
   bronzeIngot: 0,
@@ -88,8 +89,9 @@ export const initialResources: Resources = {
   silverIngot: 0,
   goldIngot: 0,
   mithrilIngot: 0,
-  planks: 15,
-  stoneBlocks: 5,
+  planks: 0,
+  stoneBlocks: 0,
+  leather: 0,  // Кожа для рукоятей
 }
 
 // ================================

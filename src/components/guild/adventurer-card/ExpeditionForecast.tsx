@@ -1,12 +1,14 @@
 /**
  * Expedition Forecast Section
  * Секция прогноза миссии для карточки искателя
+ * Версия 2.0 - Улучшенный UX/UI с чёткой иерархией информации
  */
 
 'use client'
 
 import React from 'react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Tooltip,
   TooltipContent,
@@ -53,29 +55,246 @@ interface ExpeditionForecastProps {
 }
 
 // ================================
-// КОМПОНЕНТ
+// ПОДКОМПОНЕНТЫ
+// ================================
+
+interface CriticalStatsSectionProps {
+  successChance: number
+  goldReward: number
+}
+
+const CriticalStatsSection: React.FC<CriticalStatsSectionProps> = ({
+  successChance,
+  goldReward
+}) => {
+  const successColor = successChance >= 75 ? 'text-green-400' :
+                     successChance >= 50 ? 'text-amber-400' : 'text-red-400'
+  const progressColor = successChance >= 75 ? 'bg-green-500' :
+                        successChance >= 50 ? 'bg-amber-500' : 'bg-red-500'
+
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {/* Шанс успеха - КРИТИЧЕСКИ ВАЖНО */}
+      <div className="p-3 rounded-lg bg-green-900/20 border border-green-800/30">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="cursor-help">
+                <span className="text-xs text-green-300 block mb-1">Шанс успеха</span>
+                <div className={`text-2xl font-bold ${successColor} mb-2`}>
+                  {successChance}%
+                </div>
+                <div className="w-full bg-stone-700 rounded-full h-1.5">
+                  <div
+                    className={`h-1.5 rounded-full ${progressColor}`}
+                    style={{ width: `${successChance}%` }}
+                  />
+                </div>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs">
+              <p className="font-semibold">Шанс успешного выполнения</p>
+              <p className="text-xs text-stone-300">
+                Вероятность того, что миссия завершится успешно.
+                При успехе вы получите награду, при провале — потеряете депозит и рискуете потерять оружие.
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+
+      {/* Доход - КРИТИЧЕСКИ ВАЖНО */}
+      <div className="p-3 rounded-lg bg-amber-900/20 border border-amber-800/30">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="cursor-help">
+                <span className="text-xs text-amber-300 block mb-1">Доход</span>
+                <div className="text-xl font-bold text-amber-400">
+                  {goldReward} 💰
+                </div>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs">
+              <p className="font-semibold">Заработок гильдии</p>
+              <p className="text-xs text-stone-300">
+                Золото, которое гильдия получит при успешном выполнении миссии.
+                Сумма зависит от редкости искателя и его бонусов.
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+    </div>
+  )
+}
+
+interface SecondaryStatsSectionProps {
+  warSoulReward: number
+  weaponLossChance: number
+  weaponWear: number
+}
+
+const SecondaryStatsSection: React.FC<SecondaryStatsSectionProps> = ({
+  warSoulReward,
+  weaponLossChance,
+  weaponWear
+}) => {
+  const riskColor = weaponLossChance > 15 ? 'text-red-400' :
+                    weaponLossChance >= 5 ? 'text-amber-400' : 'text-stone-400'
+
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {/* Души войны - ВАЖНО */}
+      <div className="p-3 rounded-lg bg-purple-900/20 border border-purple-800/30">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="cursor-help">
+                <span className="text-xs text-purple-300 block mb-1">Души войны</span>
+                <div className="text-lg font-semibold text-purple-400">
+                  ~{warSoulReward}
+                </div>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs">
+              <p className="font-semibold">Души войны</p>
+              <p className="text-xs text-stone-300">
+                Валюта для улучшения и зачарования оружия.
+                Количество зависит от редкости искателя и бонусов к душам.
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+
+      {/* Риски - ВТОРОСТЕПЕННОЕ */}
+      <div className="p-3 rounded-lg bg-red-900/20 border border-red-800/30">
+        <div className="space-y-2">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="cursor-help">
+                  <span className="text-xs text-red-300 block mb-1">Риски</span>
+                  <div className="text-xs space-y-1">
+                    <div className={`font-medium ${riskColor}`}>
+                      Потеря: {weaponLossChance}%
+                    </div>
+                    <div className="text-stone-400">
+                      Износ: -{weaponWear}%
+                    </div>
+                  </div>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p className="font-semibold">Риски экспедиции</p>
+                <p className="text-xs text-stone-300">
+                  <strong>Потеря оружия:</strong> риск потерять оружие при провале миссии.<br/>
+                  <strong>Износ:</strong> оружие потеряет прочность независимо от исхода.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+interface ModifiersSectionProps {
+  successModifiers: Array<{
+    source: string
+    sourceIcon: string
+    value: number
+    description: string
+    type: string
+  }>
+  goldModifiers: Array<{
+    source: string
+    sourceIcon: string
+    value: number
+    description: string
+    type: string
+  }>
+}
+
+const ModifiersSection: React.FC<ModifiersSectionProps> = ({
+  successModifiers,
+  goldModifiers,
+}) => {
+  const [isOpen, setIsOpen] = React.useState(false)
+
+  if (successModifiers.length === 0 && goldModifiers.length === 0) {
+    return null
+  }
+
+  return (
+    <details className="group" open={isOpen} onToggle={(e) => setIsOpen((e.target as HTMLDetailsElement).open)}>
+      <summary className="cursor-pointer text-sm text-amber-400 hover:text-amber-300 flex items-center gap-1 list-none select-none">
+        <span className="group-open:rotate-90 transition-transform inline-block text-xs">▶</span>
+        {isOpen ? 'Скрыть детали' : 'Показать детали'}
+      </summary>
+      <div className="mt-3 space-y-3 pt-3 border-t border-stone-700">
+        {/* Модификаторы успеха */}
+        {successModifiers.length > 0 && (
+          <div>
+            <h5 className="text-xs text-stone-400 mb-2 font-medium">Модификаторы успеха:</h5>
+            <div className="flex flex-wrap gap-1.5">
+              {successModifiers.map((mod, i) => (
+                <ModifierBadge
+                  key={i}
+                  source={mod.source}
+                  sourceIcon={mod.sourceIcon}
+                  value={mod.value}
+                  description={mod.description}
+                  type={mod.type as 'positive' | 'negative' | 'neutral'}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Модификаторы золота */}
+        {goldModifiers.length > 0 && (
+          <div>
+            <h5 className="text-xs text-stone-400 mb-2 font-medium">Модификаторы золота:</h5>
+            <div className="flex flex-wrap gap-1.5">
+              {goldModifiers.map((mod, i) => (
+                <ModifierBadge
+                  key={i}
+                  source={mod.source}
+                  sourceIcon={mod.sourceIcon}
+                  value={mod.value}
+                  description={mod.description}
+                  type={mod.type as 'positive' | 'negative' | 'neutral'}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </details>
+  )
+}
+
+// ================================
+// ОСНОВНОЙ КОМПОНЕНТ
 // ================================
 
 export const ExpeditionForecast: React.FC<ExpeditionForecastProps> = ({
   expedition,
   advice,
 }) => {
-  // Цвет успеха
-  const successColor = React.useMemo(() => {
-    if (expedition.successChance >= 75) return 'text-green-400'
-    if (expedition.successChance >= 50) return 'text-amber-400'
-    return 'text-red-400'
-  }, [expedition.successChance])
-
   return (
-    <div className="space-y-3 p-4 rounded-lg bg-stone-950/80 border border-stone-700">
+    <div className="space-y-2 p-3 rounded-lg bg-stone-950/80 border border-stone-700">
+      {/* Заголовок */}
       <div className="flex items-center justify-between">
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
               <h4 className="text-sm font-medium text-stone-200 uppercase tracking-wider cursor-help flex items-center gap-2">
                 <TrendingUp className="w-4 h-4" />
-                📈 Прогноз миссии
+                Прогноз миссии
               </h4>
             </TooltipTrigger>
             <TooltipContent>
@@ -112,222 +331,25 @@ export const ExpeditionForecast: React.FC<ExpeditionForecastProps> = ({
         )}
       </div>
 
-      {/* Основные результаты */}
-      <div className="grid grid-cols-2 gap-2">
-        {/* Шанс успеха */}
-        <div className="p-3 rounded-lg bg-green-900/20 border border-green-800/30">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="cursor-help">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-green-300 flex items-center gap-1">
-                      <CheckCircle className="w-3 h-3" />
-                      Шанс успеха
-                    </span>
-                    <span className={`text-xl font-bold ${successColor}`}>
-                      {expedition.successChance}%
-                    </span>
-                  </div>
-                  <div className="w-full bg-stone-700 rounded-full h-1.5">
-                    <div
-                      className={`h-1.5 rounded-full ${
-                        expedition.successChance >= 75 ? 'bg-green-500' :
-                        expedition.successChance >= 50 ? 'bg-amber-500' : 'bg-red-500'
-                      }`}
-                      style={{ width: `${expedition.successChance}%` }}
-                    />
-                  </div>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
-                <p className="font-semibold">Шанс успешного выполнения</p>
-                <p className="text-xs text-stone-300">
-                  Вероятность того, что миссия завершится успешно.
-                  При успехе вы получите награду, при провале — потеряете депозит и рискуете потерять оружие.
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
+      {/* Критические метрики (шанс успеха + доход) */}
+      <CriticalStatsSection
+        successChance={expedition.successChance}
+        goldReward={expedition.goldReward}
+      />
 
-        {/* Риск потери */}
-        <div className="p-3 rounded-lg bg-red-900/20 border border-red-800/30">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="cursor-help">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-red-300 flex items-center gap-1">
-                      <Skull className="w-3 h-3" />
-                      Потеря оружия
-                    </span>
-                    <span className={`text-xl font-bold ${expedition.weaponLossChance > 15 ? 'text-red-400' : 'text-stone-300'}`}>
-                      {expedition.weaponLossChance}%
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-stone-500">При провале миссии</p>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
-                <p className="font-semibold">Риск потери оружия</p>
-                <p className="text-xs text-stone-300">
-                  Если миссия провалится, есть шанс потерять оружие навсегда.
-                  Потерянное оружие можно восстановить за золото в квесте восстановления.
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-      </div>
+      {/* Второстепенные метрики (души войны + риски) */}
+      <SecondaryStatsSection
+        warSoulReward={expedition.warSoulReward}
+        weaponLossChance={expedition.weaponLossChance}
+        weaponWear={expedition.weaponWear}
+      />
 
-      {/* Награды */}
-      <div className="grid grid-cols-2 gap-2">
-        <div className="p-3 rounded-lg bg-amber-900/20 border border-amber-800/30">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="cursor-help">
-                  <span className="text-xs text-amber-300 flex items-center gap-1">
-                    <Coins className="w-3 h-3" />
-                    Комиссия гильдии
-                  </span>
-                  <div className="text-2xl font-bold text-amber-400 mt-1">
-                    {expedition.goldReward} 💰
-                  </div>
-                  <p className="text-[10px] text-stone-500">При успехе миссии</p>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
-                <p className="font-semibold">Заработок гильдии</p>
-                <p className="text-xs text-stone-300">
-                  Золото, которое гильдия получит при успешном выполнении миссии.
-                  Сумма зависит от редкости искателя и его бонусов.
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-
-        <div className="p-3 rounded-lg bg-purple-900/20 border border-purple-800/30">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="cursor-help">
-                  <span className="text-xs text-purple-300 flex items-center gap-1">
-                    <Zap className="w-3 h-3" />
-                    Души войны
-                  </span>
-                  <div className="text-2xl font-bold text-purple-400 mt-1">
-                    ~{expedition.warSoulReward} ✨
-                  </div>
-                  <p className="text-[10px] text-stone-500">Для улучшения оружия</p>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
-                <p className="font-semibold">Души войны</p>
-                <p className="text-xs text-stone-300">
-                  Валюта для улучшения и зачарования оружия.
-                  Количество зависит от редкости искателя и бонусов к душам.
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-      </div>
-
-      {/* Износ оружия */}
-      <div className="p-3 rounded-lg bg-stone-800/50 border border-stone-700">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="cursor-help flex items-center justify-between">
-                <span className="text-xs text-stone-300 flex items-center gap-1">
-                  <Swords className="w-3 h-3" />
-                  Износ оружия
-                </span>
-                <span className="text-sm font-bold text-stone-200">
-                  -{expedition.weaponWear}%
-                </span>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent className="max-w-xs">
-              <p className="font-semibold">Износ оружия</p>
-              <p className="text-xs text-stone-300">
-                Оружие потеряет эту часть прочности независимо от исхода миссии.
-                При достижении 0% оружие сломается и станет непригодным.
-              </p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
-
-      {/* Модификаторы успеха */}
-      {expedition.successModifiers.length > 0 && (
-        <div className="space-y-2 pt-2 border-t border-stone-700">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="text-xs text-stone-400 cursor-help">
-                  📊 Модификаторы успеха:
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p className="font-semibold">Все модификаторы шанса успеха</p>
-                <p className="text-xs text-stone-300">
-                  Каждый модификатор показывает, какой фактор и насколько влияет на итоговый шанс успеха.
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-          <div className="flex flex-wrap gap-1.5">
-            {expedition.successModifiers.map((mod, i) => (
-              <ModifierBadge
-                key={i}
-                source={mod.source}
-                sourceIcon={mod.sourceIcon}
-                value={mod.value}
-                description={mod.description}
-                type={mod.type as 'positive' | 'negative' | 'neutral'}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Модификаторы золота */}
-      {expedition.goldModifiers.length > 0 && (
-        <div className="space-y-2 pt-2 border-t border-stone-700">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="text-xs text-stone-400 cursor-help">
-                  💰 Модификаторы золота:
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p className="font-semibold">Все модификаторы заработка</p>
-                <p className="text-xs text-stone-300">
-                  Каждый модификатор показывает, какой фактор и насколько влияет на итоговый заработок золота.
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-          <div className="flex flex-wrap gap-1.5">
-            {expedition.goldModifiers.map((mod, i) => (
-              <ModifierBadge
-                key={i}
-                source={mod.source}
-                sourceIcon={mod.sourceIcon}
-                value={mod.value}
-                description={mod.description}
-                type={mod.type as 'positive' | 'negative' | 'neutral'}
-              />
-            ))}
-          </div>
-        </div>
+      {/* Раскрываемая секция модификаторов */}
+      {(expedition.successModifiers.length > 0 || expedition.goldModifiers.length > 0) && (
+        <ModifiersSection
+          successModifiers={expedition.successModifiers}
+          goldModifiers={expedition.goldModifiers}
+        />
       )}
 
       {/* Детали совета */}

@@ -20,16 +20,12 @@ import { useGameStore } from '@/store/game-store-composed'
 export function EncyclopediaScreen() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<MaterialDisplayCategory>('all')
-  
+  const [testMode, setTestMode] = useState<'normal' | 'max' | 'min'>('normal')
+
   // Get knowledge from store
   const materialKnowledge = useGameStore(state => state.materialKnowledge)
   const setMaterialExpertise = useGameStore(state => state.setMaterialExpertise)
 
-  // Test: set iron expertise to 100%
-  const testMaxIronExpertise = () => {
-    setMaterialExpertise('iron', 100)
-  }
-  
   // Filter materials
   const filteredMaterials = useMemo(() => {
     return allMaterials
@@ -66,6 +62,33 @@ export function EncyclopediaScreen() {
       })
   }, [selectedCategory, searchQuery, materialKnowledge])
 
+  // Test: toggle expertise between 100%, 10% and original values
+  const testToggleExpertise = () => {
+    const targetExpertise = testMode === 'normal' ? 100 : (testMode === 'max' ? 10 : null)
+
+    if (targetExpertise === null) {
+      // Reset to normal mode
+      setTestMode('normal')
+      return
+    }
+
+    // Set expertise for all displayed materials
+    filteredMaterials.forEach((material: MaterialNode) => {
+      const currentExpertise = materialKnowledge[material.identity.id]?.expertise || 0
+      if (currentExpertise > 0) {
+        setMaterialExpertise(material.identity.id, targetExpertise)
+      }
+    })
+
+    setTestMode(targetExpertise === 100 ? 'max' : 'min')
+  }
+
+  const getTestButtonText = () => {
+    if (testMode === 'normal') return 'Test: All 100%'
+    if (testMode === 'max') return 'Test: All 10%'
+    return 'Test: Reset'
+  }
+
   return (
     <div className="p-4 md:p-6 space-y-6">
       {/* Header */}
@@ -73,21 +96,21 @@ export function EncyclopediaScreen() {
         <div>
           <h2 className="text-2xl font-bold text-amber-200 flex items-center gap-2">
             <BookOpen className="w-6 h-6 text-amber-500" />
-            Encyclopedia Materials
+            Энциклопедия материалов
           </h2>
-          <p className="text-stone-500 text-sm">Learn material properties</p>
+          <p className="text-stone-500 text-sm">Изучайте свойства материалов</p>
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={testMaxIronExpertise}
+            onClick={testToggleExpertise}
             className="flex items-center gap-2 px-3 py-1 text-xs bg-purple-900/50 hover:bg-purple-800/50 border border-purple-700 text-purple-300 rounded"
-            title="Test: Set iron expertise to 100%"
+            title={`Тест: переключить экспертизу всех материалов (${testMode})`}
           >
             <TestTube className="w-4 h-4" />
-            <span>Test: Iron 100%</span>
+            <span>{getTestButtonText()}</span>
           </button>
           <div className="text-stone-400 text-sm">
-            {filteredMaterials.length} / {allMaterials.length} materials
+            {filteredMaterials.length} / {allMaterials.length}
           </div>
         </div>
       </div>
@@ -106,11 +129,11 @@ export function EncyclopediaScreen() {
         <Card className="bg-stone-900/50 border-stone-700">
           <CardContent className="p-8 text-center">
             <Search className="w-12 h-12 mx-auto text-stone-600 mb-3" />
-            <p className="text-stone-500">No materials found</p>
+            <p className="text-stone-500">Материалы не найдены</p>
             <p className="text-stone-600 text-sm">
               {searchQuery
-                ? 'Try different search query'
-                : 'Discover new materials in the forge'}
+                ? 'Попробуйте изменить поисковый запрос'
+                : 'Откройте новые материалы в кузнице'}
             </p>
           </CardContent>
         </Card>
@@ -131,20 +154,20 @@ export function EncyclopediaScreen() {
         <CardContent className="p-4">
           <h4 className="font-semibold text-stone-300 mb-2 flex items-center gap-2">
             <Info className="w-4 h-4 text-amber-500" />
-            About Encyclopedia
+            Об энциклопедии
           </h4>
           <ul className="text-xs text-stone-500 space-y-1">
             <li>
-              <strong className="text-amber-400">Expertise</strong> —
-              Gained by using materials in crafting
+              <strong className="text-amber-400">Экспертиза</strong> —
+              накапливается при использовании материалов в крафте
             </li>
             <li>
-              <strong className="text-green-400">Discovered materials</strong> —
-              Give bonuses to speed, quality, and prediction accuracy
+              <strong className="text-green-400">Изученные материалы</strong> —
+              дают бонусы к скорости, качеству и точности прогноза
             </li>
             <li>
-              <strong className="text-purple-400">New properties</strong> —
-              Unlock as expertise accumulates
+              <strong className="text-purple-400">Новые свойства</strong> —
+              открываются по мере накопления экспертизы
             </li>
           </ul>
         </CardContent>

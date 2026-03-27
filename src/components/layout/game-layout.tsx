@@ -1,12 +1,12 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  Flame, 
-  Package, 
-  Users, 
-  Sword, 
-  Map, 
+import {
+  Flame,
+  Package,
+  Users,
+  Sword,
+  Map,
   Sparkles,
   Coins,
   Droplet,
@@ -19,6 +19,7 @@ import {
   Loader2,
   CheckCircle,
   BookOpen,
+  RotateCcw,
 } from 'lucide-react'
 import { useGameStore, useFormattedResources, type GameScreen } from '@/store'
 import { useGameLoop, useProductionRates } from '@/hooks/use-game-loop'
@@ -197,7 +198,20 @@ function ResourceBar({
 function SideNav({ onSave, isSaving }: { onSave: () => void; isSaving: boolean }) {
   const currentScreen = useGameStore((state) => state.currentScreen)
   const setCurrentScreen = useGameStore((state) => state.setCurrentScreen)
-  
+  const resetGame = useGameStore((state) => state.resetGame)
+  const [showResetConfirm, setShowResetConfirm] = useState(false)
+
+  const handleReset = () => {
+    if (showResetConfirm) {
+      resetGame()
+      setShowResetConfirm(false)
+      setTimeout(() => window.location.reload(), 100)
+    } else {
+      setShowResetConfirm(true)
+      setTimeout(() => setShowResetConfirm(false), 3000)
+    }
+  }
+
   return (
     <nav className="w-64 bg-gradient-to-b from-stone-900 to-stone-950 border-r border-stone-700/50 p-4 flex flex-col">
       <div className="mb-8">
@@ -223,12 +237,12 @@ function SideNav({ onSave, isSaving }: { onSave: () => void; isSaving: boolean }
           </Button>
         </div>
       </div>
-      
+
       <div className="flex flex-col gap-2">
         {navItems.map((item) => {
           const Icon = item.icon
           const isActive = currentScreen === item.id
-          
+
           return (
             <motion.div
               key={item.id}
@@ -240,8 +254,8 @@ function SideNav({ onSave, isSaving }: { onSave: () => void; isSaving: boolean }
                 variant={isActive ? 'default' : 'ghost'}
                 className={cn(
                   'w-full justify-start gap-3',
-                  isActive 
-                    ? 'bg-gradient-to-r from-amber-800 to-amber-900 text-amber-100 shadow-lg glow-gold' 
+                  isActive
+                    ? 'bg-gradient-to-r from-amber-800 to-amber-900 text-amber-100 shadow-lg glow-gold'
                     : 'text-stone-400 hover:text-stone-200 hover:bg-stone-800/50'
                 )}
                 onClick={() => setCurrentScreen(item.id)}
@@ -253,15 +267,33 @@ function SideNav({ onSave, isSaving }: { onSave: () => void; isSaving: boolean }
           )
         })}
       </div>
-      
+
       {/* Декоративный элемент снизу */}
-      <div className="mt-auto pt-4">
+      <div className="mt-auto pt-4 space-y-3">
         <div className="h-32 bg-gradient-to-t from-amber-900/20 to-transparent rounded-lg border border-amber-800/20 flex items-end justify-center pb-4">
           <div className="text-center">
             <Flame className="w-8 h-8 text-amber-500/50 mx-auto animate-pulse-gold" />
             <p className="text-xs text-stone-600 mt-1">Кузница работает</p>
           </div>
         </div>
+
+        {/* Кнопка сброса игры */}
+        <Button
+          onClick={handleReset}
+          variant="ghost"
+          size="sm"
+          className={cn(
+            'w-full justify-start gap-2',
+            showResetConfirm
+              ? 'bg-red-900/50 text-red-300 hover:bg-red-900/70'
+              : 'text-stone-500 hover:text-stone-300 hover:bg-stone-800/50'
+          )}
+        >
+          <RotateCcw className="w-4 h-4" />
+          <span className="text-xs">
+            {showResetConfirm ? 'Подтвердить сброс?' : 'Сбросить игру'}
+          </span>
+        </Button>
       </div>
     </nav>
   )

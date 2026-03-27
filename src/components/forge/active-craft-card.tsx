@@ -20,39 +20,25 @@ import {
 import { cn } from '@/lib/utils'
 import { useSound } from '@/lib/sounds'
 import { WeaponIcon, qualityColors } from './forge-utils'
-import type { CraftedWeapon } from '@/data/weapon-recipes'
+import type { CraftedWeapon } from '@/store/slices/craft-slice'
 
 export function ActiveCraftCard() {
   const activeCraft = useGameStore((state) => state.activeCraft)
-  const updateCraftProgress = useGameStore((state) => state.updateCraftProgress)
-  const completeCraft = useGameStore((state) => state.completeCraft)
+  const weaponInventory = useGameStore((state) => state.weaponInventory.weapons)
+  const [lastWeaponCount, setLastWeaponCount] = useState(0)
   const [justCompleted, setJustCompleted] = useState<CraftedWeapon | null>(null)
   const { play } = useSound()
-  
-  // Обновление прогресса
+
+  // Следим за добавлением новых предметов в инвентарь (уведомление о завершении)
   useEffect(() => {
-    if (!activeCraft.recipeId || !activeCraft.endTime) return
-    
-    const interval = setInterval(() => {
-      const now = Date.now()
-      const total = activeCraft.endTime! - activeCraft.startTime!
-      const elapsed = now - activeCraft.startTime!
-      const progress = Math.min(100, (elapsed / total) * 100)
-      
-      updateCraftProgress(progress)
-      
-      if (progress >= 100) {
-        const weapon = completeCraft()
-        if (weapon) {
-          setJustCompleted(weapon)
-          play('craft_complete')
-          setTimeout(() => setJustCompleted(null), 3000)
-        }
-      }
-    }, 100)
-    
-    return () => clearInterval(interval)
-  }, [activeCraft.recipeId, activeCraft.endTime])
+    if (weaponInventory.length > lastWeaponCount && weaponInventory.length > 0) {
+      const newWeapon = weaponInventory[weaponInventory.length - 1]
+      setJustCompleted(newWeapon)
+      play('craft_complete')
+      setTimeout(() => setJustCompleted(null), 3000)
+    }
+    setLastWeaponCount(weaponInventory.length)
+  }, [weaponInventory.length, lastWeaponCount, play])
   
   if (!activeCraft.recipeId) {
     return (

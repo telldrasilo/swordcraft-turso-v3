@@ -1,6 +1,7 @@
 /**
  * Хук для системы крафта v2
  * Управление состоянием крафта с этапами
+ * Состояние синхронизируется с Zustand store для персистентности
  * 
  * @see docs/CRAFT_SYSTEM_CONCEPT.md
  */
@@ -13,12 +14,23 @@ import type {
   CraftedWeaponV2,
   MaterialAssignment 
 } from '@/types/craft-v2'
-import { generateCraftStages, createCraftPlan } from '@/lib/craft/process-generator'
-import { calculateWeapon, type WeaponCalculationResult } from '@/lib/craft/calculator'
-import { generateWeaponName, type WeaponNameResult } from '@/lib/craft/name-generator'
+import { 
+  generateCraftStages, 
+  createCraftPlan 
+} from '@/lib/craft/process-generator'
+import { 
+  calculateWeapon, 
+  type WeaponCalculationResult 
+} from '@/lib/craft/calculator'
+import { 
+  generateWeaponName, 
+  type WeaponNameResult 
+} from '@/lib/craft/name-generator'
 import { getRecipeById } from '@/data/recipes'
 import { getMaterialAsLegacy } from '@/data/materials'
 import { getTechniqueById } from '@/data/techniques'
+import { useGameStore } from '@/store/game-store-composed'
+import { getQualityRank } from '@/types/craft-v2'
 
 // ================================
 // ТИПЫ
@@ -42,6 +54,9 @@ export interface CraftV2State {
   
   /** Стадия UI */
   stage: 'planning' | 'crafting' | 'completed'
+  
+  /** Нужно ли закупать материалы */
+  shouldPurchaseMaterials: boolean
 }
 
 export interface UseCraftV2Return {
@@ -56,7 +71,9 @@ export interface UseCraftV2Return {
   
   // Craft actions
   startCraft: () => void
+  setShouldPurchaseMaterials: (should: boolean) => void  // Добавил для галочки закупки
   cancelCraft: () => void
+  instantComplete: () => void  // Тестовая функция мгновенного завершения
   
   // Result actions
   collectWeapon: () => CraftedWeaponV2 | null
@@ -74,6 +91,22 @@ const initialState: CraftV2State = {
   preview: null,
   weaponName: null,
   stage: 'planning',
+  shouldPurchaseMaterials: false,
+}
+
+function getRestoredState(): CraftV2State {
+  const persisted = useGameStore.getState().craftV2Persisted
+  if (!persisted || (!persisted.activeCraft && !persisted.completedWeapon)) {
+    return initialState
+  }
+  return {
+    plan: persisted.plan || null,
+    activeCraft: persisted.activeCraft || null,
+    completedWeapon: persisted.completedWeapon || null,
+    preview: persisted.preview || null,
+    weaponName: persisted.weaponName || null,
+    stage: persisted.stage || 'planning',
+  }
 }
 
 // ================================
@@ -84,12 +117,68 @@ export function useCraftV2(
   blacksmithLevel: number = 1,
   forgeLevel: number = 1
 ): UseCraftV2Return {
-  const [state, setState] = useState<CraftV2State>(initialState)
+  const [state, setStateRaw] = useState<CraftV2State>(() => getRestoredState())
+  const setCraftV2Persisted = useGameStore(s => s.setCraftV2Persisted)
   
+  const setState = useCallback((updater: CraftV2State | ((prev: CraftV2State) => CraftV2State)) => {
+    setStateRaw(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater
+      return next
+    })
+  }, [])
+
+  // Принудительная синхронизация перед закрытием страницы
+  const stateRef = useRef(state)
+  stateRef.current = state
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const s = stateRef.current
+      useGameStore.getState().setCraftV2Persisted({
+        activeCraft: s.activeCraft,
+        plan: s.plan,
+        completedWeapon: s.completedWeapon,
+        stage: s.stage,
+        preview: s.preview,
+        weaponName: s.weaponName,
+      })
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [])
+
+  // Синхронизация состояния в Zustand при изменении stage или completedWeapon
+  // НЕ синхронизируем activeCraft каждые 100мс (это вызвало бы лишние ре-рендеры)
+  // Вместо этого синхронизируем только при смене стадии
+  const prevStageRef = useRef(state.stage)
+  useEffect(() => {
+    const stageChanged = prevStageRef.current !== state.stage
+    prevStageRef.current = state.stage
+
+    if (stageChanged || !state.activeCraft) {
+      // #region agent log
+      fetch('http://127.0.0.1:7756/ingest/6a59fcb2-1024-4589-94d8-127641c9bb5c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d59723'},body:JSON.stringify({sessionId:'d59723',location:'use-craft-v2.ts:sync',message:'syncing to zustand',data:{stage:state.stage,hasActiveCraft:!!state.activeCraft,hasPlan:!!state.plan,stageChanged},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+      setCraftV2Persisted({
+        activeCraft: state.activeCraft,
+        plan: state.plan,
+        completedWeapon: state.completedWeapon,
+        stage: state.stage,
+        preview: state.preview,
+        weaponName: state.weaponName,
+      })
+    }
+  }, [state.stage, state.completedWeapon, state.activeCraft, state.plan, state.preview, state.weaponName, setCraftV2Persisted])
+
   // Refs для отложенных обновлений
-  const materialsRef = useRef<MaterialAssignment>({})
-  const techniquesRef = useRef<string[]>([])
-  const recipeIdRef = useRef<string | null>(null)
+  const materialsRef = useRef<MaterialAssignment>(
+    state.plan?.materials || {}
+  )
+  const techniquesRef = useRef<string[]>(
+    state.plan?.techniques || []
+  )
+  const recipeIdRef = useRef<string | null>(
+    state.plan?.recipeId || null
+  )
   
   // ================================
   // PLANNING ACTIONS
@@ -106,7 +195,6 @@ export function useCraftV2(
       return
     }
     
-    // Инициализируем пустой план
     const emptyPlan: CraftPlan = {
       recipeId,
       materials: {},
@@ -133,7 +221,7 @@ export function useCraftV2(
       weaponName: null,
       stage: 'planning',
     }))
-  }, [])
+  }, [setState])
   
   const setMaterial = useCallback((partId: string, materialId: string, quantity: number) => {
     materialsRef.current = {
@@ -141,7 +229,6 @@ export function useCraftV2(
       [partId]: { materialId, quantity },
     }
     
-    // Обновляем план если он существует
     setState(prev => {
       if (!prev.plan) return prev
       
@@ -152,7 +239,7 @@ export function useCraftV2(
       
       return { ...prev, plan: updatedPlan }
     })
-  }, [])
+  }, [setState])
   
   const setTechniques = useCallback((techniqueIds: string[]) => {
     techniquesRef.current = techniqueIds
@@ -167,7 +254,7 @@ export function useCraftV2(
       
       return { ...prev, plan: updatedPlan }
     })
-  }, [])
+  }, [setState])
   
   const calculatePreview = useCallback(() => {
     const recipeId = recipeIdRef.current
@@ -182,23 +269,17 @@ export function useCraftV2(
     const recipe = getRecipeById(recipeId)
     if (!recipe) return
     
-    // Получаем техники
     const techniques = techniqueIds
       .map(id => getTechniqueById(id))
       .filter((t): t is NonNullable<typeof t> => t !== undefined)
     
-    // Получаем материал боевой части для имени
     const combatPart = recipe.combatPart
     const combatMaterialId = materials[combatPart]?.materialId
     const combatMaterial = combatMaterialId ? getMaterialAsLegacy(combatMaterialId) : null
     
-    // Рассчитываем характеристики
     const preview = calculateWeapon(recipe, materials, techniques, blacksmithLevel)
+    const weaponName = generateWeaponName(recipe, combatMaterial || null, preview.quality)
     
-    // Генерируем имя
-    const weaponName = generateWeaponName(recipe, combatMaterial || null)
-    
-    // Генерируем этапы для расчёта времени
     const stages = generateCraftStages(recipe, materials, techniques, blacksmithLevel, forgeLevel)
     const estimatedTime = stages.reduce((sum, s) => sum + s.calculatedDuration, 0)
     
@@ -215,7 +296,7 @@ export function useCraftV2(
         estimatedQuality: preview.qualityGrade,
       } : null,
     }))
-  }, [blacksmithLevel, forgeLevel])
+  }, [blacksmithLevel, forgeLevel, setState])
   
   // ================================
   // CRAFT ACTIONS
@@ -225,26 +306,23 @@ export function useCraftV2(
     const recipeId = recipeIdRef.current
     const materials = materialsRef.current
     const techniqueIds = techniquesRef.current
-    
+    const shouldPurchase = state.shouldPurchaseMaterials
+
     if (!recipeId || Object.keys(materials).length === 0) {
       console.warn('Cannot start craft: missing recipe or materials')
       return
     }
-    
+
     const recipe = getRecipeById(recipeId)
     if (!recipe) return
-    
+
     const techniques = techniqueIds
       .map(id => getTechniqueById(id))
       .filter((t): t is NonNullable<typeof t> => t !== undefined)
+
+    const stages = generateCraftStages(recipe, materials, techniques, blacksmithLevel, forgeLevel, undefined, shouldPurchase)
+    const plan = createCraftPlan(recipeId, materials, techniqueIds, blacksmithLevel, forgeLevel, shouldPurchase)
     
-    // Генерируем этапы
-    const stages = generateCraftStages(recipe, materials, techniques, blacksmithLevel, forgeLevel)
-    
-    // Создаём план
-    const plan = createCraftPlan(recipeId, materials, techniqueIds, blacksmithLevel, forgeLevel)
-    
-    // Создаём активный крафт
     const activeCraft: ActiveCraftV2 = {
       id: `craft_${Date.now()}`,
       plan,
@@ -263,7 +341,6 @@ export function useCraftV2(
       }],
     }
     
-    // Отмечаем первый этап
     if (stages.length > 0) {
       stages[0].status = 'in_progress'
       stages[0].startTime = Date.now()
@@ -274,15 +351,102 @@ export function useCraftV2(
       activeCraft,
       stage: 'crafting',
     }))
-  }, [blacksmithLevel, forgeLevel])
+  }, [blacksmithLevel, forgeLevel, setState])
   
+  const setShouldPurchaseMaterials = useCallback((should: boolean) => {
+    setState(prev => ({ ...prev, shouldPurchaseMaterials: should }))
+  }, [setState])
+
   const cancelCraft = useCallback(() => {
     setState(prev => ({
       ...prev,
       activeCraft: null,
       stage: 'planning',
     }))
-  }, [])
+  }, [setState])
+  
+  // ================================
+  // INSTANT COMPLETE (для тестирования)
+  // ================================
+  
+  const instantComplete = useCallback(() => {
+    if (state.stage !== 'crafting' || !state.activeCraft) return
+    
+    // Устанавливаем elapsedTime больше totalDuration для мгновенного завершения
+    const totalDurationMs = state.activeCraft.totalDuration * 1000
+    
+    setState(prev => {
+      if (!prev.activeCraft || prev.stage !== 'crafting') return prev
+      
+      const craft = { ...prev.activeCraft }
+      craft.elapsedTime = totalDurationMs + 1000 // +1 секунда для гарантии
+      craft.status = 'completed'
+      
+      // Помечаем все этапы как завершенные
+      craft.stages = craft.stages.map(stage => ({
+        ...stage,
+        status: 'completed' as const,
+        progress: 100,
+      }))
+      craft.currentStageIndex = craft.stages.length - 1
+      
+      // Создаем оружие если есть данные
+      if (prev.preview && prev.weaponName && prev.plan) {
+        const recipe = getRecipeById(prev.plan.recipeId)
+        
+        // Генерируем уникальный ID: w_timestamp_random
+        const uniqueId = `w_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`
+        
+        // Получаем combatMaterialId для hiddenTags
+        const recipeData = getRecipeById(prev.plan.recipeId)
+        const combatPart = recipeData?.combatPart || 'blade'
+        const combatMatId = prev.plan.materials[combatPart]?.materialId || 'unknown'
+        
+        // Генерируем hiddenTags
+        const hiddenTags = [
+          recipe?.type || 'sword',
+          combatMatId,
+          `q:${Math.floor(prev.preview.quality)}`,
+          `rank:${prev.weaponName.qualityRank || 'F'}`,
+        ]
+        
+        const completedWeapon: CraftedWeaponV2 = {
+          id: uniqueId,
+          recipeId: prev.plan.recipeId,
+          prefix: prev.weaponName.prefix,
+          baseName: prev.weaponName.baseName,
+          suffix: prev.weaponName.suffix,
+          fullName: prev.weaponName.fullName,
+          type: recipe?.type || 'sword',
+          tier: recipe?.baseStats ? Math.ceil(prev.preview.stats.attack / 20) : 1,
+          materials: prev.preview.materials,
+          stats: prev.preview.stats,
+          quality: prev.preview.quality,
+          qualityGrade: prev.preview.qualityGrade,
+          qualityRank: prev.weaponName.qualityRank || getQualityRank(prev.preview.quality),
+          warSoul: 0,
+          maxWarSoul: prev.preview.stats.soulCapacity,
+          createdAt: Date.now(),
+          adventureCount: 0,
+          sellPrice: prev.preview.sellPrice,
+          hiddenTags,
+          combatMaterialId: combatMatId,
+          currentDurability: prev.preview.stats.durability,
+          epicMultiplier: 1.0,
+          techniquesUsed: prev.plan.techniques,
+        }
+        
+        return {
+          ...prev,
+          activeCraft: null,
+          completedWeapon,
+          stage: 'completed' as const,
+        }
+      }
+      
+      return prev
+    })
+  }, [state.stage, state.activeCraft, setState])
   
   // ================================
   // RESULT ACTIONS
@@ -293,7 +457,6 @@ export function useCraftV2(
     
     if (!completedWeapon || !preview || !weaponName || !plan) return null
     
-    // Очищаем состояние
     setState(prev => ({
       ...prev,
       completedWeapon: null,
@@ -301,14 +464,14 @@ export function useCraftV2(
     }))
     
     return completedWeapon
-  }, [state])
+  }, [state, setState])
   
   const reset = useCallback(() => {
     materialsRef.current = {}
     techniquesRef.current = []
     recipeIdRef.current = null
     setState(initialState)
-  }, [])
+  }, [setState])
   
   // ================================
   // GAME LOOP (для прогресса крафта)
@@ -325,7 +488,6 @@ export function useCraftV2(
         const elapsed = Date.now() - craft.startTime
         craft.elapsedTime = elapsed
         
-        // Находим текущий этап
         let accumulatedTime = 0
         let currentStageFound = false
         
@@ -334,10 +496,8 @@ export function useCraftV2(
           const stageDuration = stage.calculatedDuration * 1000
           
           if (accumulatedTime + stageDuration > elapsed) {
-            // Это текущий этап
             craft.currentStageIndex = i
             
-            // Обновляем прогресс этапа
             const elapsedInStage = elapsed - accumulatedTime
             craft.stages = [...craft.stages]
             craft.stages[i] = {
@@ -348,7 +508,6 @@ export function useCraftV2(
             break
           }
           
-          // Отмечаем завершённые этапы
           if (stage.status !== 'completed') {
             craft.stages = [...craft.stages]
             craft.stages[i] = {
@@ -361,17 +520,30 @@ export function useCraftV2(
           accumulatedTime += stageDuration
         }
         
-        // Проверяем завершение
         if (!currentStageFound && craft.stages.length > 0) {
-          // Все этапы завершены
           craft.status = 'completed'
           
-          // Создаём готовое оружие
           if (prev.preview && prev.weaponName && prev.plan) {
             const recipe = getRecipeById(prev.plan.recipeId)
             
+            // Генерируем уникальный ID: w_timestamp_random
+            const uniqueId = `w_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`
+            
+            // Получаем combatMaterialId для hiddenTags
+            const recipeData = getRecipeById(prev.plan.recipeId)
+            const combatPart = recipeData?.combatPart || 'blade'
+            const combatMatId = prev.plan.materials[combatPart]?.materialId || 'unknown'
+            
+            // Генерируем hiddenTags
+            const hiddenTags = [
+              recipe?.type || 'sword',                              // тип оружия
+              combatMatId,                                          // материал combatPart
+              `q:${Math.floor(prev.preview.quality)}`,              // качество числом
+              `rank:${prev.weaponName.qualityRank || 'F'}`,         // ранг качества
+            ]
+            
             const completedWeapon: CraftedWeaponV2 = {
-              id: `weapon_${Date.now()}`,
+              id: uniqueId,
               recipeId: prev.plan.recipeId,
               prefix: prev.weaponName.prefix,
               baseName: prev.weaponName.baseName,
@@ -383,28 +555,36 @@ export function useCraftV2(
               stats: prev.preview.stats,
               quality: prev.preview.quality,
               qualityGrade: prev.preview.qualityGrade,
+              qualityRank: prev.weaponName.qualityRank || getQualityRank(prev.preview.quality),
               warSoul: 0,
               maxWarSoul: prev.preview.stats.soulCapacity,
               createdAt: Date.now(),
               adventureCount: 0,
               sellPrice: prev.preview.sellPrice,
+              // Скрытые теги для системы заказов
+              hiddenTags,
+              combatMaterialId: combatMatId,
+              // Runtime-поля
+              currentDurability: prev.preview.stats.durability,
+              epicMultiplier: 1.0,
+              techniquesUsed: prev.plan.techniques,
             }
             
             return {
               ...prev,
               activeCraft: null,
               completedWeapon,
-              stage: 'completed',
+              stage: 'completed' as const,
             }
           }
         }
         
         return { ...prev, activeCraft: craft }
       })
-    }, 100) // Обновляем каждые 100мс
+    }, 100)
     
     return () => clearInterval(interval)
-  }, [state.stage, state.activeCraft])
+  }, [state.stage, state.activeCraft, setState])
   
   // ================================
   // RETURN
@@ -417,7 +597,9 @@ export function useCraftV2(
     setTechniques,
     calculatePreview,
     startCraft,
+    setShouldPurchaseMaterials,
     cancelCraft,
+    instantComplete,  // Тестовая функция мгновенного завершения
     collectWeapon,
     reset,
   }

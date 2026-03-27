@@ -1,0 +1,376 @@
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-start","message":"load called","data":{"isLoadingRef":false},"timestamp":1774467699511}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-fetch","message":"fetching from server","data":{"playerId":"demo-player"},"timestamp":1774467699511}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-server-result","message":"server response","data":{"success":false,"hasData":false},"timestamp":1774467699533}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-local","message":"local backup check","data":{"hasBackup":true,"hasTimestamp":true,"hasCraftV2":true,"craftV2Stage":"crafting","craftV2HasActive":true},"timestamp":1774467699533}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-apply","message":"applying loaded data","data":{"source":"local","hasCraftV2":true,"craftV2Stage":"crafting"},"timestamp":1774467699534}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-applied","message":"data applied successfully","data":{"source":"local"},"timestamp":1774467699535}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-finally","message":"load finally block","data":{},"timestamp":1774467699536}
+{"sessionId":"d59723","location":"use-craft-v2.ts:restore","message":"restoring state","data":{"hasPersisted":true,"hasActiveCraft":true,"stage":"crafting"},"timestamp":1774467699562}
+{"sessionId":"d59723","location":"use-craft-v2.ts:restore","message":"restoring state","data":{"hasPersisted":true,"hasActiveCraft":true,"stage":"crafting"},"timestamp":1774467699563}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-start","message":"load called","data":{"isLoadingRef":false},"timestamp":1774467701764}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-fetch","message":"fetching from server","data":{"playerId":"demo-player"},"timestamp":1774467701765}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-server-result","message":"server response","data":{"success":false,"hasData":false},"timestamp":1774467701783}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-apply","message":"applying loaded data","data":{"source":"local","hasCraftV2":true,"craftV2Stage":"crafting"},"timestamp":1774467701783}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-local","message":"local backup check","data":{"hasBackup":true,"hasTimestamp":true,"hasCraftV2":true,"craftV2Stage":"crafting","craftV2HasActive":true},"timestamp":1774467701783}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-applied","message":"data applied successfully","data":{"source":"local"},"timestamp":1774467701784}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-finally","message":"load finally block","data":{},"timestamp":1774467701784}
+{"sessionId":"d59723","location":"use-craft-v2.ts:restore","message":"restoring state","data":{"hasPersisted":true,"hasActiveCraft":true,"stage":"crafting"},"timestamp":1774467701810}
+{"sessionId":"d59723","location":"use-craft-v2.ts:restore","message":"restoring state","data":{"hasPersisted":true,"hasActiveCraft":true,"stage":"crafting"},"timestamp":1774467701811}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-start","message":"load called","data":{"isLoadingRef":false},"timestamp":1774467703517}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-fetch","message":"fetching from server","data":{"playerId":"demo-player"},"timestamp":1774467703518}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-server-result","message":"server response","data":{"success":false,"hasData":false},"timestamp":1774467703534}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-local","message":"local backup check","data":{"hasBackup":true,"hasTimestamp":true,"hasCraftV2":true,"craftV2Stage":"crafting","craftV2HasActive":true},"timestamp":1774467703534}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-apply","message":"applying loaded data","data":{"source":"local","hasCraftV2":true,"craftV2Stage":"crafting"},"timestamp":1774467703535}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-applied","message":"data applied successfully","data":{"source":"local"},"timestamp":1774467703536}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-finally","message":"load finally block","data":{},"timestamp":1774467703536}
+{"sessionId":"d59723","location":"use-craft-v2.ts:restore","message":"restoring state","data":{"hasPersisted":true,"hasActiveCraft":true,"stage":"crafting"},"timestamp":1774467703562}
+{"sessionId":"d59723","location":"use-craft-v2.ts:restore","message":"restoring state","data":{"hasPersisted":true,"hasActiveCraft":true,"stage":"crafting"},"timestamp":1774467703563}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"completed","hasActiveCraft":false,"hasPlan":true,"stageChanged":true},"timestamp":1774468005352}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":true},"timestamp":1774468067826}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774468069856}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774468069858}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774468072680}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774468072681}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774552192510}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774552200916}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774552216654}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774552232849}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774552237385}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-start","message":"load called","data":{"isLoadingRef":false},"timestamp":1774552272261}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-fetch","message":"fetching from server","data":{"playerId":"demo-player"},"timestamp":1774552272261}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-server-result","message":"server response","data":{"success":false,"hasData":false},"timestamp":1774552272276}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-local","message":"local backup check","data":{"hasBackup":true,"hasTimestamp":true,"hasCraftV2":true,"craftV2Stage":"planning","craftV2HasActive":false},"timestamp":1774552272277}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-apply","message":"applying loaded data","data":{"source":"local","hasCraftV2":true,"craftV2Stage":"planning"},"timestamp":1774552272277}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-applied","message":"data applied successfully","data":{"source":"local"},"timestamp":1774552272278}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-finally","message":"load finally block","data":{},"timestamp":1774552272278}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774552272309}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774552272312}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774552289440}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774552289441}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":true,"stageChanged":false},"timestamp":1774552316970}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"crafting","hasActiveCraft":true,"hasPlan":true,"stageChanged":true},"timestamp":1774552317098}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"completed","hasActiveCraft":false,"hasPlan":true,"stageChanged":true},"timestamp":1774552320215}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":true},"timestamp":1774552321224}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774552370650}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774552382272}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774552388737}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-start","message":"load called","data":{"isLoadingRef":false},"timestamp":1774552399696}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-fetch","message":"fetching from server","data":{"playerId":"demo-player"},"timestamp":1774552399696}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-server-result","message":"server response","data":{"success":false,"hasData":false},"timestamp":1774552399713}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-local","message":"local backup check","data":{"hasBackup":true,"hasTimestamp":true,"hasCraftV2":true,"craftV2Stage":"planning","craftV2HasActive":false},"timestamp":1774552399713}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-apply","message":"applying loaded data","data":{"source":"local","hasCraftV2":true,"craftV2Stage":"planning"},"timestamp":1774552399714}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-applied","message":"data applied successfully","data":{"source":"local"},"timestamp":1774552399714}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-finally","message":"load finally block","data":{},"timestamp":1774552399715}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774552399745}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774552399748}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774552415789}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774552415790}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774552436771}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774552436772}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":true,"stageChanged":false},"timestamp":1774552461778}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"crafting","hasActiveCraft":true,"hasPlan":true,"stageChanged":true},"timestamp":1774552461895}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"completed","hasActiveCraft":false,"hasPlan":true,"stageChanged":true},"timestamp":1774552463464}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":true},"timestamp":1774552464228}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774552493776}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-start","message":"load called","data":{"isLoadingRef":false},"timestamp":1774552564042}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-fetch","message":"fetching from server","data":{"playerId":"demo-player"},"timestamp":1774552564042}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-server-result","message":"server response","data":{"success":false,"hasData":false},"timestamp":1774552564058}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-local","message":"local backup check","data":{"hasBackup":true,"hasTimestamp":true,"hasCraftV2":true,"craftV2Stage":"planning","craftV2HasActive":false},"timestamp":1774552564058}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-apply","message":"applying loaded data","data":{"source":"local","hasCraftV2":true,"craftV2Stage":"planning"},"timestamp":1774552564058}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-applied","message":"data applied successfully","data":{"source":"local"},"timestamp":1774552564059}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-finally","message":"load finally block","data":{},"timestamp":1774552564059}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774552564087}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774552564091}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774552573396}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774552573397}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":true,"stageChanged":false},"timestamp":1774552588762}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"crafting","hasActiveCraft":true,"hasPlan":true,"stageChanged":true},"timestamp":1774552588886}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"completed","hasActiveCraft":false,"hasPlan":true,"stageChanged":true},"timestamp":1774552590948}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":true},"timestamp":1774552592780}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774552648417}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774552648418}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774552659932}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774552667748}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774552670733}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774552744288}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774552752592}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-start","message":"load called","data":{"isLoadingRef":false},"timestamp":1774553358113}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-fetch","message":"fetching from server","data":{"playerId":"demo-player"},"timestamp":1774553358113}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-server-result","message":"server response","data":{"success":false,"hasData":false},"timestamp":1774553359133}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-local","message":"local backup check","data":{"hasBackup":true,"hasTimestamp":true,"hasCraftV2":true,"craftV2Stage":"planning","craftV2HasActive":false},"timestamp":1774553359134}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-apply","message":"applying loaded data","data":{"source":"local","hasCraftV2":true,"craftV2Stage":"planning"},"timestamp":1774553359134}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-applied","message":"data applied successfully","data":{"source":"local"},"timestamp":1774553359134}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-finally","message":"load finally block","data":{},"timestamp":1774553359134}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-start","message":"load called","data":{"isLoadingRef":false},"timestamp":1774553769001}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-fetch","message":"fetching from server","data":{"playerId":"demo-player"},"timestamp":1774553769002}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-server-result","message":"server response","data":{"success":false,"hasData":false},"timestamp":1774553769650}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-local","message":"local backup check","data":{"hasBackup":true,"hasTimestamp":true,"hasCraftV2":true,"craftV2Stage":"planning","craftV2HasActive":false},"timestamp":1774553769651}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-apply","message":"applying loaded data","data":{"source":"local","hasCraftV2":true,"craftV2Stage":"planning"},"timestamp":1774553769651}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-applied","message":"data applied successfully","data":{"source":"local"},"timestamp":1774553769652}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-finally","message":"load finally block","data":{},"timestamp":1774553769652}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774553789366}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774553789368}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774553791809}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":true,"stageChanged":false},"timestamp":1774553800507}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"crafting","hasActiveCraft":true,"hasPlan":true,"stageChanged":true},"timestamp":1774553800635}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"completed","hasActiveCraft":false,"hasPlan":true,"stageChanged":true},"timestamp":1774553801946}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":true},"timestamp":1774553802939}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-start","message":"load called","data":{"isLoadingRef":false},"timestamp":1774557687933}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-fetch","message":"fetching from server","data":{"playerId":"demo-player"},"timestamp":1774557687934}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-server-result","message":"server response","data":{"success":false,"hasData":false},"timestamp":1774557688090}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-local","message":"local backup check","data":{"hasBackup":true,"hasTimestamp":true,"hasCraftV2":true,"craftV2Stage":"planning","craftV2HasActive":false},"timestamp":1774557688091}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-apply","message":"applying loaded data","data":{"source":"local","hasCraftV2":true,"craftV2Stage":"planning"},"timestamp":1774557688091}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-applied","message":"data applied successfully","data":{"source":"local"},"timestamp":1774557688092}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-finally","message":"load finally block","data":{},"timestamp":1774557688092}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-start","message":"load called","data":{"isLoadingRef":false},"timestamp":1774558046399}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-fetch","message":"fetching from server","data":{"playerId":"demo-player"},"timestamp":1774558046400}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-server-result","message":"server response","data":{"success":false,"hasData":false},"timestamp":1774558047533}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-local","message":"local backup check","data":{"hasBackup":true,"hasTimestamp":true,"hasCraftV2":true,"craftV2Stage":"planning","craftV2HasActive":false},"timestamp":1774558047533}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-apply","message":"applying loaded data","data":{"source":"local","hasCraftV2":true,"craftV2Stage":"planning"},"timestamp":1774558047534}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-applied","message":"data applied successfully","data":{"source":"local"},"timestamp":1774558047534}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-finally","message":"load finally block","data":{},"timestamp":1774558047535}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-start","message":"load called","data":{"isLoadingRef":false},"timestamp":1774558341513}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-fetch","message":"fetching from server","data":{"playerId":"demo-player"},"timestamp":1774558341514}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-server-result","message":"server response","data":{"success":false,"hasData":false},"timestamp":1774558341534}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-local","message":"local backup check","data":{"hasBackup":true,"hasTimestamp":true,"hasCraftV2":true,"craftV2Stage":"planning","craftV2HasActive":false},"timestamp":1774558341534}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-apply","message":"applying loaded data","data":{"source":"local","hasCraftV2":true,"craftV2Stage":"planning"},"timestamp":1774558341535}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-applied","message":"data applied successfully","data":{"source":"local"},"timestamp":1774558341535}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-finally","message":"load finally block","data":{},"timestamp":1774558341536}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-start","message":"load called","data":{"isLoadingRef":false},"timestamp":1774559131216}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-fetch","message":"fetching from server","data":{"playerId":"demo-player"},"timestamp":1774559131216}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-server-result","message":"server response","data":{"success":false,"hasData":false},"timestamp":1774559131235}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-local","message":"local backup check","data":{"hasBackup":true,"hasTimestamp":true,"hasCraftV2":true,"craftV2Stage":"planning","craftV2HasActive":false},"timestamp":1774559131235}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-apply","message":"applying loaded data","data":{"source":"local","hasCraftV2":true,"craftV2Stage":"planning"},"timestamp":1774559131236}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-applied","message":"data applied successfully","data":{"source":"local"},"timestamp":1774559131237}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-finally","message":"load finally block","data":{},"timestamp":1774559131238}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-start","message":"load called","data":{"isLoadingRef":false},"timestamp":1774559541197}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-fetch","message":"fetching from server","data":{"playerId":"demo-player"},"timestamp":1774559541198}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-server-result","message":"server response","data":{"success":false,"hasData":false},"timestamp":1774559541227}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-local","message":"local backup check","data":{"hasBackup":true,"hasTimestamp":true,"hasCraftV2":true,"craftV2Stage":"planning","craftV2HasActive":false},"timestamp":1774559541227}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-apply","message":"applying loaded data","data":{"source":"local","hasCraftV2":true,"craftV2Stage":"planning"},"timestamp":1774559541228}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-applied","message":"data applied successfully","data":{"source":"local"},"timestamp":1774559541228}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-finally","message":"load finally block","data":{},"timestamp":1774559541229}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-start","message":"load called","data":{"isLoadingRef":false},"timestamp":1774559631445}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-fetch","message":"fetching from server","data":{"playerId":"demo-player"},"timestamp":1774559631445}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-server-result","message":"server response","data":{"success":false,"hasData":false},"timestamp":1774559631464}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-local","message":"local backup check","data":{"hasBackup":true,"hasTimestamp":true,"hasCraftV2":true,"craftV2Stage":"planning","craftV2HasActive":false},"timestamp":1774559631465}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-apply","message":"applying loaded data","data":{"source":"local","hasCraftV2":true,"craftV2Stage":"planning"},"timestamp":1774559631465}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-applied","message":"data applied successfully","data":{"source":"local"},"timestamp":1774559631466}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-finally","message":"load finally block","data":{},"timestamp":1774559631467}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-start","message":"load called","data":{"isLoadingRef":false},"timestamp":1774559762108}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-fetch","message":"fetching from server","data":{"playerId":"demo-player"},"timestamp":1774559762108}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-server-result","message":"server response","data":{"success":false,"hasData":false},"timestamp":1774559762128}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-local","message":"local backup check","data":{"hasBackup":true,"hasTimestamp":true,"hasCraftV2":true,"craftV2Stage":"planning","craftV2HasActive":false},"timestamp":1774559762128}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-apply","message":"applying loaded data","data":{"source":"local","hasCraftV2":true,"craftV2Stage":"planning"},"timestamp":1774559762129}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-applied","message":"data applied successfully","data":{"source":"local"},"timestamp":1774559762130}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-finally","message":"load finally block","data":{},"timestamp":1774559762130}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-start","message":"load called","data":{"isLoadingRef":false},"timestamp":1774585405225}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-fetch","message":"fetching from server","data":{"playerId":"demo-player"},"timestamp":1774585405225}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-server-result","message":"server response","data":{"success":false,"hasData":false},"timestamp":1774585405635}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-local","message":"local backup check","data":{"hasBackup":true,"hasTimestamp":true,"hasCraftV2":true,"craftV2Stage":"planning","craftV2HasActive":false},"timestamp":1774585405636}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-apply","message":"applying loaded data","data":{"source":"local","hasCraftV2":true,"craftV2Stage":"planning"},"timestamp":1774585405636}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-applied","message":"data applied successfully","data":{"source":"local"},"timestamp":1774585405638}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-finally","message":"load finally block","data":{},"timestamp":1774585405638}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-start","message":"load called","data":{"isLoadingRef":false},"timestamp":1774585492778}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-fetch","message":"fetching from server","data":{"playerId":"demo-player"},"timestamp":1774585492779}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-server-result","message":"server response","data":{"success":false,"hasData":false},"timestamp":1774585493144}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-local","message":"local backup check","data":{"hasBackup":true,"hasTimestamp":true,"hasCraftV2":true,"craftV2Stage":"planning","craftV2HasActive":false},"timestamp":1774585493145}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-apply","message":"applying loaded data","data":{"source":"local","hasCraftV2":true,"craftV2Stage":"planning"},"timestamp":1774585493145}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-finally","message":"load finally block","data":{},"timestamp":1774585493146}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-applied","message":"data applied successfully","data":{"source":"local"},"timestamp":1774585493146}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774587411499}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774587411502}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774595673284}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774595673288}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":true,"stageChanged":false},"timestamp":1774595684016}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"crafting","hasActiveCraft":true,"hasPlan":true,"stageChanged":true},"timestamp":1774595684138}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"completed","hasActiveCraft":false,"hasPlan":true,"stageChanged":true},"timestamp":1774595686144}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":true},"timestamp":1774595691495}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774596161027}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774596161029}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":true,"stageChanged":false},"timestamp":1774596181527}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"crafting","hasActiveCraft":true,"hasPlan":true,"stageChanged":true},"timestamp":1774596181632}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-start","message":"load called","data":{"isLoadingRef":false},"timestamp":1774609007487}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-fetch","message":"fetching from server","data":{"playerId":"demo-player"},"timestamp":1774609007488}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-server-result","message":"server response","data":{"success":false,"hasData":false},"timestamp":1774609007880}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-local","message":"local backup check","data":{"hasBackup":true,"hasTimestamp":true,"hasCraftV2":true,"craftV2Stage":"crafting","craftV2HasActive":true},"timestamp":1774609007880}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-apply","message":"applying loaded data","data":{"source":"local","hasCraftV2":true,"craftV2Stage":"crafting"},"timestamp":1774609007881}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-applied","message":"data applied successfully","data":{"source":"local"},"timestamp":1774609007882}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-finally","message":"load finally block","data":{},"timestamp":1774609007882}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"completed","hasActiveCraft":false,"hasPlan":true,"stageChanged":true},"timestamp":1774609008132}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-start","message":"load called","data":{"isLoadingRef":false},"timestamp":1774609218926}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-fetch","message":"fetching from server","data":{"playerId":"demo-player"},"timestamp":1774609218927}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-server-result","message":"server response","data":{"success":false,"hasData":false},"timestamp":1774609219279}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-local","message":"local backup check","data":{"hasBackup":true,"hasTimestamp":true,"hasCraftV2":true,"craftV2Stage":"completed","craftV2HasActive":false},"timestamp":1774609219279}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-applied","message":"data applied successfully","data":{"source":"local"},"timestamp":1774609219280}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-finally","message":"load finally block","data":{},"timestamp":1774609219280}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-apply","message":"applying loaded data","data":{"source":"local","hasCraftV2":true,"craftV2Stage":"completed"},"timestamp":1774609219279}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"completed","hasActiveCraft":false,"hasPlan":true,"stageChanged":false},"timestamp":1774609219339}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"completed","hasActiveCraft":false,"hasPlan":true,"stageChanged":false},"timestamp":1774609219345}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"completed","hasActiveCraft":false,"hasPlan":true,"stageChanged":false},"timestamp":1774609250281}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"completed","hasActiveCraft":false,"hasPlan":true,"stageChanged":false},"timestamp":1774609255472}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":true},"timestamp":1774609264785}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-start","message":"load called","data":{"isLoadingRef":false},"timestamp":1774609306551}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-fetch","message":"fetching from server","data":{"playerId":"demo-player"},"timestamp":1774609306552}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-server-result","message":"server response","data":{"success":false,"hasData":false},"timestamp":1774609306571}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-local","message":"local backup check","data":{"hasBackup":true,"hasTimestamp":true,"hasCraftV2":true,"craftV2Stage":"planning","craftV2HasActive":false},"timestamp":1774609306571}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-apply","message":"applying loaded data","data":{"source":"local","hasCraftV2":true,"craftV2Stage":"planning"},"timestamp":1774609306572}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-applied","message":"data applied successfully","data":{"source":"local"},"timestamp":1774609306574}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-finally","message":"load finally block","data":{},"timestamp":1774609306574}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774609306620}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774609306624}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774609596075}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774609596078}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774609621250}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774609621252}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-start","message":"load called","data":{"isLoadingRef":false},"timestamp":1774610147572}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-fetch","message":"fetching from server","data":{"playerId":"demo-player"},"timestamp":1774610147573}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-server-result","message":"server response","data":{"success":false,"hasData":false},"timestamp":1774610147591}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-local","message":"local backup check","data":{"hasBackup":true,"hasTimestamp":true,"hasCraftV2":true,"craftV2Stage":"planning","craftV2HasActive":false},"timestamp":1774610147591}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-apply","message":"applying loaded data","data":{"source":"local","hasCraftV2":true,"craftV2Stage":"planning"},"timestamp":1774610147592}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-finally","message":"load finally block","data":{},"timestamp":1774610147593}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-applied","message":"data applied successfully","data":{"source":"local"},"timestamp":1774610147593}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774610147638}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774610147642}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-start","message":"load called","data":{"isLoadingRef":false},"timestamp":1774614027536}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-fetch","message":"fetching from server","data":{"playerId":"demo-player"},"timestamp":1774614027536}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-server-result","message":"server response","data":{"success":false,"hasData":false},"timestamp":1774614027556}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-local","message":"local backup check","data":{"hasBackup":true,"hasTimestamp":true,"hasCraftV2":true,"craftV2Stage":"planning","craftV2HasActive":false},"timestamp":1774614027557}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-apply","message":"applying loaded data","data":{"source":"local","hasCraftV2":true,"craftV2Stage":"planning"},"timestamp":1774614027557}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-applied","message":"data applied successfully","data":{"source":"local"},"timestamp":1774614027559}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-finally","message":"load finally block","data":{},"timestamp":1774614027559}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774614314284}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774614314288}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":true,"stageChanged":false},"timestamp":1774614327279}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"crafting","hasActiveCraft":true,"hasPlan":true,"stageChanged":true},"timestamp":1774614327365}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"completed","hasActiveCraft":false,"hasPlan":true,"stageChanged":true},"timestamp":1774614330749}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":true},"timestamp":1774614333782}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-start","message":"load called","data":{"isLoadingRef":false},"timestamp":1774615398499}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-fetch","message":"fetching from server","data":{"playerId":"demo-player"},"timestamp":1774615398499}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-server-result","message":"server response","data":{"success":false,"hasData":false},"timestamp":1774615398519}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-local","message":"local backup check","data":{"hasBackup":true,"hasTimestamp":true,"hasCraftV2":true,"craftV2Stage":"planning","craftV2HasActive":false},"timestamp":1774615398520}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-apply","message":"applying loaded data","data":{"source":"local","hasCraftV2":true,"craftV2Stage":"planning"},"timestamp":1774615398521}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-applied","message":"data applied successfully","data":{"source":"local"},"timestamp":1774615398522}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-finally","message":"load finally block","data":{},"timestamp":1774615398522}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774615721967}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774615721969}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774618656680}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774618656682}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-start","message":"load called","data":{"isLoadingRef":false},"timestamp":1774618858581}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-fetch","message":"fetching from server","data":{"playerId":"demo-player"},"timestamp":1774618858581}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-server-result","message":"server response","data":{"success":false,"hasData":false},"timestamp":1774618858618}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-local","message":"local backup check","data":{"hasBackup":true,"hasTimestamp":true,"hasCraftV2":true,"craftV2Stage":"planning","craftV2HasActive":false},"timestamp":1774618858618}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-apply","message":"applying loaded data","data":{"source":"local","hasCraftV2":true,"craftV2Stage":"planning"},"timestamp":1774618858619}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-applied","message":"data applied successfully","data":{"source":"local"},"timestamp":1774618858620}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-finally","message":"load finally block","data":{},"timestamp":1774618858621}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774618858677}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774618858682}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-start","message":"load called","data":{"isLoadingRef":false},"timestamp":1774619267303}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-fetch","message":"fetching from server","data":{"playerId":"demo-player"},"timestamp":1774619267303}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-server-result","message":"server response","data":{"success":false,"hasData":false},"timestamp":1774619267324}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-local","message":"local backup check","data":{"hasBackup":true,"hasTimestamp":true,"hasCraftV2":true,"craftV2Stage":"planning","craftV2HasActive":false},"timestamp":1774619267325}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-apply","message":"applying loaded data","data":{"source":"local","hasCraftV2":true,"craftV2Stage":"planning"},"timestamp":1774619267325}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-applied","message":"data applied successfully","data":{"source":"local"},"timestamp":1774619267326}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-finally","message":"load finally block","data":{},"timestamp":1774619267326}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774619267371}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774619267376}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774619984446}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774619984448}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774619993315}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774619993317}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774620595576}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774620604076}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774620604378}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774620617183}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774620645982}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774620646927}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774620647359}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774620800352}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774620890433}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":true,"stageChanged":false},"timestamp":1774621155418}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"crafting","hasActiveCraft":true,"hasPlan":true,"stageChanged":true},"timestamp":1774621155533}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"completed","hasActiveCraft":false,"hasPlan":true,"stageChanged":true},"timestamp":1774621199685}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":true},"timestamp":1774621201511}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":true,"stageChanged":false},"timestamp":1774621213539}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"crafting","hasActiveCraft":true,"hasPlan":true,"stageChanged":true},"timestamp":1774621213665}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"completed","hasActiveCraft":false,"hasPlan":true,"stageChanged":true},"timestamp":1774621216210}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":true},"timestamp":1774621218038}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774621278113}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774621278115}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774621454081}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774621454084}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774621457814}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774621457816}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774621479450}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774621479454}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":true,"stageChanged":false},"timestamp":1774621498914}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"crafting","hasActiveCraft":true,"hasPlan":true,"stageChanged":true},"timestamp":1774621499039}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"completed","hasActiveCraft":false,"hasPlan":true,"stageChanged":true},"timestamp":1774621499971}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":true},"timestamp":1774621500670}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774621615459}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774621615461}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":true,"stageChanged":false},"timestamp":1774621784758}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"crafting","hasActiveCraft":true,"hasPlan":true,"stageChanged":true},"timestamp":1774621784883}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"completed","hasActiveCraft":false,"hasPlan":true,"stageChanged":true},"timestamp":1774621786155}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":true},"timestamp":1774621787862}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774621924623}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774621938664}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774621983900}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774621990937}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-start","message":"load called","data":{"isLoadingRef":false},"timestamp":1774622053153}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-fetch","message":"fetching from server","data":{"playerId":"demo-player"},"timestamp":1774622053153}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-server-result","message":"server response","data":{"success":false,"hasData":false},"timestamp":1774622053175}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-local","message":"local backup check","data":{"hasBackup":true,"hasTimestamp":true,"hasCraftV2":true,"craftV2Stage":"planning","craftV2HasActive":false},"timestamp":1774622053175}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-apply","message":"applying loaded data","data":{"source":"local","hasCraftV2":true,"craftV2Stage":"planning"},"timestamp":1774622053175}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-applied","message":"data applied successfully","data":{"source":"local"},"timestamp":1774622053176}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-finally","message":"load finally block","data":{},"timestamp":1774622053176}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-start","message":"load called","data":{"isLoadingRef":false},"timestamp":1774622058461}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-fetch","message":"fetching from server","data":{"playerId":"demo-player"},"timestamp":1774622058462}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-server-result","message":"server response","data":{"success":false,"hasData":false},"timestamp":1774622058480}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-local","message":"local backup check","data":{"hasBackup":true,"hasTimestamp":true,"hasCraftV2":true,"craftV2Stage":"planning","craftV2HasActive":false},"timestamp":1774622058480}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-apply","message":"applying loaded data","data":{"source":"local","hasCraftV2":true,"craftV2Stage":"planning"},"timestamp":1774622058481}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-applied","message":"data applied successfully","data":{"source":"local"},"timestamp":1774622058482}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-finally","message":"load finally block","data":{},"timestamp":1774622058482}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-start","message":"load called","data":{"isLoadingRef":false},"timestamp":1774622064011}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-fetch","message":"fetching from server","data":{"playerId":"demo-player"},"timestamp":1774622064011}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-server-result","message":"server response","data":{"success":false,"hasData":false},"timestamp":1774622064031}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-local","message":"local backup check","data":{"hasBackup":true,"hasTimestamp":true,"hasCraftV2":true,"craftV2Stage":"planning","craftV2HasActive":false},"timestamp":1774622064032}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-apply","message":"applying loaded data","data":{"source":"local","hasCraftV2":true,"craftV2Stage":"planning"},"timestamp":1774622064032}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-applied","message":"data applied successfully","data":{"source":"local"},"timestamp":1774622064033}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-finally","message":"load finally block","data":{},"timestamp":1774622064033}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-start","message":"load called","data":{"isLoadingRef":false},"timestamp":1774622065067}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-fetch","message":"fetching from server","data":{"playerId":"demo-player"},"timestamp":1774622065067}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-server-result","message":"server response","data":{"success":false,"hasData":false},"timestamp":1774622065088}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-local","message":"local backup check","data":{"hasBackup":true,"hasTimestamp":true,"hasCraftV2":true,"craftV2Stage":"planning","craftV2HasActive":false},"timestamp":1774622065088}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-apply","message":"applying loaded data","data":{"source":"local","hasCraftV2":true,"craftV2Stage":"planning"},"timestamp":1774622065089}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-applied","message":"data applied successfully","data":{"source":"local"},"timestamp":1774622065090}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-finally","message":"load finally block","data":{},"timestamp":1774622065090}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-start","message":"load called","data":{"isLoadingRef":false},"timestamp":1774622078776}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-fetch","message":"fetching from server","data":{"playerId":"demo-player"},"timestamp":1774622078777}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-server-result","message":"server response","data":{"success":false,"hasData":false},"timestamp":1774622078797}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-local","message":"local backup check","data":{"hasBackup":true,"hasTimestamp":true,"hasCraftV2":true,"craftV2Stage":"planning","craftV2HasActive":false},"timestamp":1774622078798}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-apply","message":"applying loaded data","data":{"source":"local","hasCraftV2":true,"craftV2Stage":"planning"},"timestamp":1774622078799}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-applied","message":"data applied successfully","data":{"source":"local"},"timestamp":1774622078800}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-finally","message":"load finally block","data":{},"timestamp":1774622078801}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-start","message":"load called","data":{"isLoadingRef":false},"timestamp":1774622202331}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-fetch","message":"fetching from server","data":{"playerId":"demo-player"},"timestamp":1774622202332}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-server-result","message":"server response","data":{"success":false,"hasData":false},"timestamp":1774622203044}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-local","message":"local backup check","data":{"hasBackup":true,"hasTimestamp":true,"hasCraftV2":true,"craftV2Stage":"planning","craftV2HasActive":false},"timestamp":1774622203045}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-apply","message":"applying loaded data","data":{"source":"local","hasCraftV2":true,"craftV2Stage":"planning"},"timestamp":1774622203045}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-applied","message":"data applied successfully","data":{"source":"local"},"timestamp":1774622203046}
+{"sessionId":"d59723","location":"use-cloud-save.ts:load-finally","message":"load finally block","data":{},"timestamp":1774622203046}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774622420910}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774622420912}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774622562309}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774622573222}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774622655927}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774622683997}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774622709359}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774622806500}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774622835381}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774625108859}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":false},"timestamp":1774625108861}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":true,"stageChanged":false},"timestamp":1774625126490}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"crafting","hasActiveCraft":true,"hasPlan":true,"stageChanged":true},"timestamp":1774625126613}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"completed","hasActiveCraft":false,"hasPlan":true,"stageChanged":true},"timestamp":1774625128155}
+{"sessionId":"d59723","location":"use-craft-v2.ts:sync","message":"syncing to zustand","data":{"stage":"planning","hasActiveCraft":false,"hasPlan":false,"stageChanged":true},"timestamp":1774625128742}

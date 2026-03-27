@@ -1,13 +1,14 @@
 /**
  * Craft Container V2
  * Главный контейнер для системы крафта v2
+ * Обновлён: передаёт знания и цены материалов в CraftPlanner
  * 
  * @see docs/CRAFT_SYSTEM_CONCEPT.md
  */
 
 'use client'
 
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -26,7 +27,8 @@ import { CraftResult } from './craft-result'
 import type { MaterialAssignment, WeaponRecipe } from '@/types/craft-v2'
 import type { MaterialToBuy } from '@/lib/craft/inventory-check'
 import { getRecipeById } from '@/data/recipes'
-import { getCraftingCost } from '@/lib/craft/inventory-check'
+import { getCraftingCost, checkInventoryForCraft } from '@/lib/craft/inventory-check'
+import { getMaterialPrice } from '@/data/material-shop'
 
 // ================================
 // КОНСТАНТЫ
@@ -137,6 +139,19 @@ export function CraftContainerV2({
   const addResource = useGameStore(state => state.addResource)
   const addWeaponV2 = useGameStore(state => state.addWeaponV2)
   const addExperience = useGameStore(state => state.addExperience)
+
+  // Получаем активный заказ
+  const activeOrderId = useGameStore(state => state.activeOrderId)
+  const activeOrder = useGameStore(state => state.orders.find(o => o.id === activeOrderId))
+
+  // Получаем функцию взятия аванса
+  const takeAdvance = useGameStore(state => state.takeAdvance)
+  
+  // Получаем знания о материалах из энциклопедии
+  const materialKnowledge = useGameStore(state => state.materialKnowledge)
+  
+  // Получаем функцию установки галочки закупки
+  const setShouldPurchaseMaterials = useGameStore(state => state.setShouldPurchaseMaterials)
   
   const {
     state,
@@ -146,6 +161,7 @@ export function CraftContainerV2({
     calculatePreview,
     startCraft,
     cancelCraft,
+    instantComplete,
     collectWeapon,
     reset,
   } = useCraftV2(playerLevel, forgeLevel)
@@ -155,37 +171,98 @@ export function CraftContainerV2({
     recipeId: string
     materials: Record<string, { materialId: string; quantity: number }>
     techniques: string[]
+    shouldPurchaseMaterials?: boolean
+    shouldTakeAdvance?: boolean
   }) => {
     // Получаем рецепт
     const recipe = getRecipeById(plan.recipeId)
     if (!recipe) return
-    
+
+    // Устанавливаем галочку закупки перед запуском
+    if (plan.shouldPurchaseMaterials) {
+      setShouldPurchaseMaterials(true)
+    }
+
+    // Если нужно купить материалы и взять аванс
+    if (plan.shouldTakeAdvance && plan.shouldPurchaseMaterials && activeOrder) {
+      // Рассчитываем стоимость материалов для закупки
+      const materialAssignment: Record<string, { materialId: string; quantity: number }> = {}
+      Object.entries(plan.materials).forEach(([partId, { materialId, quantity }]) => {
+        materialAssignment[partId] = { materialId, quantity }
+      })
+
+      const checkResult = checkInventoryForCraft(recipe, materialAssignment, inventory)
+
+      if (checkResult.canPurchaseMissing && checkResult.materialsToBuy.length > 0) {
+        const totalCost = checkResult.totalPurchaseCost
+
+        // Берём аванс (максимум 50% от награды или сколько нужно для закупки)
+        const advanceAmount = Math.min(totalCost, Math.floor(activeOrder.goldReward * 0.5))
+        const advanceResult = takeAdvance(activeOrder.id, advanceAmount)
+
+        if (advanceResult.success && advanceResult.taken > 0) {
+          console.log(`Взят аванс: ${advanceResult.taken} золота`)
+        }
+      }
+    }
+
+    // Если нужно купить материалы
+    if (plan.shouldPurchaseMaterials) {
+      // Преобразуем выбранные материалы в формат для проверки
+      const materialAssignment: Record<string, { materialId: string; quantity: number }> = {}
+      Object.entries(plan.materials).forEach(([partId, { materialId, quantity }]) => {
+        materialAssignment[partId] = { materialId, quantity }
+      })
+
+      // Проверяем инвентарь
+      const checkResult = checkInventoryForCraft(recipe, materialAssignment, inventory)
+
+      // Покупаем недостающие материалы
+      if (checkResult.canPurchaseMissing && checkResult.materialsToBuy.length > 0) {
+        const totalCost = checkResult.totalPurchaseCost
+
+        // Получаем актуальное количество золота из store (после взятия аванса)
+        const state = useGameStore.getState()
+        const currentGold = state.resources.gold
+
+        if (currentGold >= totalCost) {
+          spendResource('gold', totalCost)
+          checkResult.materialsToBuy.forEach(mat => {
+            addResource(mat.resourceKey, mat.quantity)
+          })
+          console.log(`Куплено материалов на ${totalCost} золота`)
+        } else {
+          console.warn(`Недостаточно золота для закупки: нужно ${totalCost}, есть ${currentGold}`)
+        }
+      }
+    }
+
     // Рассчитываем стоимость материалов
     const cost = getCraftingCost(recipe, plan.materials)
-    
+
     // Списываем материалы
     const spent = spendResources(cost)
     if (!spent) {
       console.error('Не удалось списать материалы')
       return
     }
-    
+
     // Устанавливаем план
     setRecipe(plan.recipeId)
-    
+
     Object.entries(plan.materials).forEach(([partId, { materialId, quantity }]) => {
       setMaterial(partId, materialId, quantity)
     })
-    
+
     setTechniques(plan.techniques)
-    
+
     // Рассчитываем превью
     setTimeout(() => {
       calculatePreview()
       // Запускаем крафт
       startCraft()
     }, 100)
-  }, [setRecipe, setMaterial, setTechniques, calculatePreview, startCraft, spendResources])
+  }, [setRecipe, setMaterial, setTechniques, calculatePreview, startCraft, spendResources, spendResource, addResource, gold, inventory, setShouldPurchaseMaterials, activeOrder, takeAdvance])
   
   // Обработчик получения оружия
   const handleCollectWeapon = useCallback(() => {
@@ -217,6 +294,18 @@ export function CraftContainerV2({
   const handleContinue = useCallback(() => {
     reset()
   }, [reset])
+  
+  // Подготовить цены материалов для Popover
+  const materialPrices = useMemo(() => {
+    // Создаём объект цен для всех доступных материалов
+    const prices: Record<string, number> = {}
+    
+    for (const materialId of availableMaterials) {
+      prices[materialId] = getMaterialPrice(materialId)
+    }
+    
+    return prices
+  }, [availableMaterials])
   
   // Обработчик покупки материалов
   const handleBuyMaterials = useCallback((materials: MaterialToBuy[], totalCost: number) => {
@@ -256,6 +345,13 @@ export function CraftContainerV2({
               availableMaterials={availableMaterials}
               unlockedRecipes={unlockedRecipes}
               unlockedTechniques={unlockedTechniques}
+              materialKnowledge={materialKnowledge}
+              materialPrices={materialPrices}
+              activeOrderId={activeOrderId}
+              activeOrder={activeOrder ? {
+                goldReward: activeOrder.goldReward,
+                advanceTaken: activeOrder.advanceTaken,
+              } : null}
               onStartCraft={handleStartCraft}
               onBuyMaterials={handleBuyMaterials}
             />
@@ -289,6 +385,7 @@ export function CraftContainerV2({
               <CraftProgress
                 activeCraft={state.activeCraft}
                 onCancel={cancelCraft}
+                onInstantComplete={instantComplete}
               />
             )}
           </motion.div>

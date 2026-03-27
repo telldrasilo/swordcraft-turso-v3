@@ -6,11 +6,12 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  Sword, 
-  Clock, 
-  CheckCircle, 
-  Undo2
+import {
+  Sword,
+  Clock,
+  CheckCircle,
+  Undo2,
+  TrendingUp
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -19,15 +20,24 @@ import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
 import { useGameStore } from '@/store'
 import type { ActiveExpedition } from '@/types/guild'
-import { ExpeditionResult } from '@/store/slices/guild-slice'
+import type { ExpeditionResult } from '@/store/slices/guild-slice'
 import { useState, useEffect } from 'react'
+
+// Импорт журнала событий
+import { ExpeditionEventLog } from './expeditions/ExpeditionEventLog'
+
+// Импорт функции расчёта репутации
+import { calculateReputationGain } from '@/types/guild'
+
+// Импорт функции показа уведомлений
+import { showReputationNotification } from './ReputationNotification'
 
 interface ActiveExpeditionCardProps {
   expedition: ActiveExpedition
 }
 
 export function ActiveExpeditionCard({ expedition }: ActiveExpeditionCardProps) {
-  const completeExpedition = useGameStore((state) => state.completeExpedition)
+  const completeExpeditionFull = useGameStore((state) => state.completeExpeditionFull)
   const cancelExpedition = useGameStore((state) => state.cancelExpedition)
   
   const [timeLeft, setTimeLeft] = useState<number>(0)
@@ -61,8 +71,13 @@ export function ActiveExpeditionCard({ expedition }: ActiveExpeditionCardProps) 
   const isComplete = timeLeft === 0 || Date.now() >= expedition.endsAt
   
   const handleComplete = () => {
-    const result = completeExpedition(expedition.id)
+    const result = completeExpeditionFull(expedition.id)
     if (result) {
+      // Показываем уведомление о репутации
+      if (result.success && result.reputation > 0) {
+        showReputationNotification(result.reputation, 'expedition')
+      }
+      
       setLastResult(result)
       setShowRewards(true)
     }
@@ -106,9 +121,21 @@ export function ActiveExpeditionCard({ expedition }: ActiveExpeditionCardProps) 
             {expedition.weaponName}
           </div>
           
+          {/* Журнал событий экспедиции */}
+          {expedition.events && expedition.events.length > 0 && (
+            <div className="mt-3">
+              <ExpeditionEventLog
+                events={expedition.events}
+                startedAt={expedition.startedAt}
+                endsAt={expedition.endsAt}
+                isComplete={isComplete}
+              />
+            </div>
+          )}
+
           {!isComplete ? (
             <>
-              <Progress value={progress} className="h-2 bg-stone-800" />
+              <Progress value={progress} className="h-2 bg-stone-800 mt-3" />
               <Button
                 size="sm"
                 variant="ghost"
@@ -168,14 +195,24 @@ export function ActiveExpeditionCard({ expedition }: ActiveExpeditionCardProps) 
                             💰 +{lastResult.commission}
                           </span>
                         </div>
-                        
+
                         <div className="flex items-center justify-between bg-stone-800/50 rounded-lg p-3">
                           <span className="text-stone-400">Душа Войны</span>
                           <span className="text-lg font-bold text-purple-400">
                             ⚔️ +{lastResult.warSoul}
                           </span>
                         </div>
-                        
+
+                        {lastResult.success && (
+                          <div className="flex items-center justify-between bg-green-900/20 rounded-lg p-3 border border-green-600/30">
+                            <span className="text-stone-400">Репутация гильдии</span>
+                            <span className="text-lg font-bold text-green-400">
+                              <TrendingUp className="w-4 h-4 inline mr-1" />
+                              +{lastResult.reputation}
+                            </span>
+                          </div>
+                        )}
+
                         <div className="flex items-center justify-between bg-stone-800/50 rounded-lg p-3">
                           <span className="text-stone-400">Слава гильдии</span>
                           <span className="text-lg font-bold text-blue-400">

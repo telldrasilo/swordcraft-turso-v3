@@ -3,6 +3,8 @@
  * Экспертиза игрока и влияние на крафт
  */
 
+import type { MaterialNode } from './material-core'
+
 // ================================ ПОРОГИ ЗНАНИЙ
 
 export type KnowledgeThreshold =
@@ -78,28 +80,66 @@ export function getKnowledgeThreshold(expertise: number): KnowledgeThreshold {
 
 /**
  * Рассчитать влияние экспертизы на крафт
+ * Бонусы зависят и от экспертизы игрока, и от свойств материала
  */
-export function calculateExpertiseImpact(expertise: number): ExpertiseImpact {
-  // 1. Эффективность
-  // Время: 0% = 1.0, 100% = 0.75 (на 25% быстрее)
-  const timeMultiplier = 1.0 - (expertise * 0.0025)
+export function calculateExpertiseImpact(material: MaterialNode, expertise: number): ExpertiseImpact {
+  const { physical, chemical, arcane, processing, economy } = material
 
-  // Риск дефектов: 0% = 1.0, 100% = 0.30 (на 70% меньше)
-  const defectRiskMultiplier = 1.0 - (expertise * 0.007)
+  // 1. Скорость крафта (timeMultiplier)
+  // Зависит от: обрабатываемости (+), твёрдости (-), сложности переработки (-), теплопроводности (+)
+  const baseTimeMultiplier = 1.0 - (expertise * 0.0015) // Экспертиза даёт 15% максимум
+  const materialTimeFactor =
+    (processing.workability / 100) * 0.35 +      // Обрабатываемость ускоряет (35% веса)
+    (physical.hardness / 200) * -0.20 -           // Твёрдость замедляет (20% веса)
+    (processing.refineDifficulty / 100) * -0.15 -  // Сложность переработки замедляет (15% веса)
+    (physical.thermalConductivity / 100) * 0.30    // Теплопроводность ускоряет (30% веса)
+  const timeMultiplier = Math.max(0.2, baseTimeMultiplier * (0.7 + materialTimeFactor * 0.6))
 
-  // Отходы материала: 0% = 1.0, 100% = 0.20 (на 80% меньше)
-  const materialWasteMultiplier = 1.0 - (expertise * 0.008)
+  // 2. Риск дефектов (defectRiskMultiplier)
+  // Зависит от: химической стабильности (+), базового риска (-), прочности на разрыв (+), потенциала чистоты (+)
+  const baseRiskMultiplier = 1.0 - (expertise * 0.005) // Экспертиза даёт 50% максимум
+  const materialRiskFactor =
+    (chemical.stability / 100) * 0.25 +        // Химическая стабильность снижает риск (25%)
+    (processing.defectRisk / 100) * -0.25 +    // Базовый риск дефектов повышает риск (25%)
+    (physical.tensileStrength / 200) * 0.25 +   // Прочность на разрыв снижает риск (25%)
+    (processing.purityPotential / 100) * 0.25  // Потенциал чистоты снижает риск (25%)
+  const defectRiskMultiplier = Math.max(0.1, baseRiskMultiplier * (0.5 + materialRiskFactor * 1.0))
 
-  // 2. Качество
-  // Бонус к качеству: 0% = 0, 100% = 20
-  const qualityBonus = expertise * 0.2
+  // 3. Отходы материала (materialWasteMultiplier)
+  // Зависит от: пористости (-), ремонтопригодности (+), обрабатываемости (+), прочности на разрыв (+)
+  const baseWasteMultiplier = 1.0 - (expertise * 0.006) // Экспертиза даёт 60% максимум
+  const materialWasteFactor =
+    (1 - physical.porosity / 100) * 0.30 +    // Меньше пористости = меньше отходы (30%)
+    (processing.repairability / 100) * 0.35 + // Выше ремонтопригодность = меньше отходы (35%)
+    (processing.workability / 100) * 0.25 +   // Выше обрабатываемость = меньше отходы (25%)
+    (physical.tensileStrength / 200) * 0.10    // Выше прочность = меньше отходы (10%)
+  const materialWasteMultiplier = Math.max(0.1, baseWasteMultiplier * (0.4 + materialWasteFactor * 1.2))
 
-  // Разброс характеристик: 0% = 1.0, 100% = 0.0 (полная предсказуемость)
-  const varianceMultiplier = 1.0 - (expertise * 0.01)
+  // 4. Бонус к качеству (qualityBonus)
+  // Зависит от: твёрдости (+), прочности (+), магической проводимости (+), редкости (+)
+  const baseQualityBonus = expertise * 0.15 // Экспертиза даёт до +15
+  const materialQualityBonus =
+    (physical.hardness / 200) * 20 +          // Твёрдость даёт до +20
+    (physical.toughness / 200) * 20 +         // Прочность даёт до +20
+    (arcane.conductivity / 100) * 10 +        // Магическая проводимость до +10
+    (economy.rarity / 200) * 15              // Редкость даёт до +15
+  const qualityBonus = Math.min(100, baseQualityBonus + materialQualityBonus)
 
-  // 3. Прогноз
-  // Точность прогноза: 0% = 50%, 100% = 100%
-  const predictionAccuracy = Math.min(100, 50 + expertise * 0.5)
+  // 5. Разброс характеристик (varianceMultiplier)
+  // Зависит от: химической и магической стабильности, качества материала (твёрдость + прочность)
+  const baseVariance = 1.0 - (expertise * 0.008) // Экспертиза даёт 80% (1.0→0.2)
+  const materialStability = (chemical.stability + arcane.stability) / 200 // 0-1
+  const materialQuality = (physical.hardness + physical.toughness) / 400    // 0-1
+  const varianceMultiplier = Math.max(0, baseVariance * (0.3 + materialStability * 0.35 + materialQuality * 0.35))
+
+  // 6. Точность прогноза (predictionAccuracy)
+  // Зависит от: химической стабильности (+), магической стабильности (+), изученности (+)
+  const baseAccuracy = 50 + expertise * 0.4 // Экспертиза даёт 40% (50→90)
+  const materialAccuracyFactor =
+    (chemical.stability / 100) * 20 +       // Стабильность до +20%
+    (arcane.stability / 100) * 15 +         // Магическая стабильность до +15%
+    (economy.discoverability / 100) * 15    // Изученность до +15%
+  const predictionAccuracy = Math.min(100, baseAccuracy + materialAccuracyFactor)
 
   return {
     timeMultiplier,

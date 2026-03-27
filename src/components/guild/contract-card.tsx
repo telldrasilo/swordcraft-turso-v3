@@ -177,7 +177,7 @@ export const ContractCard: React.FC<ContractCardProps> = ({
                   {tierIcon} {tierName}
                 </Badge>
                 <span className="text-xs text-stone-400">
-                  Ур. {adventurer.combat.level}
+                  Ур. {Math.round(adventurer.combat.level)}
                 </span>
               </div>
             </div>

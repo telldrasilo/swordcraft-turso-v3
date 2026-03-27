@@ -70,6 +70,7 @@ export interface ExpeditionResult {
   warSoul: number
   bonusGold: number
   glory: number
+  reputation: number // Репутация гильдии за экспедицию
   weaponWear: number
   weaponLost: boolean
   recoveryQuest?: RecoveryQuest

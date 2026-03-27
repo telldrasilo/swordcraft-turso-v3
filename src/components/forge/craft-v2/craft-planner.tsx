@@ -1,6 +1,7 @@
 /**
  * Craft Planner V2
  * Интерфейс планирования крафта - ИСПОЛЬЗУЕТ МОДУЛЬНЫЕ КОМПОНЕНТЫ
+ * Обновлён: передаёт знания и инвентарь в PartMaterialSelector
  * 
  * @see docs/CRAFT_SYSTEM_CONCEPT.md - секция 5.1
  * 
@@ -18,19 +19,26 @@ import { Hammer, Wrench, Package, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // Модульные компоненты
-import { 
-  RecipeCard, 
-  PartMaterialSelector, 
-  TechniqueSelector, 
-  MaterialsCheck 
+import {
+  RecipeCard,
+  PartMaterialSelector,
+  TechniqueSelector,
+  MaterialsCheck
 } from './planner'
+
+// Прогноз результата
+import { WeaponForecastPanel } from './planner/WeaponForecastPanel'
 
 // Типы и данные
 import type { WeaponRecipe } from '@/types/craft-v2'
 import type { Resources } from '@/store/slices/resources-slice'
 import type { MaterialToBuy } from '@/lib/craft/inventory-check'
+import type { MaterialKnowledge } from '@/types/materials/knowledge'
 import { getAvailableRecipes, getRecipeById } from '@/data/recipes'
-import { getResourceKeyForMaterial } from '@/lib/craft/inventory-check'
+import { getMaterialById } from '@/data/materials'
+import { getTechniqueById } from '@/data/techniques'
+import { calculateForecast } from '@/lib/craft/calculator'
+import { checkInventoryForCraft } from '@/lib/craft/inventory-check'
 
 // ================================
 // PROP TYPES
@@ -43,10 +51,25 @@ interface CraftPlannerProps {
   availableMaterials: string[]
   unlockedRecipes: string[]
   unlockedTechniques: string[]
+
+  // Новые props:
+  materialKnowledge: Record<string, MaterialKnowledge>
+  materialPrices?: Record<string, number>
+  blacksmithLevel?: number  // Уровень мастерства кузнеца (для прогноза)
+
+  // Props для аванса
+  activeOrderId?: string | null
+  activeOrder?: {
+    goldReward: number
+    advanceTaken?: number
+  } | null
+
   onStartCraft: (plan: {
     recipeId: string
     materials: Record<string, { materialId: string; quantity: number }>
     techniques: string[]
+    shouldPurchaseMaterials?: boolean
+    shouldTakeAdvance?: boolean
   }) => void
   onBuyMaterials?: (materials: MaterialToBuy[], totalCost: number) => void
 }
@@ -62,6 +85,11 @@ export function CraftPlanner({
   availableMaterials,
   unlockedRecipes,
   unlockedTechniques,
+  materialKnowledge,
+  materialPrices = {},
+  blacksmithLevel = playerLevel,  // По умолчанию используем playerLevel
+  activeOrderId = null,
+  activeOrder = null,
   onStartCraft,
   onBuyMaterials,
 }: CraftPlannerProps) {
@@ -69,6 +97,8 @@ export function CraftPlanner({
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null)
   const [selectedMaterials, setSelectedMaterials] = useState<Record<string, string>>({})
   const [selectedTechniques, setSelectedTechniques] = useState<string[]>([])
+  const [shouldPurchaseMaterials, setShouldPurchaseMaterials] = useState(false)
+  const [shouldTakeAdvance, setShouldTakeAdvance] = useState(false)
   
   // === DERIVED DATA ===
   const selectedRecipe = useMemo(() => {
@@ -78,7 +108,37 @@ export function CraftPlanner({
   const recipes = useMemo(() => {
     return getAvailableRecipes(playerLevel, unlockedRecipes)
   }, [playerLevel, unlockedRecipes])
-  
+
+  // Подготовка экспертизы в нужном формате (materialId -> expertise)
+  const expertiseMap = useMemo(() => {
+    const map: Record<string, number> = {}
+    Object.entries(materialKnowledge).forEach(([id, knowledge]) => {
+      map[id] = knowledge.expertise
+    })
+    return map
+  }, [materialKnowledge])
+
+  // Расчёт прогноза с использованием тех же формул, что и при крафте
+  const forecast = useMemo(() => {
+    if (!selectedRecipe || Object.keys(selectedMaterials).length === 0) return null
+
+    // Конвертируем в формат MaterialAssignment
+    const materials: Record<string, { materialId: string; quantity: number }> = {}
+    selectedRecipe.parts.forEach(part => {
+      const materialId = selectedMaterials[part.id]
+      if (materialId) {
+        materials[part.id] = {
+          materialId,
+          quantity: part.minQuantity
+        }
+      }
+    })
+
+    const techniques = selectedTechniques.map(id => getTechniqueById(id)).filter((t): t is NonNullable<typeof t> => t !== null)
+
+    return calculateForecast(selectedRecipe, materials, techniques, blacksmithLevel, expertiseMap)
+  }, [selectedRecipe, selectedMaterials, selectedTechniques, blacksmithLevel, expertiseMap])
+
   // === VALIDATION ===
   const canStartCraft = useMemo(() => {
     if (!selectedRecipe) return false
@@ -93,18 +153,39 @@ export function CraftPlanner({
       const materialId = selectedMaterials[part.id]
       if (!materialId) continue
       
-      const resourceKey = getResourceKeyForMaterial(materialId)
+      const resourceKey = getRecipePartResourceKey(materialId)
       if (!resourceKey) continue
       
       const available = inventory[resourceKey] || 0
-      if (available < part.minQuantity) return false
+      if (available < part.minQuantity && !shouldPurchaseMaterials) return false
     }
     
     // Проверка топлива
-    if ((inventory.coal || 0) < 3) return false
+    if ((inventory.coal || 0) < 3 && !shouldPurchaseMaterials) return false
     
+    // Если галочка включена - проверяем, хватает ли золота
+    // Но если аванс включен, то не хватает золота - это нормально
+    if (shouldPurchaseMaterials && !shouldTakeAdvance) {
+      // Преобразуем выбранные материалы в формат для проверки
+      const materialAssignment: Record<string, { materialId: string; quantity: number }> = {}
+      selectedRecipe.parts.forEach(part => {
+        const materialId = selectedMaterials[part.id]
+        if (materialId) {
+          materialAssignment[part.id] = {
+            materialId,
+            quantity: part.minQuantity,
+          }
+        }
+      })
+
+      const checkResult = checkInventoryForCraft(selectedRecipe, materialAssignment, inventory)
+      if (checkResult.canPurchaseMissing && gold < checkResult.totalPurchaseCost) {
+        return false
+      }
+    }
+
     return true
-  }, [selectedRecipe, selectedMaterials, inventory])
+  }, [selectedRecipe, selectedMaterials, inventory, shouldPurchaseMaterials, shouldTakeAdvance, gold])
   
   // === HANDLERS ===
   const handleSelectRecipe = useCallback((recipeId: string) => {
@@ -148,8 +229,10 @@ export function CraftPlanner({
       recipeId: selectedRecipeId,
       materials,
       techniques: selectedTechniques,
+      shouldPurchaseMaterials,
+      shouldTakeAdvance,
     })
-  }, [selectedRecipeId, selectedRecipe, selectedMaterials, selectedTechniques, canStartCraft, onStartCraft])
+  }, [selectedRecipeId, selectedRecipe, selectedMaterials, selectedTechniques, canStartCraft, onStartCraft, shouldPurchaseMaterials, shouldTakeAdvance])
   
   // === RENDER ===
   return (
@@ -209,7 +292,14 @@ export function CraftPlanner({
                     allowedCategories={part.materialTypes}
                     selectedMaterial={selectedMaterials[part.id] || null}
                     onSelect={(materialId) => handleSelectMaterial(part.id, materialId)}
-                    availableMaterials={availableMaterials}
+                    
+                    // Новые props:
+                    inventory={inventory}
+                    playerLevel={playerLevel}
+                    recipe={selectedRecipe}
+                    knowledge={materialKnowledge}
+                    materialPrices={materialPrices}
+                    currentMaterials={selectedMaterials}
                   />
                 ))}
               </CardContent>
@@ -232,6 +322,12 @@ export function CraftPlanner({
               recipe={selectedRecipe}
               gold={gold}
               onBuyMaterials={onBuyMaterials}
+              shouldPurchaseMaterials={shouldPurchaseMaterials}
+              onTogglePurchaseMaterials={setShouldPurchaseMaterials}
+              activeOrderId={activeOrderId}
+              activeOrder={activeOrder}
+              shouldTakeAdvance={shouldTakeAdvance}
+              onToggleTakeAdvance={setShouldTakeAdvance}
             />
           </motion.div>
         )}
@@ -253,7 +349,20 @@ export function CraftPlanner({
           </motion.div>
         )}
       </AnimatePresence>
-      
+
+      {/* Прогноз результата */}
+      <AnimatePresence>
+        {forecast && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+          >
+            <WeaponForecastPanel forecast={forecast} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Кнопка запуска */}
       <AnimatePresence>
         {selectedRecipe && (
@@ -290,6 +399,36 @@ export function CraftPlanner({
       </AnimatePresence>
     </div>
   )
+}
+
+// ================================
+// HELPER FUNCTIONS
+// ================================
+
+/**
+ * Получить ключ ресурса из ID материала для части рецепта
+ * Упрощённая версия для проверки инвентаря
+ */
+function getRecipePartResourceKey(materialId: string): string | null {
+  // Маппинг основных материалов
+  const materialToResource: Record<string, string> = {
+    'iron': 'iron',
+    'steel': 'steelIngot',
+    'silver_alloy': 'silverIngot',
+    'mithril': 'mithrilIngot',
+    'birch': 'wood',
+    'oak': 'wood',
+    'ash': 'wood',
+    'ebony': 'wood',
+    'ironwood': 'wood',
+    'raw_leather': 'leather',
+    'tanned_leather': 'leather',
+    'bull_leather': 'leather',
+    'dragon_leather': 'leather',
+    'coal': 'coal',
+  }
+  
+  return materialToResource[materialId] || null
 }
 
 export default CraftPlanner

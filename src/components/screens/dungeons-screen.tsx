@@ -7,7 +7,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
-  Map, Droplet, Zap
+  Map, Droplet, Zap, Sparkles
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { useState, useEffect, useMemo, useCallback } from 'react'
@@ -29,6 +29,7 @@ import {
   InfoTooltip
 } from '@/components/ui/game-tooltip'
 import { cn } from '@/lib/utils'
+import { calculateWarSoulReward, calculateTierBonuses } from '@/lib/war-soul-utils'
 
 // Импорт вынесенных компонентов
 import {
@@ -77,20 +78,39 @@ export function DungeonsScreen() {
       })
     }
     
-    // Рассчитываем очки души для оружия
+    // Рассчитываем очки души для оружия (унифицированная формула)
     const warSoulMin = reward.warSoulForWeapon?.min ?? 1
     const warSoulMax = reward.warSoulForWeapon?.max ?? warSoulMin
     const baseWarSoul = Math.floor(Math.random() * (warSoulMax - warSoulMin + 1)) + warSoulMin
     
     // Бонус за успешные события
     const successCount = eventLog.filter(e => e.includes('Победа') || e.includes('Успех') || e.includes('✅')).length
-    const warSoulGained = Math.max(1, Math.floor(baseWarSoul + (successCount * 2)))
+    
+    // Бонусы от тира души оружия (используем уже найденное weapon)
+    const tierBonuses = calculateTierBonuses(weapon.warSoul, weapon.maxWarSoul)
+    
+    // Шанс критического успеха (5% базовый + бонус от тира)
+    const baseCritChance = 0.05
+    const tierCritChance = tierBonuses?.critChance ?? 0
+    const finalCritChance = baseCritChance + (tierCritChance / 100)
+    const isCrit = Math.random() < finalCritChance
+    
+    // Расчёт награды через унифицированную формулу
+    const warSoulGained = calculateWarSoulReward({
+      baseWarSoul,
+      warSoulMultiplier: 1 + (successCount * 0.15), // +15% за каждый успех
+      isCrit,
+      critMultiplier: 1.5,
+      tierBonuses,
+    })
     
     // Износ оружия
     const durabilityLoss = Math.floor(adventure.duration / 60 * 3) + Math.floor(Math.random() * 5)
     
     // Множитель эпичности растёт с каждым приключением
-    const epicGain = 0.05 + (successCount * 0.02) + (Math.random() * 0.03)
+    const epicGain = isCrit 
+      ? 0.08 + (successCount * 0.03) + (Math.random() * 0.05) // Бонус при крите
+      : 0.05 + (successCount * 0.02) + (Math.random() * 0.03)
     
     // Добавляем очки души оружию
     addWarSoulToWeapon(activeAdventure.weaponId, warSoulGained, durabilityLoss, epicGain)

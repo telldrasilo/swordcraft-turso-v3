@@ -260,6 +260,7 @@ function formatSaveData(row: Record<string, unknown>) {
     saveVersion: row['saveVersion'],
     createdAt: row['createdAt'],
     updatedAt: row['updatedAt'],
+    serverTimestamp: row['updatedAt'],
   }
 }
 

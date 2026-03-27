@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/tooltip'
 import { 
   CheckCircle2, Circle, Loader2, Clock, ChevronDown, ChevronUp,
-  Flame, Hammer, Wrench, Package, Star, Sparkles
+  Flame, Hammer, Wrench, Package, Star, Sparkles, Zap, AlertTriangle
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -174,19 +174,13 @@ function CurrentStageCard({ stage }: { stage: CraftStageInstance }) {
         </div>
         
         {/* Прогресс бар */}
-        <div className="relative">
-          <Progress 
-            value={stage.progress} 
-            className="h-3 bg-stone-700"
-          />
+        <div className="relative h-3 bg-stone-700 rounded-full overflow-hidden">
           <motion.div
-            className="absolute inset-y-0 left-0 overflow-hidden rounded-full"
+            className={cn("h-full rounded-full", CATEGORY_COLORS[category])}
             initial={{ width: 0 }}
             animate={{ width: `${stage.progress}%` }}
-            transition={{ duration: 0.5 }}
-          >
-            <div className={cn("h-full", CATEGORY_COLORS[category])} />
-          </motion.div>
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+          />
         </div>
         
         {/* Сообщение */}
@@ -288,9 +282,10 @@ function CompletedStagesLog({
 interface CraftProgressProps {
   activeCraft: ActiveCraftV2
   onCancel?: () => void
+  onInstantComplete?: () => void  // Тестовая функция мгновенного завершения
 }
 
-export function CraftProgress({ activeCraft, onCancel }: CraftProgressProps) {
+export function CraftProgress({ activeCraft, onCancel, onInstantComplete }: CraftProgressProps) {
   const [showLog, setShowLog] = useState(false)
   
   const currentStage = useMemo(() => {
@@ -420,6 +415,36 @@ export function CraftProgress({ activeCraft, onCancel }: CraftProgressProps) {
           </div>
           <Progress value={overallProgress} className="h-2 bg-stone-700" />
         </div>
+        
+        {/* Тестовые кнопки */}
+        {onCancel && (
+          <div className="flex gap-2 pt-2 border-t border-stone-700">
+            <button
+              onClick={onCancel}
+              className="flex-1 px-3 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded-md transition-colors border border-red-600/30"
+            >
+              Отменить крафт
+            </button>
+            
+            {/* Тестовая кнопка мгновенного завершения */}
+            {onInstantComplete && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={onInstantComplete}
+                    className="px-3 py-2 text-sm text-purple-400 hover:text-purple-300 hover:bg-purple-900/20 rounded-md transition-colors border border-purple-600/30 flex items-center gap-1"
+                  >
+                    <Zap className="w-4 h-4" />
+                    <span className="hidden sm:inline">Тест: Завершить</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p className="text-xs">Мгновенно завершить крафт (тестовый режим)</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+        )}
       </div>
     </TooltipProvider>
   )
