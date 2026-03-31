@@ -15,7 +15,7 @@ import { SacrificeWeaponCard } from './sacrifice-weapon-card'
 
 export function SacrificeSection() {
   const weaponInventory = useGameStore((state) => state.weaponInventory)
-  const sacrificeWeapon = useGameStore((state) => state.sacrificeWeapon)
+  const sacrificeWeapon = useGameStore((state) => state.sacrificeWeaponForEssence)
   const [sacrificingId, setSacrificingId] = useState<string | null>(null)
   const [lastResult, setLastResult] = useState<{ soulEssence: number; bonusGold: number } | null>(null)
   const { play } = useSound()

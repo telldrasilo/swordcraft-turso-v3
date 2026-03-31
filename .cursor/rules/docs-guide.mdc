@@ -1,0 +1,9 @@
+---
+description: Always read project documentation before modifying game systems
+globs: ["src/**"]
+---
+Перед изменением любой игровой системы, проверь документацию:
+1. Найди нужную систему в docs/README.md
+2. Прочитай соответствующий файл в docs/systems/
+3. Проверь типы в docs/04_TYPES_SYSTEM.md
+4. Убедись, что изменения не ломают другие системы

@@ -1,0 +1,95 @@
+# SwordCraft - Проект для AI агентов
+
+## Что это за проект
+SwordCraft - браузерная игра-симулятор кузнеца оружия с системой гильдии, экспедиций, зачарований и заказов NPC.
+
+## Технологии
+Next.js 15, TypeScript 5, Zustand 5.0.6 (composed store), Tailwind CSS 4, shadcn/ui (Radix UI), Prisma 6.6.0, @libsql/client (Turso/libSQL)
+
+## Важно для AI
+
+### ВСЕГДА читай AGENTS.md перед началом работы
+В этом файле указаны все основные указатели на документацию.
+
+### Документация расположена в docs/
+Вся техническая документация находится в папке docs/. При изменении незнакомых систем всегда:
+1. Открой docs/README.md для навигации
+2. Прочитай соответствующий файл в docs/systems/
+3. Проверь типы в docs/04_TYPES_SYSTEM.md
+4. Убедись, что изменения не ломают другие системы
+
+## Ключевые файлы проекта
+
+### State Management (Центральная система)
+- **src/store/game-store-composed.ts** - Единый Zustand store, все slices объединены (~1540 строк)
+- **src/store/slices/** - Доменные slices:
+  - player-slice.ts - игрок, уровень, опыт, титулы
+  - resources-slice.ts - все ресурсы (золото, дерево, камень, железо...)
+  - workers-slice.ts - рабочие, здания
+  - craft-slice.ts - крафт v1 (legacy)
+  - craft-v2-slice.ts - новая система крафта
+  - orders-slice.ts - заказы NPC
+  - guild-slice.ts - гильдия, искатели, экспедиции
+  - enchantments-slice.ts - зачарования
+  - encyclopedia-slice.ts - энциклопедия знаний
+  - tutorial-slice.ts - туториал
+
+### Типы данных
+- **src/types/** - Все TypeScript интерфейсы и типы
+  - player.ts, resources.ts, worker.ts, guild.ts
+  - craft.ts, craft-v2.ts, contract.ts, adventurer-extended.ts
+  - forecast.ts, expedition-events.ts, expedition-tags.ts
+  - materials/material-core.ts, materials/knowledge.ts
+  - shared/quality.ts, shared/enchantment.ts
+
+### Утилиты и бизнес-логика
+- **src/lib/craft/calculator.ts** - Расчёт характеристик оружия
+- **src/lib/expedition-calculator-v2.ts** - Расчёт экспедиций с модификаторами v2
+- **src/lib/expedition-reward-generator.ts** - Генерация наград
+- **src/lib/adventurer-generator-extended.ts** - Генерация искателей
+- **src/lib/modifier-system/** - Система модификаторов (8 провайдеров)
+- **src/lib/store-utils/** - Утилиты для store (формулы, константы)
+
+### Статические данные игры
+- **src/data/** - Все игровые данные:
+  - materials/ - библиотека материалов (металлы, дерево, камень, кожа)
+  - recipes/ - рецепты оружия и плавки
+  - techniques/ - техники крафта
+  - adventurer-*, expedition-templates, enchantments.ts
+  - repair-system, war-soul-tiers, unique-bonuses
+
+### UI компоненты
+- **src/components/screens/** - Экраны игры (forge, guild, dungeons, altar, resources, shop, workers)
+- **src/components/systems/** - Компоненты систем (forge/, guild/, altar/, workers/)
+- **src/components/ui/** - shadcn/ui компоненты (~60+ компонентов)
+
+### API маршруты (Next.js App Router)
+- **src/app/api/save/route.ts** - Сохранения в Turso/libSQL
+- **src/app/api/route.ts** - Health check
+
+## Язык кода
+- Код на English
+- Документация на Russian
+
+## Общие правила
+
+1. ВСЕГДА проверяй типы перед изменением - используй src/types/
+2. Store находится в src/store/game-store-composed.ts - читай его перед изменениями
+3. При добавлении новых типов - обновляй docs/04_TYPES_SYSTEM.md
+4. При изменении систем обновляй соответствующие docs/systems/
+5. Используй существующие константы из src/lib/store-utils/constants.ts
+6. Формулы расчётов задокументированы в docs/utils/FORMULAS.md
+
+## API для работы с store
+
+```typescript
+// Получение store
+import { useGameStore } from '@/store'
+const store = useGameStore()
+
+// Примеры использования
+store.startCraftWithResources(recipe)
+store.startExpeditionFull(expedition, adventurer, weapon)
+store.completeOrder(orderId, weaponId, weapon)
+store.addMaterialExpertise(materialId, amount)
+```

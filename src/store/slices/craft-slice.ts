@@ -64,6 +64,8 @@ export interface ActiveRefining {
 export interface WeaponInventory {
   weapons: CraftedWeaponV2[]
   maxSlots: number
+  /** Трофеи (редкие ресурсы из контрактов v2.0) */
+  trophies: Record<string, number>  // { 'boar_fang': 5, 'dragon_scale': 2 }
 }
 
 /** Разблокированные рецепты */
@@ -139,6 +141,7 @@ export const initialActiveRefining: ActiveRefining = {
 export const initialWeaponInventory: WeaponInventory = {
   weapons: [],
   maxSlots: 20,
+  trophies: {},
 }
 
 export const initialUnlockedRecipes: UnlockedRecipes = {

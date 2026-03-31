@@ -106,7 +106,7 @@ export function EnchantWeaponModal({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {schoolEnchantments.map(ench => {
                     const isAlreadyApplied = existingEnchantmentIds.includes(ench.id)
-                    const schoolAlreadyApplied = existingEnchantmentIds.some(id => {
+                    const schoolAlreadyApplied = existingEnchantmentIds.some((id: string) => {
                       const existing = getEnchantment(id)
                       return existing?.school === ench.school
                     })

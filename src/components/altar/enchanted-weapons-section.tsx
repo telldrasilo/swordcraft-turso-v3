@@ -5,7 +5,7 @@
 
 'use client'
 
-import { motion, AnimatePresence } from 'framer-motion'
+import { AnimatePresence } from 'framer-motion'
 import { Sword, Plus } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -64,7 +64,7 @@ export function EnchantedWeaponsSection() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {enchantableWeapons.map(weapon => {
-              const qualityInfo = qualityGrades[weapon.qualityGrade]
+              const qualityInfo = qualityGrades[weapon.qualityGrade as keyof typeof qualityGrades] ?? qualityGrades.normal
               const enchantmentsCount = (weapon.enchantments || []).length
               
               return (
@@ -72,11 +72,11 @@ export function EnchantedWeaponsSection() {
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-3">
                       <div>
-                        <h4 className="font-semibold text-stone-200">{weapon.name}</h4>
+                        <h4 className="font-semibold text-stone-200">{weapon.fullName}</h4>
                         <Badge className={qualityInfo.color}>{qualityInfo.name}</Badge>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm text-stone-500">Атака: {weapon.attack}</p>
+                        <p className="text-sm text-stone-500">Атака: {weapon.stats.attack}</p>
                       </div>
                     </div>
                     

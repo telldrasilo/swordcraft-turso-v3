@@ -39,10 +39,16 @@ export async function GET(request: NextRequest) {
 
     if (result.rows.length === 0) {
       const newSave = await createNewSave(db, playerId)
+      if (!newSave) {
+        return NextResponse.json(
+          { success: false, error: 'Failed to create save' },
+          { status: 500 }
+        )
+      }
       console.log('[Save API] Created new save for:', playerId)
       return NextResponse.json({
         success: true,
-        data: formatSaveData(newSave),
+        data: formatSaveData(newSave as Record<string, unknown>),
         isNew: true,
       })
     }

@@ -1402,7 +1402,6 @@ export const useGameStore = create<GameStore>()(
     name: STORE_NAME,
     version: STORE_VERSION,
     storage: createJSONStorage(() => localStorage),
-    // Сохраняем только важные части состояния
     partialize: (state) => ({
       player: state.player,
       resources: state.resources,
@@ -1423,6 +1422,23 @@ export const useGameStore = create<GameStore>()(
       craftV2Persisted: state.craftV2Persisted,
       shouldPurchaseMaterials: state.shouldPurchaseMaterials,
     }),
+    merge: (persistedState: any, currentState) => {
+      if (!persistedState || typeof persistedState !== 'object') {
+        return currentState
+      }
+      const persisted = persistedState as Record<string, any>
+      const merged = { ...currentState }
+      for (const key of Object.keys(persisted)) {
+        if (typeof persisted[key] !== 'function') {
+          (merged as any)[key] = persisted[key]
+        }
+      }
+      merged.guild = {
+        ...currentState.guild,
+        ...(persisted.guild ?? {}),
+      }
+      return merged
+    },
   }
 )
 )

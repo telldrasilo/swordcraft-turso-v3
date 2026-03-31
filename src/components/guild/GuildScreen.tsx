@@ -152,7 +152,7 @@ export function GuildScreen() {
       )}
 
       <Tabs defaultValue="orders" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4 lg:w-[600px]">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="orders" className="gap-2">
             <Scroll className="w-4 h-4" />
             Заказы

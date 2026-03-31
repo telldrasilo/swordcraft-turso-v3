@@ -335,8 +335,6 @@ export const qualityGrades: Record<QualityGrade, { name: string; min: number; ma
   legendary: { name: 'Легендарное', min: 96, max: 100, multiplier: 3.0, color: 'text-amber-400' }
 }
 
-export type QualityGrade = keyof typeof qualityGrades
-
 // Определение качества по числу
 export function getQualityGrade(quality: number): QualityGrade {
   if (quality <= 25) return 'poor'
