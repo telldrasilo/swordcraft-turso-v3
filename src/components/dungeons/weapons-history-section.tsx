@@ -10,7 +10,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { useGameStore } from '@/store'
-import { qualityGrades, weaponTypeStats } from '@/data/weapon-recipes'
+import { qualityGrades, weaponTypeStats, type QualityGrade } from '@/data/weapon-recipes'
+import { QUALITY_GRADE_V2_TO_LEGACY } from '@/lib/store-utils/constants'
 
 export function WeaponsHistorySection() {
   const weaponInventory = useGameStore((state) => state.weaponInventory)
@@ -38,9 +39,14 @@ export function WeaponsHistorySection() {
             .sort((a, b) => ((b.warSoul || 0) * (b.epicMultiplier || 1)) - ((a.warSoul || 0) * (a.epicMultiplier || 1)))
             .slice(0, 6)
             .map((weapon) => {
-              const qualityInfo = qualityGrades[weapon.qualityGrade]
-              const typeStats = weaponTypeStats[weapon.type]
+              const legacyGrade = (QUALITY_GRADE_V2_TO_LEGACY[weapon.qualityGrade] ?? 'normal') as QualityGrade
+              const qualityInfo = qualityGrades[legacyGrade] ?? qualityGrades.normal
+              const typeKey = weapon.type as keyof typeof weaponTypeStats
+              const typeStats = weaponTypeStats[typeKey]
               const potentialEssence = Math.floor((weapon.warSoul || 0) * (weapon.epicMultiplier || 1) * 0.5)
+              const cur = weapon.currentDurability ?? weapon.stats.durability
+              const max = weapon.stats.maxDurability || 1
+              const durPct = Math.round((cur / max) * 100)
               
               return (
                 <div
@@ -50,7 +56,7 @@ export function WeaponsHistorySection() {
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-xl">{typeStats?.icon || '⚔️'}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-stone-200 truncate">{weapon.name}</p>
+                      <p className="text-sm font-medium text-stone-200 truncate">{weapon.fullName}</p>
                       <Badge className={cn('text-xs', qualityInfo.color)}>
                         {qualityInfo.name}
                       </Badge>
@@ -72,7 +78,7 @@ export function WeaponsHistorySection() {
                     
                     <div className="flex items-center gap-1 text-green-400">
                       <Heart className="w-3 h-3" />
-                      <span>{weapon.durability || 100}%</span>
+                      <span>{durPct}%</span>
                     </div>
                   </div>
                   

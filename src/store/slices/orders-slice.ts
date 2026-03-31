@@ -12,6 +12,8 @@ import {
   type OrderGenerationContext,
   type MaterialAdvance
 } from '@/lib/store-utils/order-achievable-utils'
+import type { CraftedWeaponV2 } from '@/types/craft-v2'
+import { weaponAttack } from '@/lib/weapon-v2-helpers'
 
 // ================================
 // ХЕЛПЕР: Проверка соответствия оружия заказу
@@ -22,20 +24,14 @@ import {
  * Использует новую систему hiddenTags с fallback на старую
  */
 function checkWeaponMatchesOrder(
-  weapon: {
-    quality: number
-    attack: number
-    type: string
-    recipeId?: string
-    hiddenTags?: string[]
-  },
+  weapon: CraftedWeaponV2,
   order: NPCOrder
 ): boolean {
   // Проверка качества
   if (weapon.quality < order.minQuality) return false
   
   // Проверка атаки
-  if (order.minAttack && weapon.attack < order.minAttack) return false
+  if (order.minAttack && weaponAttack(weapon) < order.minAttack) return false
   
   // Новая система: проверяем hiddenTags
   if (weapon.hiddenTags && weapon.hiddenTags.length > 0) {

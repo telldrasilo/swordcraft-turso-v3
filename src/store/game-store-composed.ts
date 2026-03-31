@@ -8,7 +8,7 @@
  * - Utils: Чистые функции для расчётов
  */
 
-import { create, StateCreator } from 'zustand'
+import { create, type StateCreator } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 
 // ================================
@@ -39,27 +39,24 @@ import type { EncyclopediaSlice } from './slices/encyclopedia-slice'
 // DATA IMPORTS
 // ================================
 
-import { WeaponRecipe, weaponRecipes } from '@/data/weapon-recipes'
-import { RefiningRecipe, refiningRecipes } from '@/data/refining-recipes'
+import type { RefiningRecipe } from '@/data/refining-recipes'
+import { refiningRecipes } from '@/data/refining-recipes'
 import {
-  Enchantment,
+  type Enchantment,
   canAffordEnchantment,
   areEnchantmentsCompatible,
+  getEnchantment,
   MAX_ENCHANTMENTS_PER_WEAPON,
 } from '@/data/enchantments'
-import { expeditionTemplates, ExpeditionTemplate } from '@/data/expedition-templates'
-import {
-  RepairOption,
-  RepairType,
-  ExecuteRepairResult,
-} from '@/data/repair-system'
+import { expeditionTemplates, type ExpeditionTemplate } from '@/data/expedition-templates'
+import type { RepairOption, RepairType, ExecuteRepairResult } from '@/data/repair-system'
 
 // ================================
 // UTILITY IMPORTS
 // ================================
 
 import { generateId } from '@/lib/store-utils/generators'
-import { RESOURCE_SELL_PRICES, PLAYER_TITLES } from '@/lib/store-utils/constants'
+import { RESOURCE_SELL_PRICES, PLAYER_TITLES, TIER_NUMBER_TO_STRING } from '@/lib/store-utils/constants'
 import { getTitleByLevel, addExperience as addExperienceUtil } from '@/lib/store-utils/player-utils'
 import {
   calculateHireCost,
@@ -72,8 +69,6 @@ import {
   calculateCraftQuality as calculateCraftQualityUtil,
   calculateAttack as calculateAttackUtil,
   calculateSellPrice as calculateSellPriceUtil,
-  calculateCraftExperience,
-  createWeapon,
 } from '@/lib/store-utils/craft-utils'
 import {
   calculateSacrificeValue as calculateSacrificeValueUtil,
@@ -84,8 +79,7 @@ import {
   calculateRepairCost,
   calculateMaxRepairPercent,
   executeRepair as executeRepairUtil,
-  getMaterialDeductions,
-  type WeaponForRepair,
+  craftedWeaponV2ToWeaponRepairCalc,
 } from '@/lib/store-utils/repair-utils'
 import {
   calculateExpeditionOutcome,
@@ -106,10 +100,10 @@ import { selectEventsForExpedition } from '@/lib/expedition-event-selector'
 
 import {
   initialGuildState,
-  GuildState,
-  Adventurer,
-  ActiveExpedition,
-  RecoveryQuest,
+  type GuildState,
+  type Adventurer,
+  type ActiveExpedition,
+  type RecoveryQuest,
   getGuildReputationLevel,
   getMaxActiveExpeditions,
   calculateReputationGain,
@@ -134,7 +128,7 @@ import {
   ADVENTURER_LIFETIME,
   getAdventurerFullName,
 } from '@/lib/adventurer-generator'
-import { ExpeditionResult } from './slices/guild-slice'
+import type { ExpeditionResult } from './slices/guild-slice'
 
 // ================================
 // ДОПОЛНИТЕЛЬНЫЕ SLICE IMPORTS
@@ -173,10 +167,6 @@ interface CrossSliceActions {
   // Craft V2 + Resources + Player
   setShouldPurchaseMaterials: (should: boolean) => void
   
-  // Craft + Resources + Player
-  startCraftWithResources: (recipe: WeaponRecipe) => boolean
-  completeCraftWithExperience: () => CraftedWeaponV2 | null
-
   // Refining + Resources + Player
   startRefiningWithResources: (recipe: RefiningRecipe, amount: number) => boolean
   completeRefiningWithResources: () => boolean
@@ -312,7 +302,7 @@ const initialAdditionalState: AdditionalState = {
 // FULL STORE TYPE
 // ================================
 
-type GameStore = PlayerSlice & ResourcesSlice & WorkersSlice & CraftSlice & OrdersSlice & TutorialActions & AdditionalState & CrossSliceActions & EncyclopediaSlice
+export type GameStore = PlayerSlice & ResourcesSlice & WorkersSlice & CraftSlice & OrdersSlice & TutorialActions & AdditionalState & CrossSliceActions & EncyclopediaSlice
 
 // ================================
 // STORE CREATION
@@ -390,7 +380,7 @@ export const useGameStore = create<GameStore>()(
         if (state.workers.length >= state.maxWorkers) return false
 
         const cost = calculateHireCost(
-          workerClassData[workerClass].baseCost,
+          workerClass,
           state.workers.filter(w => w.class === workerClass).length
         )
 
@@ -416,7 +406,7 @@ export const useGameStore = create<GameStore>()(
         if (!worker) return
 
         // Возвращаем часть золота
-        const refund = getFireRefund(worker.hireCost)
+        const refund = getFireRefund(worker)
         state.addResource('gold', refund)
 
         // Удаляем рабочего
@@ -436,66 +426,6 @@ export const useGameStore = create<GameStore>()(
         return state.upgradeBuilding(buildingId)
       },
 
-      // Craft + Resources + Player
-      startCraftWithResources: (recipe) => {
-        const state = get()
-
-        // Проверки
-        if (state.activeCraft.recipeId) return false
-        if (!state.isRecipeUnlocked(recipe.id)) return false
-        if (state.player.level < recipe.requiredLevel) return false
-        if (!state.canAfford(recipe.cost)) return false
-
-        // Списываем ресурсы
-        state.spendResources(recipe.cost)
-
-        // Запускаем крафт
-        return state.startCraft(recipe)
-      },
-
-      completeCraftWithExperience: () => {
-        const state = get()
-        if (!state.activeCraft.recipeId) return null
-
-        const recipeId = state.activeCraft.recipeId
-        const recipe = weaponRecipes.find(r => r.id === recipeId)
-
-        if (!recipe) return null
-
-        // Рассчитываем качество
-        const workersQuality = state.getWorkersQuality()
-
-        // Создаём уникальное оружие
-        const weapon = createWeapon({
-          recipeId: recipe.id,
-          recipeName: recipe.name,
-          recipeType: recipe.type,
-          recipeTier: recipe.tier,
-          recipeMaterial: recipe.material,
-          recipeBaseSellPrice: recipe.baseSellPrice,
-          recipeCost: recipe.cost,
-          workersQuality: workersQuality,
-          playerLevel: state.player.level,
-        })
-
-        // Добавляем в инвентарь
-        state.addWeapon(weapon)
-
-        // Начисляем опыт
-        const exp = calculateCraftExperience(weapon.quality)
-        state.addExperience(exp)
-
-        // Обновляем статистику
-        state.updateStatistics({ totalCrafts: state.statistics.totalCrafts + 1 })
-
-        // Очищаем активный крафт
-        set((s) => ({
-          activeCraft: initialActiveCraft
-        }))
-
-        return weapon
-      },
-
       // Refining + Resources + Player
       startRefiningWithResources: (recipe, amount) => {
         const state = get()
@@ -507,14 +437,15 @@ export const useGameStore = create<GameStore>()(
         for (const input of recipe.inputs) {
           if (!state.canAfford({ [input.resource]: input.amount * amount })) return false
         }
-        if (recipe.extraCost && !state.canAfford({ coal: recipe.extraCost.coal * amount })) return false
+        const extraCoal = (recipe.extraCost?.coal ?? 0) * amount
+        if (extraCoal > 0 && !state.canAfford({ coal: extraCoal })) return false
 
         // Списываем
         for (const input of recipe.inputs) {
           state.spendResource(input.resource as ResourceKey, input.amount * amount)
         }
-        if (recipe.extraCost) {
-          state.spendResource('coal', recipe.extraCost.coal * amount)
+        if (extraCoal > 0) {
+          state.spendResource('coal', extraCoal)
         }
 
         return state.startRefining(recipe, amount)
@@ -592,7 +523,13 @@ export const useGameStore = create<GameStore>()(
         const weapon = state.weaponInventory.weapons.find(w => w.id === weaponId)
         if (!weapon) return null
 
-        const result = calculateSacrificeValueUtil(weapon)
+        const tierStr = TIER_NUMBER_TO_STRING[weapon.tier] ?? 'common'
+        const result = calculateSacrificeValueUtil(
+          weapon.quality,
+          tierStr,
+          weapon.warSoul,
+          weapon.epicMultiplier
+        )
 
         // Начисляем
         state.addResource('soulEssence', result.soulEssence)
@@ -629,43 +566,59 @@ export const useGameStore = create<GameStore>()(
         const state = get()
         const weapon = state.weaponInventory.weapons.find(w => w.id === weaponId)
         if (!weapon) {
-          return { success: false, cost: 0, repairedAmount: 0, durabilityLeft: 0 }
+          return { success: false, error: 'Оружие не найдено' }
         }
 
         const blacksmith = findBestBlacksmith(state.workers)
-        if (!blacksmith) {
-          return { success: false, cost: 0, repairedAmount: 0, durabilityLeft: 0 }
-        }
-
-        const weaponForRepair: WeaponForRepair = {
-          id: weapon.id,
-          durability: weapon.durability,
-          maxDurability: weapon.maxDurability,
-          quality: weapon.quality,
-        }
+        const model = craftedWeaponV2ToWeaponRepairCalc(weapon)
 
         const result = executeRepairUtil(
-          weaponForRepair,
+          model,
           repairType,
           blacksmith,
+          state.resources.gold,
           state.resources
         )
 
-        if (result.success) {
-          // Списываем ресурсы
-          for (const [resource, amount] of Object.entries(result.costs)) {
-            state.spendResource(resource as ResourceKey, amount)
-          }
+        const roll = result.result
+        const options = getRepairOptionsForWeapon(model, blacksmith)
+        const option = options.find(o => o.type === repairType)
 
-          // Обновляем оружие
+        if (result.success && roll && option) {
+          state.spendResource('gold', option.goldCost)
+          for (const [mat, amount] of Object.entries(option.materials)) {
+            const amt = amount || 0
+            if (amt > 0) state.spendResource(mat as ResourceKey, amt)
+          }
+          if (blacksmith) {
+            get().updateWorkerStamina(blacksmith.id, -option.staminaCost)
+          }
+        }
+
+        if (roll) {
           set((s) => ({
             weaponInventory: {
               ...s.weaponInventory,
-              weapons: s.weaponInventory.weapons.map(w =>
-                w.id === weaponId
-                  ? { ...w, durability: result.durabilityLeft }
-                  : w
-              ),
+              weapons: s.weaponInventory.weapons.map(w => {
+                if (w.id !== weaponId) return w
+                const cur = w.currentDurability ?? w.stats.durability
+                const newDur = Math.min(
+                  roll.maxDurabilityAfter,
+                  Math.max(0, cur + roll.durabilityRestored)
+                )
+                return {
+                  ...w,
+                  currentDurability: newDur,
+                  stats: {
+                    ...w.stats,
+                    durability: newDur,
+                    maxDurability: roll.maxDurabilityAfter,
+                    attack: Math.max(1, w.stats.attack - roll.attackLost),
+                  },
+                  warSoul: Math.max(0, w.warSoul - roll.soulLost),
+                  epicMultiplier: Math.max(1, w.epicMultiplier - roll.epicLost),
+                }
+              }),
             },
           }))
         }
@@ -681,23 +634,33 @@ export const useGameStore = create<GameStore>()(
         const blacksmith = findBestBlacksmith(state.workers)
         if (!blacksmith) return { success: false, cost: 0, repairedAmount: 0 }
 
-        const cost = calculateRepairCost(weapon.quality, weapon.maxDurability - weapon.durability)
-        const maxRepair = calculateMaxRepairPercent(blacksmith)
+        const model = craftedWeaponV2ToWeaponRepairCalc(weapon)
+        const cur = weapon.currentDurability ?? weapon.stats.durability
+        const maxD = weapon.stats.maxDurability
+
+        const cost = calculateRepairCost(model, blacksmith.level)
+        const maxRepair = calculateMaxRepairPercent(blacksmith.level)
 
         if (!state.canAfford({ gold: cost })) return { success: false, cost, repairedAmount: 0 }
 
-        const repairedAmount = Math.floor((weapon.maxDurability - weapon.durability) * maxRepair / 100)
+        const repairedAmount = Math.floor((maxD - cur) * (maxRepair / 100))
 
         state.spendResource('gold', cost)
 
         set((s) => ({
           weaponInventory: {
             ...s.weaponInventory,
-            weapons: s.weaponInventory.weapons.map(w =>
-              w.id === weaponId
-                ? { ...w, durability: Math.min(w.maxDurability, w.durability + repairedAmount) }
-                : w
-            ),
+            weapons: s.weaponInventory.weapons.map(w => {
+              if (w.id !== weaponId) return w
+              const c = w.currentDurability ?? w.stats.durability
+              const m = w.stats.maxDurability
+              const next = Math.min(m, c + repairedAmount)
+              return {
+                ...w,
+                currentDurability: next,
+                stats: { ...w.stats, durability: next },
+              }
+            }),
           },
         }))
 
@@ -773,19 +736,44 @@ export const useGameStore = create<GameStore>()(
         // Используем extended данные искателя если есть
         const adventurerExtended = expedition.adventurerExtended
 
+        const fallbackExtended: AdventurerExtended = {
+          id: expedition.adventurerId,
+          identity: {
+            firstName: expedition.adventurerName,
+            lastName: '',
+            gender: 'male',
+            portraitId: 0,
+          },
+          combat: {
+            level: 10,
+            rarity: 'common',
+            power: 25,
+            precision: 25,
+            endurance: 25,
+            luck: 25,
+            combatStyle: 'berserker',
+            preferredWeapons: [],
+            avoidedWeapons: [],
+          },
+          personality: {
+            primaryTrait: 'brave',
+            secondaryTrait: 'honourable',
+            motivations: ['gold'],
+            socialTags: [],
+            riskTolerance: 'balanced',
+          },
+          traits: [],
+          uniqueBonuses: [],
+          strengths: [],
+          weaknesses: [],
+          requirements: { minAttack: 0 },
+          createdAt: Date.now(),
+          expiresAt: Date.now() + 86400000,
+        }
+
         // Рассчитываем результат используя калькулятор v2
         const calculation = calculateExpeditionResultV2(
-          adventurerExtended || {
-            id: expedition.adventurerId,
-            identity: { firstName: expedition.adventurerName, lastName: '', gender: 'male' },
-            combat: { level: 10, rarity: 'common', power: 25, precision: 25, endurance: 25, luck: 25, combatStyle: 'berserker', preferredWeapons: [], avoidedWeapons: [] },
-            personality: { primaryTrait: 'brave', secondaryTrait: 'honourable', motivations: ['gold'], socialTags: [], riskTolerance: 'balanced' },
-            strengths: [],
-            weaknesses: [],
-            requirements: { minAttack: 0 },
-            createdAt: Date.now(),
-            expiresAt: Date.now() + 86400000,
-          },
+          adventurerExtended ?? fallbackExtended,
           template,
           state.guild.level,
           weapon.stats.attack,
@@ -1008,7 +996,9 @@ export const useGameStore = create<GameStore>()(
         if (currentCount >= MAX_ENCHANTMENTS_PER_WEAPON) return false
 
         // Проверяем совместимость
-        if (weapon.enchantments && !areEnchantmentsCompatible(weapon.enchantments.map(e => e.enchantmentId), enchantmentId)) {
+        const newEnchData = getEnchantment(enchantmentId)
+        if (!newEnchData) return false
+        if (weapon.enchantments && !areEnchantmentsCompatible(weapon.enchantments, newEnchData)) {
           return false
         }
 
@@ -1128,7 +1118,8 @@ export const useGameStore = create<GameStore>()(
             return false
           }
         }
-        if (recipe.extraCost && state.resources.coal < recipe.extraCost.coal * amount) {
+        const coalNeed = (recipe.extraCost?.coal ?? 0) * amount
+        if (coalNeed > 0 && state.resources.coal < coalNeed) {
           return false
         }
 
@@ -1280,13 +1271,12 @@ export const useGameStore = create<GameStore>()(
       },
 
       getMetBadge: (adventurerId) => {
-        const known = get().knownAdventurers.find(ka => ka.adventurerId === adventurerId)
+        const known = getKnownAdventurerInfo(get().knownAdventurers, adventurerId)
         if (!known) return null
 
-        const info = getKnownAdventurerInfo(known)
         return {
           isKnown: true,
-          text: getMetInfoText(info),
+          text: getMetInfoText(known),
           className: 'badge-known',
         }
       },
@@ -1313,7 +1303,8 @@ export const useGameStore = create<GameStore>()(
         const weapon = state.weaponInventory.weapons.find(w => w.id === weaponId)
         if (!weapon) return []
 
-        return getRepairOptionsForWeapon(weapon, state.workers)
+        const model = craftedWeaponV2ToWeaponRepairCalc(weapon)
+        return getRepairOptionsForWeapon(model, findBestBlacksmith(state.workers))
       },
 
       getBestBlacksmith: () => {
@@ -1325,12 +1316,14 @@ export const useGameStore = create<GameStore>()(
         const weapon = state.weaponInventory.weapons.find(w => w.id === weaponId)
         if (!weapon) return 0
 
-        return calculateRepairCost(weapon.quality, weapon.maxDurability - weapon.durability)
+        const blacksmith = findBestBlacksmith(state.workers)
+        const model = craftedWeaponV2ToWeaponRepairCalc(weapon)
+        return calculateRepairCost(model, blacksmith?.level ?? 1)
       },
 
-      getMaxRepairPercent: (weaponId) => {
+      getMaxRepairPercent: (_weaponId) => {
         const blacksmith = findBestBlacksmith(get().workers)
-        return blacksmith ? calculateMaxRepairPercent(blacksmith) : 0
+        return blacksmith ? calculateMaxRepairPercent(blacksmith.level) : 0
       },
 
       // Craft helpers
@@ -1346,12 +1339,12 @@ export const useGameStore = create<GameStore>()(
 
       setCurrentScreen: (screen) => set({ currentScreen: screen }),
 
-      // Craft state checks
-      isCrafting: () => get().activeCraft.recipeId !== null,
+      // Craft state checks (многоступенчатый крафт — craftV2Persisted)
+      isCrafting: () => get().craftV2Persisted.stage === 'crafting',
       isRefining: () => get().activeRefining.recipeId !== null,
-      updateCraftProgress: (progress) => set((s) => ({
-        activeCraft: { ...s.activeCraft, progress: Math.min(100, progress) }
-      })),
+      updateCraftProgress: (_progress) => {
+        /* legacy v1 одношкальный прогресс удалён; тик в useCraftV2 */
+      },
       updateRefiningProgress: (progress) => set((s) => ({
         activeRefining: { ...s.activeRefining, progress: Math.min(100, progress) }
       })),
@@ -1447,27 +1440,15 @@ export const useGameStore = create<GameStore>()(
 // RE-EXPORTS (для обратной совместимости)
 // ================================
 
-export {
-  // Player
+export type {
   Player,
   GameStatistics,
-  initialPlayer,
-  initialStatistics,
-
-  // Resources
   Resources,
   ResourceKey,
   CraftingCost,
-  initialResources,
-
-  // Workers
   Worker,
   WorkerClass,
   ProductionBuilding,
-  initialBuildings,
-  workerClassData,
-
-  // Craft
   ActiveCraft,
   ActiveRefining,
   WeaponInventory,
@@ -1477,6 +1458,16 @@ export {
   WeaponTier,
   WeaponMaterial,
   QualityGrade,
+}
+
+export type { CraftedWeapon } from '@/types/craft'
+
+export {
+  initialPlayer,
+  initialStatistics,
+  initialResources,
+  initialBuildings,
+  workerClassData,
   initialActiveCraft,
   initialActiveRefining,
   initialWeaponInventory,

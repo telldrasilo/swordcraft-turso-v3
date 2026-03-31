@@ -43,8 +43,8 @@ export function AdventureCard({
   // Мемоизированный поиск подходящего оружия
   const suitableWeapons = useMemo(() => 
     weapons.filter(w => 
-      w.attack >= adventure.minWeaponLevel * 5 &&
-      (w.durability ?? 100) > 10 // Не сломанное
+      w.stats.attack >= adventure.minWeaponLevel * 5 &&
+      (w.currentDurability ?? w.stats.durability) > 10 // Не сломанное
     ),
     [weapons, adventure.minWeaponLevel]
   )
@@ -53,7 +53,7 @@ export function AdventureCard({
   const hasWeapons = suitableWeapons.length > 0
   const canEmbark = isAvailable && hasWeapons
   const hasAnyWeapon = weapons.length > 0
-  const hasBrokenWeapons = weapons.some(w => (w.durability ?? 100) <= 10)
+  const hasBrokenWeapons = weapons.some(w => (w.currentDurability ?? w.stats.durability) <= 10)
   
   return (
     <motion.div

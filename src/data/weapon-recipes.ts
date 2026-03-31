@@ -22,6 +22,8 @@ export type MaterialType = WeaponMaterial
 // Ресурсы для крафта
 export interface CraftingCost {
   gold?: number
+  soulEssence?: number
+  leather?: number
   // Сырьё
   wood?: number
   stone?: number

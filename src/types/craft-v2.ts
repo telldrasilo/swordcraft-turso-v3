@@ -413,8 +413,8 @@ export interface CraftLogEntry {
 // ЗАЧАРОВАНИЯ
 // ================================
 
-// Re-export shared enchantment type for convenience
-export { WeaponEnchantment } from './shared/enchantment'
+// Re-export shared enchantment type for convenience (type-only — interfaces emit no runtime exports)
+export type { WeaponEnchantment } from './shared/enchantment'
 
 // ================================
 // РАНГ КАЧЕСТВА (для нейминга)

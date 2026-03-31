@@ -43,7 +43,7 @@ export function InventorySection() {
       ? Math.round(weapons.reduce((sum, w) => sum + w.stats.attack, 0) / weapons.length)
       : 0
     const masterpieceCount = weapons.filter(
-      w => w.qualityGrade === 'masterwork' || w.qualityGrade === 'legendary'
+      w => w.qualityGrade === 'masterpiece' || w.qualityGrade === 'legendary'
     ).length
     
     return { totalValue, avgAttack, masterpieceCount, count: weapons.length }

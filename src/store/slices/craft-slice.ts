@@ -4,8 +4,7 @@
  * Использует craft-utils для бизнес-логики
  */
 
-import { StateCreator } from 'zustand'
-import { CraftingCost } from './resources-slice'
+import type { StateCreator } from 'zustand'
 
 // Импорт утилит
 import { generateId } from '@/lib/store-utils/generators'
@@ -16,6 +15,7 @@ import {
 
 // Импорт нового типа оружия
 import type { CraftedWeaponV2 } from '@/types/craft-v2'
+import type { RefiningRecipe } from '@/data/refining-recipes'
 
 // ================================
 // ТИПЫ
@@ -93,11 +93,7 @@ export interface CraftState {
 
 /** Actions для крафта */
 export interface CraftActions {
-  startCraft: (recipe: { id: string; name: string; cost: CraftingCost; baseCraftTime: number; tier: number; type: WeaponType; material: WeaponMaterial; baseSellPrice: number; requiredLevel: number }) => boolean
-  updateCraftProgress: (progress: number) => void
-  completeCraft: () => CraftedWeaponV2 | null
-  isCrafting: () => boolean
-  startRefining: (recipe: { id: string; name: string; processTime: number; inputs: { resource: string; amount: number }[]; extraCost?: { coal: number }; output: { resource: string; amount: number }; requiredLevel: number }, amount: number) => boolean
+  startRefining: (recipe: RefiningRecipe, amount: number) => boolean
   updateRefiningProgress: (progress: number) => void
   completeRefining: () => boolean
   isRefining: () => boolean
@@ -145,7 +141,17 @@ export const initialWeaponInventory: WeaponInventory = {
 }
 
 export const initialUnlockedRecipes: UnlockedRecipes = {
-  weaponRecipes: ['iron_sword', 'iron_dagger', 'iron_axe', 'iron_mace', 'iron_spear', 'iron_hammer'],
+  weaponRecipes: [
+    'basic_sword',
+    'basic_dagger',
+    'basic_axe',
+    'iron_sword',
+    'iron_dagger',
+    'iron_axe',
+    'iron_mace',
+    'iron_spear',
+    'iron_hammer',
+  ],
   refiningRecipes: ['iron_ingot', 'copper_ingot', 'tin_ingot', 'wood_planks', 'stone_blocks'],
 }
 
@@ -166,43 +172,6 @@ export const createCraftSlice: StateCreator<
   unlockedRecipes: initialUnlockedRecipes,
   recipeSources: [],
   unlockedEnchantments: [],
-
-  // Actions - Крафт
-  startCraft: (recipe) => {
-    const state = get()
-    if (state.activeCraft.recipeId) return false
-    if (!state.isRecipeUnlocked(recipe.id)) return false
-    // Проверка ресурсов и уровня делается в game-store
-
-    const now = Date.now()
-    const endTime = now + recipe.baseCraftTime * 1000
-
-    set({
-      activeCraft: {
-        recipeId: recipe.id,
-        weaponName: recipe.name,
-        progress: 0,
-        startTime: now,
-        endTime: endTime,
-        quality: 0,
-      }
-    })
-    return true
-  },
-
-  updateCraftProgress: (progress) => set((state) => ({
-    activeCraft: { ...state.activeCraft, progress: Math.min(100, progress) }
-  })),
-
-  completeCraft: () => {
-    const state = get()
-    if (!state.activeCraft.recipeId) return null
-    
-    // Создание оружия делается в game-store где есть доступ к recipe и player
-    return null
-  },
-
-  isCrafting: () => get().activeCraft.recipeId !== null,
 
   // Actions - Переработка
   startRefining: (recipe, amount) => {
@@ -376,3 +345,6 @@ export type {
   WeaponMaterial,
   QualityGrade,
 }
+
+/** Легаси-модель оружия (v1) — для редких импортов и док */
+export type { CraftedWeapon } from '@/types/craft'

@@ -4,12 +4,20 @@
  * Вынесено из game-store-composed.ts для уменьшения размера
  */
 
-import { ResourceKey } from '@/store/slices/resources-slice'
-import { Worker } from '@/store/slices/workers-slice'
-import {
+import type { CraftedWeaponV2 } from '@/types/craft-v2'
+import type { WeaponTier } from '@/store/slices/craft-slice'
+import type { CraftingCost } from '@/data/weapon-recipes'
+import { getResourceKeyForMaterial } from '@/lib/craft/inventory-check'
+import type { ResourceKey } from '@/store/slices/resources-slice'
+import type { Worker } from '@/store/slices/workers-slice'
+import type {
   RepairOption,
   RepairType,
   ExecuteRepairResult,
+  WeaponRepairCalc,
+  RepairResult as RepairRollResult,
+} from '@/data/repair-system'
+import {
   getRepairOptions as calculateRepairOptions,
   executeRepair as executeWeaponRepairLogic,
 } from '@/data/repair-system'
@@ -18,16 +26,7 @@ import {
 // ТИПЫ
 // ================================
 
-export interface WeaponForRepair {
-  id: string
-  tier: string
-  durability: number
-  maxDurability: number
-  warSoul: number
-  attack: number
-  epicMultiplier: number
-  quality: number
-}
+export type WeaponForRepair = WeaponRepairCalc & { id?: string }
 
 export interface RepairCosts {
   goldCost: number
@@ -35,14 +34,14 @@ export interface RepairCosts {
   staminaCost: number
 }
 
-export interface RepairResult {
-  success: boolean
-  durabilityRestored: number
-  maxDurabilityAfter: number
-  soulLost: number
-  attackLost: number
-  epicLost: number
-}
+const TIER_BY_INDEX: WeaponTier[] = [
+  'common',
+  'uncommon',
+  'rare',
+  'epic',
+  'legendary',
+  'mythic',
+]
 
 // ================================
 // КОНСТАНТЫ
@@ -54,7 +53,38 @@ const TIER_MULTIPLIERS: Record<string, number> = {
   rare: 2,
   epic: 3,
   legendary: 5,
-  mythic: 8
+  mythic: 8,
+}
+
+// ================================
+// V2 ↔ расчёт ремонта
+// ================================
+
+export function craftedWeaponV2ToWeaponRepairCalc(weapon: CraftedWeaponV2): WeaponRepairCalc {
+  const n = Number(weapon.tier)
+  const idx = Number.isFinite(n)
+    ? Math.max(0, Math.min(5, Math.round(n) - 1))
+    : 0
+  const tier = TIER_BY_INDEX[idx] ?? 'common'
+
+  const materials = {} as CraftingCost
+  for (const m of weapon.materials) {
+    const rk = getResourceKeyForMaterial(m.materialId)
+    if (rk) {
+      const key = rk as keyof CraftingCost
+      materials[key] = (materials[key] ?? 0) + m.quantity
+    }
+  }
+
+  return {
+    tier,
+    durability: weapon.currentDurability ?? weapon.stats.durability,
+    maxDurability: weapon.stats.maxDurability,
+    warSoul: weapon.warSoul,
+    attack: weapon.stats.attack,
+    epicMultiplier: weapon.epicMultiplier ?? 1,
+    materials,
+  }
 }
 
 // ================================
@@ -67,14 +97,14 @@ const TIER_MULTIPLIERS: Record<string, number> = {
 export function findBestBlacksmith(workers: Worker[]): Worker | null {
   const blacksmiths = workers.filter(w => w.class === 'blacksmith')
   if (blacksmiths.length === 0) return null
-  return blacksmiths.sort((a, b) => b.level - a.level)[0]
+  return blacksmiths.sort((a, b) => b.level - a.level)[0] ?? null
 }
 
 /**
  * Получить опции ремонта для оружия
  */
 export function getRepairOptionsForWeapon(
-  weapon: WeaponForRepair,
+  weapon: WeaponRepairCalc,
   blacksmith: Worker | null
 ): RepairOption[] {
   return calculateRepairOptions(weapon, blacksmith)
@@ -84,7 +114,7 @@ export function getRepairOptionsForWeapon(
  * Рассчитать стоимость ремонта
  */
 export function calculateRepairCost(
-  weapon: WeaponForRepair,
+  weapon: WeaponRepairCalc,
   playerLevel: number
 ): number {
   const durabilityLost = (weapon.maxDurability ?? 100) - (weapon.durability ?? 100)
@@ -101,7 +131,7 @@ export function calculateRepairCost(
  * Рассчитать максимальный процент восстановления
  */
 export function calculateMaxRepairPercent(playerLevel: number): number {
-  const maxRepair = 50 + (playerLevel * 5)
+  const maxRepair = 50 + playerLevel * 5
   return Math.min(100, maxRepair)
 }
 
@@ -109,9 +139,9 @@ export function calculateMaxRepairPercent(playerLevel: number): number {
  * Проверить возможность ремонта
  */
 export function canRepair(
-  weapon: WeaponForRepair,
+  weapon: WeaponRepairCalc,
   gold: number,
-  resources: Partial<Record<ResourceKey, number>>,
+  _resources: Partial<Record<ResourceKey, number>>,
   playerLevel: number
 ): { can: boolean; reason: string } {
   const currentDurability = weapon.durability ?? 100
@@ -130,10 +160,10 @@ export function canRepair(
 }
 
 /**
- * Выполнить ремонт оружия
+ * Выполнить ремонт оружия (проверка ресурсов + бросок)
  */
 export function executeRepair(
-  weapon: WeaponForRepair,
+  weapon: WeaponRepairCalc,
   repairType: RepairType,
   blacksmith: Worker | null,
   gold: number,
@@ -146,7 +176,6 @@ export function executeRepair(
     return { success: false, error: 'Опция ремонта недоступна' }
   }
 
-  // Проверка материалов
   for (const [mat, amount] of Object.entries(option.materials)) {
     const resourceKey = mat as ResourceKey
     if ((resources[resourceKey] || 0) < (amount || 0)) {
@@ -154,17 +183,23 @@ export function executeRepair(
     }
   }
 
-  // Проверка золота
   if (gold < option.goldCost) {
     return { success: false, error: 'Недостаточно золота' }
   }
 
-  // Проверка выносливости
   if (blacksmith && blacksmith.stamina < option.staminaCost) {
     return { success: false, error: 'У кузнеца недостаточно сил' }
   }
 
-  return executeWeaponRepairLogic(weapon, option, blacksmith)
+  const repairResult = executeWeaponRepairLogic(weapon, option, blacksmith)
+  if (!repairResult.success) {
+    return {
+      success: false,
+      error: repairResult.criticalFailure ? 'Критический провал ремонта' : 'Ремонт не удался',
+      result: repairResult,
+    }
+  }
+  return { success: true, result: repairResult }
 }
 
 /**
@@ -172,7 +207,7 @@ export function executeRepair(
  */
 export function getMaterialDeductions(
   repairType: RepairType,
-  weapon: WeaponForRepair,
+  weapon: WeaponRepairCalc,
   blacksmith: Worker | null
 ): Partial<Record<ResourceKey, number>> {
   const options = calculateRepairOptions(weapon, blacksmith)
@@ -181,11 +216,11 @@ export function getMaterialDeductions(
 }
 
 /**
- * Применить результат ремонта к оружию
+ * Применить результат ремонта к упрощённой модели оружия (утилита)
  */
 export function applyRepairToWeapon(
   weapon: WeaponForRepair,
-  result: RepairResult
+  result: RepairRollResult
 ): WeaponForRepair {
   return {
     ...weapon,

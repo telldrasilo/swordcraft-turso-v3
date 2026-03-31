@@ -9,39 +9,35 @@ import { Wrench, CheckCircle, Zap } from 'lucide-react'
 import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { useGameStore } from '@/store'
-import { cn } from '@/lib/utils'
 import { useSound } from '@/lib/sounds'
 import { getSmithMastery, type RepairType } from '@/data/repair-system'
 import { RepairCard } from '@/components/ui/repair-card'
-import type { CraftedWeapon } from '@/data/weapon-recipes'
-import type { ExecuteRepairResult } from '@/data/repair-system'
+import type { CraftedWeaponV2 } from '@/types/craft-v2'
+import type { RepairResult } from '@/data/repair-system'
 
 export function RepairSection() {
   const weaponInventory = useGameStore((state) => state.weaponInventory)
   const getBestBlacksmith = useGameStore((state) => state.getBestBlacksmith)
   const executeWeaponRepair = useGameStore((state) => state.executeWeaponRepair)
-  const [repairingId, setRepairingId] = useState<string | null>(null)
-  const [lastRepair, setLastRepair] = useState<{ weaponName: string; result: ExecuteRepairResult } | null>(null)
+  const [selectedRepairByWeapon, setSelectedRepairByWeapon] = useState<Record<string, RepairType | null>>({})
+  const [lastRepair, setLastRepair] = useState<{ weaponName: string; result: RepairResult } | null>(null)
   const { play } = useSound()
   
   // Фильтруем оружие, которое нуждается в ремонте
   const damagedWeapons = weaponInventory.weapons
-    .filter(w => (w.durability ?? 100) < (w.maxDurability ?? 100))
-    .sort((a, b) => (a.durability ?? 100) - (b.durability ?? 100))
+    .filter(w => (w.currentDurability ?? w.stats.durability) < w.stats.maxDurability)
+    .sort((a, b) => (a.currentDurability ?? a.stats.durability) - (b.currentDurability ?? b.stats.durability))
   
-  const handleRepair = (weapon: CraftedWeapon, option: RepairType) => {
-    setRepairingId(weapon.id)
-    
+  const handleRepair = (weapon: CraftedWeaponV2, option: RepairType) => {
     setTimeout(() => {
       const result = executeWeaponRepair(weapon.id, option)
-      if (result.success) {
+      if (result.success && result.result) {
         play('craft_complete')
-        setLastRepair({ weaponName: weapon.name, result: result.result! })
+        setLastRepair({ weaponName: weapon.fullName, result: result.result })
         setTimeout(() => {
           setLastRepair(null)
         }, 3000)
       }
-      setRepairingId(null)
     }, 500)
   }
   
@@ -103,9 +99,6 @@ export function RepairSection() {
             {lastRepair.result && (
               <div className="text-xs text-green-300 mt-1 flex gap-3">
                 <span>Прочность: +{lastRepair.result.durabilityRestored}%</span>
-                {lastRepair.result.experienceGained > 0 && (
-                  <span>Опыт кузнеца: +{lastRepair.result.experienceGained}</span>
-                )}
               </div>
             )}
           </motion.div>
@@ -129,8 +122,11 @@ export function RepairSection() {
             <RepairCard
               key={weapon.id}
               weapon={weapon}
-              repairing={repairingId === weapon.id}
-              onRepair={(option) => handleRepair(weapon, option)}
+              selectedOption={selectedRepairByWeapon[weapon.id] ?? null}
+              onSelect={(option) => {
+                setSelectedRepairByWeapon((prev) => ({ ...prev, [weapon.id]: option }))
+                handleRepair(weapon, option)
+              }}
             />
           ))}
         </div>

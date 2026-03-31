@@ -4,7 +4,7 @@
  * Использует constants для цен продажи
  */
 
-import { StateCreator } from 'zustand'
+import type { StateCreator } from 'zustand'
 import { RESOURCE_SELL_PRICES } from '@/lib/store-utils/constants'
 
 // ================================
@@ -187,8 +187,3 @@ export const createResourcesSlice: StateCreator<
   },
 })
 
-// ================================
-// ЭКСПОРТ ТИПОВ (для game-store)
-// ================================
-
-export type { Resources, ResourceKey, CraftingCost }

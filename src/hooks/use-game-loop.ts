@@ -3,7 +3,6 @@
 import { useEffect, useRef, useCallback, useMemo } from 'react'
 import { useGameStore, Worker, ProductionBuilding, workerClassData, WorkerClass } from '@/store'
 import { refiningRecipes } from '@/data/refining-recipes'
-import { weaponRecipes } from '@/data/weapon-recipes'
 
 // Частота обновления игры (в мс)
 const TICK_RATE = 100 // 10 тиков в секунду для плавности
@@ -63,11 +62,7 @@ export function useGameLoop() {
   const activeRefining = useGameStore((state) => state.activeRefining)
   const updateRefiningProgress = useGameStore((state) => state.updateRefiningProgress)
   const completeRefining = useGameStore((state) => state.completeRefiningWithResources)
-  
-  const activeCraft = useGameStore((state) => state.activeCraft)
-  const updateCraftProgress = useGameStore((state) => state.updateCraftProgress)
-  const completeCraft = useGameStore((state) => state.completeCraftWithExperience)
-  
+
   // Расчёт расхода стамины для рабочего на конкретном здании
   const getStaminaDrain = useCallback((worker: Worker, building: ProductionBuilding): number => {
     const baseDrain = BALANCE.BASE_STAMINA_DRAIN
@@ -182,25 +177,11 @@ export function useGameLoop() {
       updateRefiningProgress(progress)
       
       if (progress >= 100) {
-        completeRefiningWithResources()
+        completeRefining()
       }
     }
-    
-    // Обработка прогресса крафта
-    if (activeCraft.recipeId && activeCraft.endTime) {
-      const now = Date.now()
-      const totalTime = activeCraft.endTime - (activeCraft.startTime || now)
-      const elapsed = now - (activeCraft.startTime || now)
-      const progress = Math.min(100, (elapsed / totalTime) * 100)
-      
-      updateCraftProgress(progress)
-      
-      if (progress >= 100) {
-        completeCraft()
-      }
-    }
-    
-  }, [buildings, workers, calculateBuildingProduction, addResource, updateWorkerStamina, addWorkerExperience, updateBuildingProgress, addExperience, assignWorker, getStaminaDrain, activeRefining, activeCraft, updateRefiningProgress, completeRefining, updateCraftProgress, completeCraft])
+
+  }, [buildings, workers, calculateBuildingProduction, addResource, updateWorkerStamina, addWorkerExperience, updateBuildingProgress, addExperience, assignWorker, getStaminaDrain, activeRefining, updateRefiningProgress, completeRefining])
   
   // Запуск игрового цикла
   useEffect(() => {

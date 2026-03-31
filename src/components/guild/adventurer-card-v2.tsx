@@ -32,7 +32,7 @@ import { generateAdvice, type Advice } from '@/lib/adventurer-advice'
 import { MetBadge } from '@/components/ui/met-badge'
 
 // Импорт новых компонентов
-import { SuccessFactorsBlock, SuccessFactor } from './SuccessFactorsBlock'
+import { SuccessFactorsBlock, type SuccessFactor } from './SuccessFactorsBlock'
 import { getAdventurerQuote } from './adventurer-quotes'
 
 // ================================
@@ -102,13 +102,17 @@ const generateSuccessFactors = (
   
   if (applicableStrengths.length > 0) {
     const strength = applicableStrengths[0]
-    const data = getStrengthById(strength.id)
-    factors.push({
-      type: 'positive',
-      icon: data.icon,
-      text: data.name,
-      value: data.effects.successBonus > 0 ? `+${data.effects.successBonus}% к успеху` : undefined
-    })
+    if (strength) {
+      const data = getStrengthById(strength.id)
+      if (data) {
+        factors.push({
+          type: 'positive',
+          icon: data.icon,
+          text: data.name,
+          value: data.effects.successBonus > 0 ? `+${data.effects.successBonus}% к успеху` : undefined
+        })
+      }
+    }
   }
   
   // Фактор 3: Характер

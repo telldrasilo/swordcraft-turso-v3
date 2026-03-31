@@ -4,8 +4,8 @@
  * Использует worker-utils для бизнес-логики
  */
 
-import { StateCreator } from 'zustand'
-import { ResourceKey } from './resources-slice'
+import type { StateCreator } from 'zustand'
+import type { ResourceKey } from './resources-slice'
 
 // Импорт утилит
 import {
@@ -367,8 +367,3 @@ export const createWorkersSlice: StateCreator<
   },
 })
 
-// ================================
-// ЭКСПОРТ ТИПОВ (для game-store)
-// ================================
-
-export type { Worker, WorkerStats, ProductionBuilding, WorkerClassData }

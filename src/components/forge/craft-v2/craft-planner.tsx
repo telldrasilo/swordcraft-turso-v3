@@ -30,12 +30,10 @@ import {
 import { WeaponForecastPanel } from './planner/WeaponForecastPanel'
 
 // Типы и данные
-import type { WeaponRecipe } from '@/types/craft-v2'
-import type { Resources } from '@/store/slices/resources-slice'
+import type { Resources, ResourceKey } from '@/store/slices/resources-slice'
 import type { MaterialToBuy } from '@/lib/craft/inventory-check'
 import type { MaterialKnowledge } from '@/types/materials/knowledge'
 import { getAvailableRecipes, getRecipeById } from '@/data/recipes'
-import { getMaterialById } from '@/data/materials'
 import { getTechniqueById } from '@/data/techniques'
 import { calculateForecast } from '@/lib/craft/calculator'
 import { checkInventoryForCraft } from '@/lib/craft/inventory-check'
@@ -82,7 +80,7 @@ export function CraftPlanner({
   playerLevel,
   inventory,
   gold,
-  availableMaterials,
+  availableMaterials: _availableMaterials,
   unlockedRecipes,
   unlockedTechniques,
   materialKnowledge,
@@ -156,7 +154,7 @@ export function CraftPlanner({
       const resourceKey = getRecipePartResourceKey(materialId)
       if (!resourceKey) continue
       
-      const available = inventory[resourceKey] || 0
+      const available = inventory[resourceKey as ResourceKey] || 0
       if (available < part.minQuantity && !shouldPurchaseMaterials) return false
     }
     

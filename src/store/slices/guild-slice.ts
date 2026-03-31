@@ -22,7 +22,8 @@ import type {
   ContractTerms,
 } from '@/types/contract'
 import { CONTRACT_TERMS, CONTRACT_REQUIREMENTS, GUILD_CONTRACT_LIMITS } from '@/types/contract'
-import { CraftedWeapon } from '@/data/weapon-recipes'
+import type { CraftedWeaponV2 } from '@/types/craft-v2'
+import { weaponAttack } from '@/lib/weapon-v2-helpers'
 import {
   generateAdventurerPool,
   isAdventurerExpired,
@@ -121,7 +122,7 @@ export type GuildActions = {
   startExpedition: (
     expedition: ExpeditionTemplate,
     adventurer: Adventurer,
-    weapon: CraftedWeapon
+    weapon: CraftedWeaponV2
   ) => boolean
   cancelExpedition: (expeditionId: string) => boolean
   completeExpedition: (expeditionId: string) => ExpeditionResult | null
@@ -160,7 +161,7 @@ export type GuildActions = {
   getAdventurerById: (id: string) => Adventurer | undefined
   getActiveExpeditionById: (id: string) => ActiveExpedition | undefined
   getAvailableAdventurers: () => Adventurer[]
-  getAvailableWeapons: (weapons: CraftedWeapon[]) => CraftedWeapon[]
+  getAvailableWeapons: (weapons: CraftedWeaponV2[]) => CraftedWeaponV2[]
   isWeaponInExpedition: (weaponId: string) => boolean
   getContractedAdventurer: (id: string) => ContractedAdventurer | undefined
   canSelectAdventurer: (adventurer: Adventurer, expedition: ExpeditionTemplate) => { can: boolean; reason: string }
@@ -195,7 +196,7 @@ export const getGuildLevelInfo = (state: GuildSliceState) => {
 export const canStartExpedition = (
   expedition: ExpeditionTemplate,
   adventurer: Adventurer,
-  weapon: CraftedWeapon,
+  weapon: CraftedWeaponV2,
   gold: number,
   activeExpeditions: ActiveExpedition[]
 ): { can: boolean; reason: string } => {
@@ -206,17 +207,17 @@ export const canStartExpedition = (
   }
 
   // Проверка оружия
-  if (weapon.durability <= 10) {
+  if (weapon.currentDurability <= 10) {
     return { can: false, reason: 'Оружие слишком повреждено' }
   }
 
-  if (weapon.attack < expedition.minWeaponAttack) {
+  if (weaponAttack(weapon) < expedition.minWeaponAttack) {
     return { can: false, reason: `Требуется атака ${expedition.minWeaponAttack}+` }
   }
 
   // Проверка требований искателя
   const minAttack = adventurer.requirements?.minAttack ?? 0
-  if (weapon.attack < minAttack) {
+  if (weaponAttack(weapon) < minAttack) {
     return { can: false, reason: `Искатель требует атаку ${minAttack}+` }
   }
 
@@ -240,7 +241,7 @@ export const canStartExpedition = (
 export const calculateExpeditionResult = (
   expedition: ExpeditionTemplate,
   adventurer: Adventurer,
-  weapon: CraftedWeapon,
+  weapon: CraftedWeaponV2,
   guildLevel: number,
   guildGlory: number,
   contract?: ContractedAdventurer
@@ -249,14 +250,14 @@ export const calculateExpeditionResult = (
   const adventurerBonuses = calculateAdventurerBonuses(adventurer)
 
   // Базовые расчёты с применением бонусов
-  const baseSuccessChance = calculateSuccessChance(expedition, weapon.attack, 0)
+  const baseSuccessChance = calculateSuccessChance(expedition, weaponAttack(weapon), 0)
   const baseWeaponLossChance = calculateWeaponLossChance(expedition, weapon.quality, 0)
 
   // Применяем бонусы к шансам
   let successChance = Math.min(95, Math.max(5, 
     baseSuccessChance + adventurerBonuses.successRateBonus
   ))
-  let weaponLossChance = Math.max(0, 
+  const weaponLossChance = Math.max(0, 
     baseWeaponLossChance * (1 + adventurerBonuses.weaponLossModifier / 100)
   )
 

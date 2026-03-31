@@ -1,6 +1,5 @@
-// SwordCraft v2 - Game Save Schema
-// Работает с Turso (libSQL) для облачного хранения
-// DATABASE_URL не используется - подключение через adapter в db.ts
+// SwordCraft v2 - Game Save Schema (локальная SQLite для Prisma CLI)
+// Облачные сейвы: src/lib/db.ts + src/app/api/save/route.ts — держите поля в sync с моделью ниже
 
 generator client {
   provider = "prisma-client-js"
@@ -52,6 +51,9 @@ model GameSave {
 
   // === ОБУЧЕНИЕ ===
   tutorial String @default("{\"isActive\":true,\"currentStep\":0,\"skipped\":false,\"completedSteps\":[]}")
+
+  // === ЗНАНИЯ МАТЕРИАЛОВ (энциклопедия / крафт) ===
+  materialKnowledge String @default("{}")
 
   // === МЕТАДАННЫЕ ===
   createdAt   DateTime @default(now())

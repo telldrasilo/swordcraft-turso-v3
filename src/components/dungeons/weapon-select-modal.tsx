@@ -11,7 +11,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { useGameStore } from '@/store'
-import { qualityGrades, weaponTypeStats } from '@/data/weapon-recipes'
+import { qualityGrades, weaponTypeStats, type QualityGrade } from '@/data/weapon-recipes'
+import { QUALITY_GRADE_V2_TO_LEGACY } from '@/lib/store-utils/constants'
 import type { Adventure } from '@/data/adventures'
 
 interface WeaponSelectModalProps {
@@ -29,11 +30,11 @@ export function WeaponSelectModal({
   
   // Фильтруем подходящее оружие
   const suitableWeapons = weaponInventory.weapons
-    .filter(w => w.attack >= adventure.minWeaponLevel * 5)
+    .filter(w => w.stats.attack >= adventure.minWeaponLevel * 5)
     .sort((a, b) => {
       // Сначала оружие с меньшим износом (более пригодное)
-      const durabilityA = a.durability ?? 100
-      const durabilityB = b.durability ?? 100
+      const durabilityA = a.currentDurability ?? a.stats.durability
+      const durabilityB = b.currentDurability ?? b.stats.durability
       if (durabilityA <= 10 && durabilityB > 10) return 1
       if (durabilityB <= 10 && durabilityA > 10) return -1
       // Потом по количеству приключений (новое - в приоритете)
@@ -81,10 +82,14 @@ export function WeaponSelectModal({
           ) : (
             <div className="space-y-2">
               {suitableWeapons.map((weapon) => {
-                const qualityInfo = qualityGrades[weapon.qualityGrade]
-                const typeStats = weaponTypeStats[weapon.type]
-                const isDamaged = (weapon.durability ?? 100) <= 30
-                const isBroken = (weapon.durability ?? 100) <= 10
+                const legacyGrade = (QUALITY_GRADE_V2_TO_LEGACY[weapon.qualityGrade] ?? 'normal') as QualityGrade
+                const qualityInfo = qualityGrades[legacyGrade] ?? qualityGrades.normal
+                const typeKey = weapon.type as keyof typeof weaponTypeStats
+                const typeStats = weaponTypeStats[typeKey]
+                const curDur = weapon.currentDurability ?? weapon.stats.durability
+                const maxDur = weapon.stats.maxDurability
+                const isDamaged = curDur <= 30
+                const isBroken = curDur <= 10
                 
                 return (
                   <motion.button
@@ -115,7 +120,7 @@ export function WeaponSelectModal({
                       {/* Информация */}
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <h4 className="font-semibold text-stone-200">{weapon.name}</h4>
+                          <h4 className="font-semibold text-stone-200">{weapon.fullName}</h4>
                           <Badge className={cn('text-xs', qualityInfo.color)}>
                             {qualityInfo.name}
                           </Badge>
@@ -129,7 +134,7 @@ export function WeaponSelectModal({
                         <div className="flex items-center gap-4 mt-1 text-xs">
                           <div className="flex items-center gap-1 text-red-400">
                             <Sword className="w-3 h-3" />
-                            <span>{weapon.attack} атк</span>
+                            <span>{weapon.stats.attack} атк</span>
                           </div>
                           
                           {/* Прочность */}
@@ -138,7 +143,7 @@ export function WeaponSelectModal({
                             isBroken ? 'text-red-400' : isDamaged ? 'text-orange-400' : 'text-green-400'
                           )}>
                             <Heart className="w-3 h-3" />
-                            <span>{weapon.durability ?? 100}/{weapon.maxDurability ?? 100}</span>
+                            <span>{curDur}/{maxDur}</span>
                             {isBroken && <span className="text-red-400">(сломано)</span>}
                             {isDamaged && !isBroken && <span className="text-orange-400">(нужен ремонт)</span>}
                           </div>

@@ -24,7 +24,7 @@ import {
   weaponTypeStats, 
 } from '@/data/weapon-recipes'
 import type { CraftedWeaponV2 } from '@/types/craft-v2'
-import { getQualityGrade, getQualityColor, getQualityNameRu } from '@/types/craft-v2'
+import { getQualityColor, getQualityNameRu } from '@/types/craft-v2'
 import { cn } from '@/lib/utils'
 import { WeaponIcon, qualityColors } from './forge-utils'
 import {
@@ -48,9 +48,9 @@ export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
   // Для будущей возможности разблокирования (когда будет реализована система разблокировок)
   const [showLocked, setShowLocked] = useState(false)
   
-  const qualityGrade = getQualityGrade(weapon.quality)
-  const qualityColor = getQualityColor(qualityGrade)
-  const qualityNameRu = getQualityNameRu(qualityGrade)
+  const qualityGrade = weapon.qualityGrade
+  const qualityColor = getQualityColor(weapon.quality)
+  const qualityNameRu = getQualityNameRu(weapon.quality)
   
   const qualityInfo = {
     grade: qualityGrade,
@@ -67,7 +67,7 @@ export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
     'text-amber-400': 'bg-amber-700',
     'text-rose-400': 'bg-rose-600',
   }[qualityInfo.color] || 'bg-gray-600'
-  const typeStats = weaponTypeStats[weapon.type]
+  const typeStats = (weaponTypeStats as Record<string, (typeof weaponTypeStats)['sword']>)[weapon.type]
   const recipe = weaponRecipes.find(r => r.id === weapon.recipeId)
   
   // Проверяем, в экспедиции ли оружие
@@ -82,7 +82,13 @@ export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
   // Тир оружия (число в строку для отображения)
   const tierNum = weapon.tier
   const tierStr = tierNum <= 1 ? 'common' : tierNum <= 2 ? 'uncommon' : tierNum <= 3 ? 'rare' : tierNum <= 4 ? 'epic' : 'legendary'
-  const tierColor = qualityColors[tierStr]
+  const tierColor =
+    qualityColors[tierStr] ??
+    qualityColors.common ?? {
+      text: 'text-stone-400',
+      bg: 'bg-stone-900/80',
+      border: 'border-stone-600',
+    }
   const tierNames: Record<string, string> = {
     common: 'Обычное', uncommon: 'Необычное', rare: 'Редкое',
     epic: 'Эпическое', legendary: 'Легендарное', mythic: 'Мифическое'

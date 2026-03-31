@@ -160,7 +160,6 @@ export function MaterialPreviewTooltip({ material, comparison, requiredQuantity,
     <TooltipProvider delayDuration={300}>
       <TooltipPrimitive.Root 
         defaultOpen={false}
-        closeDelay={500} 
         delayDuration={300}
       >
         <TooltipTrigger asChild><div>{children}</div></TooltipTrigger>

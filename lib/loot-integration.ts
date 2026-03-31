@@ -242,7 +242,9 @@ function applyKnowledgeLoot(
     // Применяем бонусы, если они есть
     if (item.bonuses) {
       Object.entries(item.bonuses).forEach(([bonus, value]) => {
-        store.incrementStat(`bonuses.${bonus}`, value)
+        if (typeof value === 'number') {
+          store.incrementStat(`bonuses.${bonus}`, value)
+        }
       })
     }
   }
@@ -382,19 +384,3 @@ export function getLootSummary(drops: LootDrop[]): {
  * }
  * ```
  */
-
-// ================================
-// ЭКСПОРТЫ
-// ================================
-
-export {
-  LOOT_STORE_STUB,
-  applyLootDrops,
-  handleExpeditionEvent,
-  getLootSummary,
-}
-
-export type {
-  LootStoreIntegration,
-  ApplyLootResult,
-}

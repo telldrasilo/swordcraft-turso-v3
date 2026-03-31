@@ -1,6 +1,10 @@
 /**
  * Turso/libSQL клиент для SwordCraft
  * Прямое подключение без Prisma adapter
+ *
+ * Схема Turso (этот файл + миграции ниже) — источник правды для облачных сейвов.
+ * Prisma (prisma/schema.prisma, file:./dev.db) — локальная SQLite для prisma generate / опциональных утилит;
+ * при изменении колонок game_saves синхронизируйте DDL здесь, Prisma-модель и POST/GET в src/app/api/save/route.ts
  */
 
 import { createClient, type Client } from '@libsql/client'
@@ -33,6 +37,7 @@ CREATE TABLE IF NOT EXISTS game_saves (
   knownAdventurers TEXT DEFAULT '[]',
   orders TEXT DEFAULT '{}',
   tutorial TEXT DEFAULT '{"isActive":true,"currentStep":0}',
+  materialKnowledge TEXT DEFAULT '{}',
   createdAt TEXT DEFAULT (datetime('now')),
   updatedAt TEXT DEFAULT (datetime('now')),
   playTime INTEGER DEFAULT 0,
@@ -81,11 +86,29 @@ async function initializeTables(db: Client): Promise<void> {
       }
     }
 
+    await ensureGameSavesColumns(db)
+
     globalForDb.tablesInitialized = true
     console.log('[DB] Tables initialized successfully')
   } catch (error) {
     console.error('[DB] Failed to initialize tables:', error)
     throw error
+  }
+}
+
+/** Добавляет колонки, появившиеся после первого деплоя (SQLite ALTER). */
+async function ensureGameSavesColumns(db: Client): Promise<void> {
+  const info = await db.execute({ sql: 'PRAGMA table_info(game_saves)' })
+  const names = new Set<string>()
+  for (const r of info.rows) {
+    const row = r as Record<string, unknown>
+    const n = row['name']
+    if (typeof n === 'string' && n) names.add(n)
+  }
+  if (!names.has('materialKnowledge')) {
+    await db.execute({
+      sql: "ALTER TABLE game_saves ADD COLUMN materialKnowledge TEXT DEFAULT '{}'",
+    })
   }
 }
 

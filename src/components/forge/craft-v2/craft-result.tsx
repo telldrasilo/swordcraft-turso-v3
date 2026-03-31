@@ -19,7 +19,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-import type { CraftedWeaponV2, QualityGrade } from '@/types/craft-v2'
+import type { CraftedWeaponV2 } from '@/types/craft-v2'
 import { QUALITY_GRADES_CONFIG } from '@/types/craft-v2'
 
 // ================================
@@ -115,7 +115,10 @@ interface CraftResultProps {
 }
 
 export function CraftResult({ weapon, onCollect, onContinue }: CraftResultProps) {
-  const qualityConfig = QUALITY_CONFIG.find(g => g.grade === weapon.qualityGrade) || QUALITY_CONFIG[1]
+  const qualityConfig =
+    QUALITY_CONFIG.find(g => g.grade === weapon.qualityGrade) ??
+    QUALITY_CONFIG[1] ??
+    QUALITY_CONFIG[0]!
   
   return (
     <motion.div

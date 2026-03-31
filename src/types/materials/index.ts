@@ -36,9 +36,6 @@ export {
   RARITY_LABELS,
 } from './material-core'
 
-// Алиас для совместимости
-export { getDisplayCategory as getMaterialDisplayCategory } from './material-core'
-
 // Знания и экспертиза
 export type {
   KnowledgeThreshold,

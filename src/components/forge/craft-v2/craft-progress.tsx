@@ -9,7 +9,7 @@
 
 import React, { useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/tooltip'
 import { 
   CheckCircle2, Circle, Loader2, Clock, ChevronDown, ChevronUp,
-  Flame, Hammer, Wrench, Package, Star, Sparkles, Zap, AlertTriangle
+  Flame, Hammer, Wrench, Package, Sparkles, Zap
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 

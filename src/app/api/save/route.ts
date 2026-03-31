@@ -10,9 +10,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDb, initDb } from '@/lib/db'
 import { randomUUID } from 'crypto'
+import {
+  SAVE_PAYLOAD_MAX_BYTES,
+  saveRequestBodySchema,
+} from '@/lib/save-payload-schema'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth-config'
 
 // Демо-игрок для разработки (без авторизации)
 const DEMO_PLAYER_ID = 'demo-player'
+
+async function resolvePlayerId(request: NextRequest): Promise<string> {
+  if (process.env.ENFORCE_SAVE_AUTH === 'true') {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      throw Object.assign(new Error('Unauthorized'), { status: 401 })
+    }
+    return session.user.id
+  }
+  return request.headers.get('x-player-id') || DEMO_PLAYER_ID
+}
 
 // ================================
 // GET - Загрузка сохранения
@@ -30,7 +47,16 @@ export async function GET(request: NextRequest) {
       }, { status: 503 })
     }
 
-    const playerId = request.headers.get('x-player-id') || DEMO_PLAYER_ID
+    let playerId: string
+    try {
+      playerId = await resolvePlayerId(request)
+    } catch (e) {
+      const status = (e as { status?: number }).status ?? 500
+      if (status === 401) {
+        return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+      }
+      throw e
+    }
 
     const result = await db.execute({
       sql: 'SELECT * FROM game_saves WHERE playerId = ?',
@@ -85,10 +111,56 @@ export async function POST(request: NextRequest) {
       }, { status: 503 })
     }
 
-    const playerId = request.headers.get('x-player-id') || DEMO_PLAYER_ID
-    const body = await request.json()
+    let playerId: string
+    try {
+      playerId = await resolvePlayerId(request)
+    } catch (e) {
+      const status = (e as { status?: number }).status ?? 500
+      if (status === 401) {
+        return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+      }
+      throw e
+    }
 
-    const validatedData = validateSaveData(body)
+    const contentLength = request.headers.get('content-length')
+    if (contentLength != null && Number(contentLength) > SAVE_PAYLOAD_MAX_BYTES) {
+      return NextResponse.json(
+        { success: false, error: 'Payload too large' },
+        { status: 413 }
+      )
+    }
+
+    const text = await request.text()
+    if (text.length > SAVE_PAYLOAD_MAX_BYTES) {
+      return NextResponse.json(
+        { success: false, error: 'Payload too large' },
+        { status: 413 }
+      )
+    }
+
+    let raw: unknown
+    try {
+      raw = JSON.parse(text) as unknown
+    } catch {
+      return NextResponse.json(
+        { success: false, error: 'Invalid JSON' },
+        { status: 400 }
+      )
+    }
+
+    const zodResult = saveRequestBodySchema.safeParse(raw)
+    if (!zodResult.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Invalid save payload',
+          details: zodResult.error.issues,
+        },
+        { status: 400 }
+      )
+    }
+
+    const validatedData = validateSaveData(zodResult.data as Record<string, unknown>)
 
     // Проверяем, существует ли сохранение
     const existing = await db.execute({
@@ -206,15 +278,32 @@ export async function DELETE(request: NextRequest) {
       }, { status: 503 })
     }
 
-    const playerId = request.headers.get('x-player-id') || DEMO_PLAYER_ID
+    let playerId: string
+    try {
+      playerId = await resolvePlayerId(request)
+    } catch (e) {
+      const status = (e as { status?: number }).status ?? 500
+      if (status === 401) {
+        return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+      }
+      throw e
+    }
 
-    await db.execute({
-      sql: 'DELETE FROM game_saves WHERE playerId = ?',
+    const row = await db.execute({
+      sql: 'SELECT id FROM game_saves WHERE playerId = ?',
       args: [playerId],
     })
 
+    const gameSaveId = row.rows[0]?.['id'] as string | undefined
+    if (gameSaveId) {
+      await db.execute({
+        sql: 'DELETE FROM save_history WHERE gameSaveId = ?',
+        args: [gameSaveId],
+      })
+    }
+
     await db.execute({
-      sql: 'DELETE FROM save_history WHERE gameSaveId = ?',
+      sql: 'DELETE FROM game_saves WHERE playerId = ?',
       args: [playerId],
     })
 
@@ -336,8 +425,8 @@ async function createNewSave(db: ReturnType<typeof getDb>, playerId: string) {
       resources, statistics, workers, buildings, maxWorkers,
       activeCraft, activeRefining, weaponInventory, unlockedRecipes,
       recipeSources, unlockedEnchantments, guild, knownAdventurers,
-      orders, tutorial, playTime, saveVersion, updatedAt
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      orders, tutorial, materialKnowledge, playTime, saveVersion, updatedAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       id,
       playerId,
@@ -353,6 +442,7 @@ async function createNewSave(db: ReturnType<typeof getDb>, playerId: string) {
       '[]',
       '{}',
       '{"isActive":true,"currentStep":0}',
+      '{}',
       0, 2, now,
     ],
   })

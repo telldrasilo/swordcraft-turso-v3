@@ -1,36 +1,149 @@
 // ================================
+// ЯДРО ТИПОВ МАТЕРИАЛОВ (MaterialNode)
+// Согласовано с записями в src/data/materials/library/**/*.ts
+// ================================
+
+export type MaterialClass = 'metal' | 'mineral' | 'wood' | 'leather' | 'organic' | 'other'
+
+export type MaterialOrigin = 'natural' | 'refined' | 'alloy' | 'processed' | 'composite' | string
+
+export interface MaterialIdentity {
+  id: string
+  name: string
+  class: MaterialClass
+  origin: MaterialOrigin
+  tags: string[]
+}
+
+export interface MaterialPhysical {
+  density: number
+  hardness: number
+  toughness: number
+  elasticity: number
+  meltingPoint: number | null
+  ignitionPoint: number | null
+  thermalConductivity: number
+  porosity: number
+  compressiveStrength: number
+  tensileStrength: number
+}
+
+export interface MaterialChemical {
+  reactivity: number
+  stability: number
+  corrosionResistance: number
+  oxidationResistance: number
+  acidity: number
+  solubility: number
+}
+
+export interface MaterialArcane {
+  conductivity: number
+  affinity: number
+  stability: number
+  resonance: number
+}
+
+export interface MaterialProcessing {
+  workability: number
+  refineDifficulty: number
+  purityPotential: number
+  defectRisk: number
+  repairability: number
+}
+
+export interface MaterialEconomy {
+  rarity: number
+  tier: number
+  baseValue: number
+  availability: number
+  discoverability: number
+}
+
+export type ProcessType = string
+
+export interface MaterialRecipeInput {
+  materialId: string
+  quantity: number
+  fraction?: number
+}
+
+export interface MaterialProcessModifiers {
+  temperature?: number
+  duration?: number
+  qualityImpact?: number
+}
+
+export interface MaterialRecipe {
+  process: ProcessType
+  inputs: MaterialRecipeInput[]
+  processModifiers?: MaterialProcessModifiers
+  yield: number
+}
+
+export interface MaterialSummary {
+  basic: string
+  applied: string
+  strengths: string[]
+  weaknesses: string[]
+  bestFor: string[]
+}
+
+export type DiscoveryType = 'harvest' | 'craft' | 'research' | string
+
+export interface DiscoveryRequirement {
+  type: DiscoveryType
+  requiredExpertise: number
+}
+
+export type DiscoveryPath = DiscoveryRequirement
+
+export interface MaterialDiscovery {
+  unlockedBy: DiscoveryRequirement[]
+}
+
+export interface MaterialNode {
+  identity: MaterialIdentity
+  physical: MaterialPhysical
+  chemical: MaterialChemical
+  arcane: MaterialArcane
+  processing: MaterialProcessing
+  economy: MaterialEconomy
+  summary: MaterialSummary
+  discovery: MaterialDiscovery
+  recipe?: MaterialRecipe
+  description: string
+  icon: string
+  version: number
+}
+
+// ================================
 // МАППИНГ КЛАССОВ В КАТЕГОРИИ
 // ================================
 
 export function getDisplayCategory(material: MaterialNode): MaterialDisplayCategory {
-  const { class: matClass, origin, tags, id } = material.identity
+  const { class: matClass, tags, id } = material.identity
 
-  // Руды: минералы с тегом 'ore' или уголь
   if (matClass === 'mineral' && (tags.includes('ore') || id === 'coal')) {
     return 'ores'
   }
 
-  // Слитки: все металлы (natural, refined, alloy)
   if (matClass === 'metal') {
     return 'ingots'
   }
 
-  // Камни: минералы без тега 'ore' и не уголь
   if (matClass === 'mineral') {
     return 'stones'
   }
 
-  // Дерево
   if (matClass === 'wood') {
     return 'wood'
   }
 
-  // Кожа
   if (matClass === 'leather') {
     return 'leather'
   }
 
-  // Другое
   return 'other'
 }
 
@@ -89,6 +202,3 @@ export const MATERIAL_CATEGORIES: { id: MaterialDisplayCategory; label: string }
   { id: 'leather', label: 'Кожа' },
   { id: 'other', label: 'Другое' },
 ]
-
-// Алиас для совместимости со старыми импортами
-export { getDisplayCategory as getMaterialDisplayCategory } from './material-core'

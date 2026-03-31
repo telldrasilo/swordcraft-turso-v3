@@ -38,7 +38,9 @@ import {
 } from '@/components/ui/tooltip'
 import { InfoTooltip, RichTooltip } from '@/components/ui/game-tooltip'
 import { useGameStore } from '@/store'
-import { CraftedWeapon, qualityGrades, weaponTypeStats } from '@/data/weapon-recipes'
+import { qualityGrades, type QualityGrade } from '@/data/weapon-recipes'
+import type { CraftedWeaponV2 } from '@/types/craft-v2'
+import { QUALITY_GRADE_V2_TO_LEGACY, TIER_NUMBER_TO_STRING } from '@/lib/store-utils/constants'
 import { 
   RepairOption,
   RepairType,
@@ -85,21 +87,22 @@ const tierNames: Record<string, string> = {
 
 // Карточка ремонта
 interface RepairCardProps {
-  weapon: CraftedWeapon
+  weapon: CraftedWeaponV2
   onSelect?: (option: RepairType) => void
   selectedOption: RepairType | null
 }
 
 export function RepairCard({ weapon, onSelect, selectedOption }: RepairCardProps) {
-  const qualityInfo = qualityGrades[weapon.qualityGrade]
-  const durability = weapon.durability ?? 100
-  const maxDurability = weapon.maxDurability ?? 100
+  const legacyGrade = (QUALITY_GRADE_V2_TO_LEGACY[weapon.qualityGrade] ?? 'normal') as QualityGrade
+  const qualityInfo = qualityGrades[legacyGrade] ?? qualityGrades.normal
+  const durability = weapon.currentDurability ?? weapon.stats.durability
+  const maxDurability = weapon.stats.maxDurability
   
   // Получаем ресурсы из стора
   const resources = useGameStore((state) => state.resources)
   
   // Тир оружия
-  const tier = weapon.tier || 'common'
+  const tier = TIER_NUMBER_TO_STRING[weapon.tier] ?? 'common'
   
   // Прочность для индикатора
   const durabilityPercent = (durability / maxDurability) * 100
@@ -161,7 +164,7 @@ export function RepairCard({ weapon, onSelect, selectedOption }: RepairCardProps
             
             {/* Информация */}
             <div className="flex-1 min-w-0">
-              <h4 className="font-semibold text-stone-200">{weapon.name}</h4>
+              <h4 className="font-semibold text-stone-200">{weapon.fullName}</h4>
               <div className="flex items-center gap-2 text-sm">
                 <Badge variant="outline" className={cn(
                   'text-xs', 
@@ -334,7 +337,7 @@ export function RepairCard({ weapon, onSelect, selectedOption }: RepairCardProps
           <div className="grid grid-cols-1 gap-2">
             {repairOptions.map((option) => {
               const affordable = canRepair(option)
-              const risks = mastery ? getRiskDescription(option.type, mastery) : []
+              const risks = mastery ? getRiskDescription(option, mastery) : []
                 
                 return (
                   <motion.button

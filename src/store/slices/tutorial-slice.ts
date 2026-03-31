@@ -3,7 +3,7 @@
  * Управление туториалом для новых игроков
  */
 
-import { StateCreator } from 'zustand'
+import type { StateCreator } from 'zustand'
 
 // ================================
 // ТИПЫ

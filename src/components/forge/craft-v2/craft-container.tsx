@@ -10,25 +10,24 @@
 
 import React, { useState, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+
 import { 
-  Hammer, Wrench, Package, ArrowLeft, AlertCircle, Info,
+  Hammer, ArrowLeft,
   HelpCircle, Sparkles
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
 
 import { useCraftV2 } from '@/hooks/use-craft-v2'
 import { useGameStore } from '@/store/game-store-composed'
 import { CraftPlanner } from './craft-planner'
 import { CraftProgress } from './craft-progress'
 import { CraftResult } from './craft-result'
-import type { MaterialAssignment, WeaponRecipe } from '@/types/craft-v2'
 import type { MaterialToBuy } from '@/lib/craft/inventory-check'
 import { getRecipeById } from '@/data/recipes'
 import { getCraftingCost, checkInventoryForCraft } from '@/lib/craft/inventory-check'
 import { getMaterialPrice } from '@/data/material-shop'
+import type { ResourceKey } from '@/types/resources'
 
 // ================================
 // КОНСТАНТЫ
@@ -301,7 +300,7 @@ export function CraftContainerV2({
     const prices: Record<string, number> = {}
     
     for (const materialId of availableMaterials) {
-      prices[materialId] = getMaterialPrice(materialId)
+      prices[materialId] = getMaterialPrice(materialId as ResourceKey, 1, 1.1)
     }
     
     return prices

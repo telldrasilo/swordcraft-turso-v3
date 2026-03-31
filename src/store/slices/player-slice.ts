@@ -4,7 +4,7 @@
  * Использует player-utils для бизнес-логики
  */
 
-import { StateCreator } from 'zustand'
+import type { StateCreator } from 'zustand'
 import {
   getTitleByLevel,
   getExperienceForLevel,
@@ -144,8 +144,3 @@ export const createPlayerSlice: StateCreator<
   getExperienceForLevel: (level) => getExperienceForLevel(level),
 })
 
-// ================================
-// ЭКСПОРТ ТИПОВ (для game-store)
-// ================================
-
-export type { Player, GameStatistics, PlayerState, PlayerActions }

@@ -208,9 +208,6 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
 
   // Загрузка
   const load = useCallback(async (): Promise<boolean> => {
-    // #region agent log
-    fetch('http://127.0.0.1:7756/ingest/6a59fcb2-1024-4589-94d8-127641c9bb5c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d59723'},body:JSON.stringify({sessionId:'d59723',location:'use-cloud-save.ts:load-start',message:'load called',data:{isLoadingRef:isLoadingRef.current},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     if (isLoadingRef.current) return false
 
     isLoadingRef.current = true
@@ -223,9 +220,6 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
     try {
       // Сначала пробуем загрузить с сервера
       if (isOnline) {
-        // #region agent log
-        fetch('http://127.0.0.1:7756/ingest/6a59fcb2-1024-4589-94d8-127641c9bb5c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d59723'},body:JSON.stringify({sessionId:'d59723',location:'use-cloud-save.ts:load-fetch',message:'fetching from server',data:{playerId},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         const response = await fetch('/api/save', {
           method: 'GET',
           headers: {
@@ -234,9 +228,6 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
         })
 
         const result = await response.json()
-        // #region agent log
-        fetch('http://127.0.0.1:7756/ingest/6a59fcb2-1024-4589-94d8-127641c9bb5c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d59723'},body:JSON.stringify({sessionId:'d59723',location:'use-cloud-save.ts:load-server-result',message:'server response',data:{success:result.success,hasData:!!result.data},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
 
         if (result.success && result.data) {
           loadedData = result.data
@@ -246,9 +237,6 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
 
       // Проверяем localStorage на наличие более свежего офлайн-сохранения
       const localBackup = loadFromLocalStorage()
-      // #region agent log
-      fetch('http://127.0.0.1:7756/ingest/6a59fcb2-1024-4589-94d8-127641c9bb5c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d59723'},body:JSON.stringify({sessionId:'d59723',location:'use-cloud-save.ts:load-local',message:'local backup check',data:{hasBackup:!!localBackup,hasTimestamp:!!localBackup?.timestamp,hasCraftV2:!!localBackup?.craftV2Persisted,craftV2Stage:localBackup?.craftV2Persisted?.stage,craftV2HasActive:!!localBackup?.craftV2Persisted?.activeCraft},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       if (localBackup && localBackup.timestamp) {
         if (!loadedData || localBackup.timestamp > (loadedData.timestamp || 0)) {
           loadedData = localBackup
@@ -259,22 +247,13 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
 
       // Применяем данные
       if (loadedData) {
-        // #region agent log
-        fetch('http://127.0.0.1:7756/ingest/6a59fcb2-1024-4589-94d8-127641c9bb5c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d59723'},body:JSON.stringify({sessionId:'d59723',location:'use-cloud-save.ts:load-apply',message:'applying loaded data',data:{source,hasCraftV2:!!loadedData.craftV2Persisted,craftV2Stage:loadedData.craftV2Persisted?.stage},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         applyLoadedData(loadedData)
         console.log(`[CloudSave] Loaded from ${source}, timestamp:`, new Date(loadedData.timestamp))
-        // #region agent log
-        fetch('http://127.0.0.1:7756/ingest/6a59fcb2-1024-4589-94d8-127641c9bb5c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d59723'},body:JSON.stringify({sessionId:'d59723',location:'use-cloud-save.ts:load-applied',message:'data applied successfully',data:{source},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         return true
       }
 
       return false
     } catch (err) {
-      // #region agent log
-      fetch('http://127.0.0.1:7756/ingest/6a59fcb2-1024-4589-94d8-127641c9bb5c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d59723'},body:JSON.stringify({sessionId:'d59723',location:'use-cloud-save.ts:load-error',message:'load error',data:{error:err instanceof Error?err.message:String(err)},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       setError(err instanceof Error ? err.message : 'Load error')
       console.error('[CloudSave] Load error:', err)
 
@@ -288,9 +267,6 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
 
       return false
     } finally {
-      // #region agent log
-      fetch('http://127.0.0.1:7756/ingest/6a59fcb2-1024-4589-94d8-127641c9bb5c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d59723'},body:JSON.stringify({sessionId:'d59723',location:'use-cloud-save.ts:load-finally',message:'load finally block',data:{},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       setIsLoading(false)
       isLoadingRef.current = false
     }

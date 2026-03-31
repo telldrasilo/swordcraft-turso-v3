@@ -21,6 +21,7 @@ const eslintConfig = [
       "examples/**",
       "skills",
       "swordcraft/**",
+      "docs/**",
     ],
   },
   {

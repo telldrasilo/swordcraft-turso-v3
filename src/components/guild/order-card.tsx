@@ -72,7 +72,7 @@ export function OrderCard({ order, onSelect, onCancel, isActive, canAccept }: Or
   const suitableWeapons = weaponInventory.weapons.filter(w => {
     if (w.type !== order.weaponType) return false
     if (w.quality < order.minQuality) return false
-    if (order.minAttack && w.attack < order.minAttack) return false
+    if (order.minAttack && w.stats.attack < order.minAttack) return false
     if (order.material && w.recipeId && !w.recipeId.includes(order.material)) return false
     return true
   })
@@ -219,10 +219,10 @@ export function OrderCard({ order, onSelect, onCancel, isActive, canAccept }: Or
                         className="p-3 bg-green-900/20 hover:bg-green-900/40 border border-green-600/30 rounded-md text-left transition-colors"
                       >
                         <div className="font-medium text-green-300">
-                          {weapon.name}
+                          {weapon.fullName}
                         </div>
                         <div className="text-xs text-gray-400">
-                          Атака: {weapon.attack} | Качество: {weapon.quality}
+                          Атака: {weapon.stats.attack} | Качество: {weapon.quality}
                         </div>
                       </button>
                     ))}

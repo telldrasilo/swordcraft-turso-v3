@@ -85,7 +85,7 @@ export function OrdersSectionContainer() {
         
         // Общие проверки
         if (w.quality < order.minQuality) return false
-        if (order.minAttack && w.attack < order.minAttack) return false
+        if (order.minAttack && w.stats.attack < order.minAttack) return false
         
         return true
       })

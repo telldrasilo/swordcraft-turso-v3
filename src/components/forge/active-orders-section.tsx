@@ -9,8 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useGameStore } from '@/store'
-import type { NPCOrder } from '@/data/market-data'
-import type { CraftedWeapon } from '@/store/slices/craft-slice'
+import type { NPCOrder } from '@/store/slices/orders-slice'
+
 import { useState, useMemo } from 'react'
 import { Sword, Star, Coins, AlertTriangle, CheckCircle2, Package } from 'lucide-react'
 import { calculateGoldRewardRange } from '@/lib/store-utils/order-utils'
@@ -35,15 +35,6 @@ const materialNames: Record<string, string> = {
   mithril: 'Мифриловый'
 }
 
-// Градации качества
-const qualityGrades: Record<number, string> = {
-  0: 'Любое',
-  30: 'Обычное',
-  50: 'Хорошее',
-  70: 'Отличное',
-  85: 'Шедевр',
-  95: 'Легенда'
-}
 
 interface ActiveOrdersSectionProps {
   onShowDetails: () => void
@@ -85,7 +76,7 @@ export function ActiveOrdersSection({ onShowDetails }: ActiveOrdersSectionProps)
       
       // Общие проверки
       if (w.quality < activeOrder.minQuality) return false
-      if (activeOrder.minAttack && w.attack < activeOrder.minAttack) return false
+      if (activeOrder.minAttack && w.stats.attack < activeOrder.minAttack) return false
       
       return true
     })
@@ -353,9 +344,9 @@ export function ActiveOrdersSection({ onShowDetails }: ActiveOrdersSectionProps)
                       <div className="flex-1 p-3 bg-stone-700/50 border border-stone-600 rounded-md">
                         <div className="flex items-center justify-between">
                           <div>
-                            <div className="font-medium text-stone-200">{weapon.name}</div>
+                            <div className="font-medium text-stone-200">{weapon.fullName}</div>
                             <div className="text-xs text-stone-400">
-                              {weaponTypeNames[weapon.type] || weapon.type} • Качество: {weapon.quality} • Атака: {weapon.attack}
+                              {weaponTypeNames[weapon.type] || weapon.type} • Качество: {weapon.quality} • Атака: {weapon.stats.attack}
                             </div>
                           </div>
                           <div className="text-right">

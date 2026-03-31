@@ -7,7 +7,6 @@ import type {
   KnowledgeLoot,
   KnowledgeType,
   LocationTag,
-  LootRarity,
   KnowledgeDropChance,
 } from '../types/expedition-loot.types'
 
@@ -985,6 +984,7 @@ export const KNOWLEDGE_DROP_TABLES: Record<LocationTag, KnowledgeDropChance[]> =
   ],
   // Остальные локации имеют меньше знаний
   village: [],
+  tavern: [],
   road: [],
   coast: [
     {
@@ -1065,18 +1065,4 @@ export function isKnowledgeAvailableInLocation(
 ): boolean {
   const knowledgeDrops = getKnowledgeForLocation(location)
   return knowledgeDrops.some(drop => drop.knowledgeId === knowledgeId)
-}
-
-// ================================
-// ЭКСПОРТЫ
-// ================================
-
-export {
-  ENEMY_WEAKNESS_KNOWLEDGE,
-  ENEMY_COMBAT_KNOWLEDGE,
-  LOCATION_SECRET_PATHS_KNOWLEDGE,
-  LOCATION_RESOURCES_KNOWLEDGE,
-  CRAFT_RECIPE_KNOWLEDGE,
-  CRAFT_TECHNIQUE_KNOWLEDGE,
-  CRAFT_MATERIAL_KNOWLEDGE,
 }

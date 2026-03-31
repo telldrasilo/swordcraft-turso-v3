@@ -4,7 +4,7 @@
  */
 
 import { createSelector } from 'reselect'
-import type { GameStore } from './game-store-composed'
+import type { GameStore } from '../game-store-composed'
 
 // ================================
 // PLAYER SELECTORS

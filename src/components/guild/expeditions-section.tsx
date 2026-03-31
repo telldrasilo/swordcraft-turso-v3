@@ -585,9 +585,9 @@ export function ExpeditionsSection() {
             })}
             weapon={mapWeaponForRecruitment({
               id: selectedWeapon.id,
-              name: selectedWeapon.name,
-              attack: selectedWeapon.attack,
-              durability: selectedWeapon.durability,
+              name: selectedWeapon.fullName,
+              attack: selectedWeapon.stats.attack,
+              durability: selectedWeapon.currentDurability ?? selectedWeapon.stats.durability,
             })}
             guildLevel={guild.level}
             onSelect={handleExtendedAdventurerSelect}

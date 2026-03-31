@@ -13,9 +13,11 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { calculateSacrificeValue } from '@/data/enchantments'
 import { qualityGrades, weaponTypeStats, getQualityGrade, type QualityGrade } from '@/data/weapon-recipes'
+import type { CraftedWeaponV2 } from '@/types/craft-v2'
+import { TIER_NUMBER_TO_STRING } from '@/lib/store-utils/constants'
 
 interface SacrificeWeaponCardProps {
-  weapon: any
+  weapon: CraftedWeaponV2
   onSacrifice: () => void
   sacrificing: boolean
 }
@@ -28,10 +30,17 @@ export function SacrificeWeaponCard({
   // Получаем грейд качества из числового значения quality
   const qualityGrade: QualityGrade = weapon.quality !== undefined 
     ? getQualityGrade(weapon.quality) 
-    : (weapon.qualityGrade || 'normal')
+    : 'normal'
   const qualityInfo = qualityGrades[qualityGrade] || qualityGrades.normal
-  const typeStats = weaponTypeStats[weapon.type] || { icon: '⚔️' }
-  const sacrificeValue = calculateSacrificeValue(weapon.quality, weapon.tier, weapon.warSoul || 0, weapon.epicMultiplier || 1)
+  const typeKey = weapon.type as keyof typeof weaponTypeStats
+  const typeStats = weaponTypeStats[typeKey] || { icon: '⚔️' }
+  const tierStr = TIER_NUMBER_TO_STRING[weapon.tier] ?? 'common'
+  const sacrificeValue = calculateSacrificeValue(
+    weapon.quality,
+    tierStr,
+    weapon.warSoul || 0,
+    weapon.epicMultiplier || 1
+  )
   
   return (
     <motion.div
@@ -57,7 +66,7 @@ export function SacrificeWeaponCard({
                 {typeStats?.icon || '⚔️'}
               </span>
               <div>
-                <h4 className="font-semibold text-stone-200">{weapon.name}</h4>
+                <h4 className="font-semibold text-stone-200">{weapon.fullName}</h4>
                 <Badge className={cn('text-xs', qualityInfo.color)}>
                   {qualityInfo.name}
                 </Badge>
@@ -67,7 +76,7 @@ export function SacrificeWeaponCard({
           
           <div className="flex items-center justify-between text-sm mb-3">
             <div className="flex items-center gap-2">
-              <span className="text-stone-500">Атака: {weapon.attack}</span>
+              <span className="text-stone-500">Атака: {weapon.stats.attack}</span>
               <span className="text-stone-600">•</span>
               <span className="text-stone-500">Качество: {weapon.quality}%</span>
             </div>

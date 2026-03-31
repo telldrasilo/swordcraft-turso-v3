@@ -197,7 +197,7 @@ export function PartMaterialSelector({
                   partId,
                   playerLevel,
                   knowledge[material.identity.id]?.expertise || 0,
-                  knowledge[selectedMaterial]?.expertise
+                  selectedMaterial != null ? knowledge[selectedMaterial]?.expertise : undefined
                 )
                 
                 // Получаем экспертизу и знания для материала

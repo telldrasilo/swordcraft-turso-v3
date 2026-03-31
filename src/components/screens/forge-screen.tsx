@@ -7,6 +7,7 @@
 
 import { Flame, Package, ShoppingBag, Star } from 'lucide-react'
 import { useState, useMemo } from 'react'
+import { getAvailableRecipes } from '@/data/recipes'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -23,8 +24,7 @@ import {
 // Импорт новой системы крафта v2
 import { CraftContainerV2 } from '@/components/forge/craft-v2'
 
-// Импорт заглушки ремонта
-import { RepairStub } from '@/components/forge/repair-stub'
+import { RepairSection } from '@/components/forge/repair-section'
 
 // Типы вкладок
 type MainTab = 'craft' | 'inventory' | 'shop'
@@ -38,11 +38,10 @@ export function ForgeScreen() {
   const [mainTab, setMainTab] = useState<MainTab>('craft')
   
   // Мемоизированные доступные рецепты
-  const availableRecipes = useMemo(() => {
-    // Получаем рецепты из v2 системы
-    const { getAvailableRecipes } = require('@/data/recipes')
-    return getAvailableRecipes(player.level, [])
-  }, [player.level])
+  const availableRecipes = useMemo(
+    () => getAvailableRecipes(player.level, []),
+    [player.level]
+  )
   
   // Количество оружия
   const weaponCount = weapons.length
@@ -139,8 +138,7 @@ export function ForgeScreen() {
               }}
             />
             
-            {/* Заглушка ремонта */}
-            <RepairStub />
+            <RepairSection />
           </div>
         ) : null}
       </div>

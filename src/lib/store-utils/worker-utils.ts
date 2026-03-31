@@ -336,7 +336,9 @@ export function isValidAssignment(workerClass: string, assignment: string): bool
 /**
  * Рассчитать среднее качество кузнецов
  */
-export function calculateAverageQuality(workers: Worker[]): number {
+export function calculateAverageQuality(
+  workers: ReadonlyArray<{ class: string; assignment: string; stats: { quality: number } }>
+): number {
   const blacksmiths = workers.filter(w => w.class === 'blacksmith' && w.assignment === 'forge')
   if (blacksmiths.length === 0) return 20
 

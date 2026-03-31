@@ -155,9 +155,6 @@ export function useCraftV2(
     prevStageRef.current = state.stage
 
     if (stageChanged || !state.activeCraft) {
-      // #region agent log
-      fetch('http://127.0.0.1:7756/ingest/6a59fcb2-1024-4589-94d8-127641c9bb5c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d59723'},body:JSON.stringify({sessionId:'d59723',location:'use-craft-v2.ts:sync',message:'syncing to zustand',data:{stage:state.stage,hasActiveCraft:!!state.activeCraft,hasPlan:!!state.plan,stageChanged},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       setCraftV2Persisted({
         activeCraft: state.activeCraft,
         plan: state.plan,

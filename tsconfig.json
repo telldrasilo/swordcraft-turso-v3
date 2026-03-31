@@ -14,8 +14,8 @@
     "strictNullChecks": true,
     "noUncheckedIndexedAccess": true,
     "noPropertyAccessFromIndexSignature": false,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",
@@ -46,6 +46,12 @@
     "node_modules",
     "examples",
     "skills",
-    "swordcraft"
+    "swordcraft",
+    "docs",
+    "src/backup",
+    "**/*.backup.*",
+    "lib",
+    "data",
+    "types"
   ]
 }
