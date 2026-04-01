@@ -12,11 +12,11 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { getEventTypeInfo } from '@/data/adventure-events'
 import type { AdventureEvent, EventChoice } from '@/data/adventure-events'
-import type { CraftedWeapon } from '@/data/weapon-recipes'
+import type { CraftedWeaponV2 } from '@/types/craft-v2'
 
 interface EventModalProps {
   event: AdventureEvent
-  weapon: CraftedWeapon | undefined
+  weapon: Pick<CraftedWeaponV2, 'warSoul'> | undefined
   onChoice: (choice: EventChoice) => void
   onClose: () => void
 }

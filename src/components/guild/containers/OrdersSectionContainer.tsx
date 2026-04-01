@@ -9,7 +9,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useGameStore } from '@/store'
 import { OrdersSection } from '../presentation/OrdersSection'
 import { AlertTriangle } from 'lucide-react'
-import type { NPCOrder } from '@/data/market-data'
+import type { NPCOrder } from '@/types/npc-order'
 import { type OrderGenerationContext } from '@/lib/store-utils/order-achievable-utils'
 
 export function OrdersSectionContainer() {

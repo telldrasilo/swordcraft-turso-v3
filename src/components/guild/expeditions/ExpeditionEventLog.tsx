@@ -49,7 +49,7 @@ export function ExpeditionEventLog({
   endsAt,
   isComplete,
 }: ExpeditionEventLogProps) {
-  const [currentTime, setCurrentTime] = useState(Date.now())
+  const [currentTime, setCurrentTime] = useState(() => Date.now())
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null)
 
   // Обновляем текущее время каждую секунду

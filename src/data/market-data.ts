@@ -7,47 +7,12 @@
 // ТИПЫ
 // ================================
 
+import type { NPCOrder } from '@/types/npc-order'
+
 export type WeaponType = 'sword' | 'axe' | 'dagger' | 'mace' | 'spear' | 'hammer'
 export type MaterialType = 'iron' | 'bronze' | 'steel' | 'silver' | 'gold' | 'mithril'
 
-// Заказ от NPC
-export interface NPCOrder {
-  id: string
-  clientName: string
-  clientTitle: string // "Гвардия", "Торговая компания", "Благородный лорд"
-  clientIcon: string
-
-  // Требования к оружию
-  weaponType: WeaponType
-  material?: MaterialType // Опционально
-  minQuality: number // Минимальное качество (0-100)
-  minAttack?: number // Опционально
-
-  // Награда
-  goldReward: number
-  fameReward: number
-  bonusItems?: { resource: string; amount: number }[]
-  materialAdvance?: {
-    materials: { resource: string; amount: number }[]
-    totalCost: number
-  }
-
-  // Точная стоимость материалов для расчета награды
-  // Храним здесь чтобы показывать точный диапазон в UI
-  materialCost?: number
-
-  // Таймер
-  deadline: number // Время в секундах
-
-  // Состояние
-  status: 'available' | 'in_progress' | 'completed' | 'expired'
-  acceptedAt?: number
-  completedAt?: number
-
-  // Требования для появления
-  requiredLevel: number
-  requiredFame: number
-}
+export type { NPCOrder }
 
 // Рыночные цены
 export interface MarketPrice {
@@ -289,11 +254,14 @@ export function generateRandomOrder(playerLevel: number, playerFame: number): NP
   if (availableOrders.length === 0) return null
   
   const order = availableOrders[Math.floor(Math.random() * availableOrders.length)]
-  
+  const durationSec = order.deadline != null ? order.deadline : 300
+  const { deadline: _ttlSec, ...base } = order
+
   return {
-    ...order,
+    ...base,
     id: `order_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
     status: 'available',
+    deadline: Date.now() + durationSec * 1000,
   }
 }
 

@@ -130,7 +130,7 @@ export function calculateAcceptChance(
   
   // Влияние сильных сторон
   for (const strength of adventurer.strengths) {
-    if (strength.id === 'brave') {
+    if (strength.id === 'iron_will' && expedition.riskLevel > 40) {
       baseChance += 10
     }
   }

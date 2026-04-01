@@ -34,6 +34,7 @@ export type AdventureTag =
   | 'ancient'        // Древнее
   | 'haunted'        // Проклятое место
   | 'trading'        // Торговля
+  | 'dragon'         // Дракон / логово
 
 export type AdventureDifficulty = 'easy' | 'normal' | 'hard' | 'extreme' | 'legendary'
 
@@ -102,6 +103,7 @@ export const adventureTagsInfo: Record<AdventureTag, { name: string; icon: strin
   ancient: { name: 'Древнее', icon: '📜', description: 'Древние артефакты и тайны' },
   haunted: { name: 'Проклятое', icon: '👻', description: 'Проклятые места' },
   trading: { name: 'Торговля', icon: '🛒', description: 'Торговые маршруты' },
+  dragon: { name: 'Дракон', icon: '🐉', description: 'Древние змеи и их сокровища' },
 }
 
 // ================================

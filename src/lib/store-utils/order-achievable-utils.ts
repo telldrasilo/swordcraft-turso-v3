@@ -10,22 +10,20 @@ import { calculateAttack } from './craft-utils'
 import { RESOURCE_SELL_PRICES } from './constants'
 import { WeaponRecipe, weaponRecipes } from '@/data/weapon-recipes'
 import { getCraftingCost } from '@/lib/craft/inventory-check'
-import type { NPCOrder } from './order-utils'
+import type { NPCOrder, MaterialAdvance } from '@/types/npc-order'
 import type { UnlockedRecipes } from '@/store/slices/craft-slice'
+import type { Resources } from '@/store/slices/resources-slice'
+
+export type { MaterialAdvance }
 
 // ================================
 // ТИПЫ
 // ================================
 
-export interface MaterialAdvance {
-  materials: { resource: string; amount: number }[]
-  totalCost: number
-}
-
 export interface OrderGenerationContext {
   playerLevel: number
   playerFame: number
-  playerResources: Record<string, number>
+  playerResources: Resources
   unlockedRecipes: UnlockedRecipes
   existingClients: string[]
 }
@@ -107,12 +105,13 @@ export function checkOrderAchievability(
  */
 export function checkCanAffordRecipeMaterials(
   recipe: WeaponRecipe,
-  playerResources: Record<string, number>
+  playerResources: Resources
 ): boolean {
   if (!recipe.cost) return true
 
   for (const [resource, amount] of Object.entries(recipe.cost)) {
-    if (amount && (playerResources[resource] || 0) < amount) {
+    const key = resource as keyof Resources
+    if (amount && (playerResources[key] ?? 0) < amount) {
       return false
     }
   }
@@ -320,8 +319,8 @@ function generateOrderFromRecipe(
   }, 0)
 
   // Награды (передаем recipe для точного расчета стоимости материалов)
-  let goldReward = calculateGoldReward(minQuality, recipe.type, recipe.material, context.playerLevel, recipe)
-  let fameReward = calculateFameReward(minQuality, context.playerFame)
+  const goldReward = calculateGoldReward(minQuality, recipe.type, recipe.material, context.playerLevel, recipe)
+  const fameReward = calculateFameReward(minQuality, context.playerFame)
 
   // Проверяем, может ли игрок позволить материалы
   const canAffordMaterials = checkCanAffordRecipeMaterials(recipe, context.playerResources)
@@ -330,7 +329,7 @@ function generateOrderFromRecipe(
   let materialAdvance: MaterialAdvance | undefined
 
   if (!canAffordMaterials) {
-    materialAdvance = generateMaterialAdvance(recipe, goldReward)
+    materialAdvance = generateMaterialAdvance(recipe, goldReward) ?? undefined
     // НЕ уменьшаем награду здесь - это будет сделано при выполнении заказа
     // на основе фактического качества оружия
   }
@@ -354,6 +353,7 @@ function generateOrderFromRecipe(
     status: 'available',
     requiredLevel,
     requiredFame,
+    deadline: Date.now() + 45 * 60 * 1000,
   }
 
   return order

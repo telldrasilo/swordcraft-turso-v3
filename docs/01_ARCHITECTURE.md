@@ -3,13 +3,13 @@
 ## Обзор технологий
 
 ### Frontend Framework
-- **Next.js 15.1.0** — React-фреймворк с App Router
-- **React 19.0.0** — UI библиотека
+- **Next.js 15** (зависимость в `package.json`: `^15.1.0`) — React-фреймворк с App Router
+- **React 19** (`^19.0.0` в `package.json`) — UI библиотека
 - **TypeScript 5** — Строгая типизация
 
 ### State Management
 - **Zustand 5.0.6** — Лёгковесный state management
-- **Composed Store Pattern** — Все слайсы объединены в одном файле
+- **Composed Store Pattern** — слайсы из `src/store/slices/` подмешиваются в одном `create` + `persist`; часть cross-slice вынесена в `src/store/cross-slice/`
 - **Persist Middleware** — Автосохранение в localStorage
 
 ### UI Components
@@ -37,36 +37,7 @@
 
 ### Composed Store Pattern
 
-Центральный файл `src/store/game-store-composed.ts` объединяет все слайсы (slices) в один store:
-
-```typescript
-import { create, StateCreator } from 'zustand'
-import { persist } from 'zustand/middleware'
-
-// Композируем все слайсы
-const useGameStore = create<GameStore>()(
-  compose(
-    persist(
-      name: 'swordcraft-store-v2',
-      version: 1,
-      partialize: (state) => ({ ...state }) // Сохраняем только состояние, не функции
-    )
-  )
-)(
-  // Компонуем слайсы
-  playerSlice,
-  resourcesSlice,
-  workersSlice,
-  craftSlice,
-  craftV2Slice,
-  ordersSlice,
-  guildSlice,
-  enchantmentSlice,
-  encyclopediaSlice,
-  tutorialSlice
-)
-)
-```
+Центральный файл `src/store/game-store-composed.ts` подмешивает все слайсы в один store через **`create<GameStore>()(persist((set, get) => ({ ... }), { name, version, partialize, storage }))`**. Внутри колбэка последовательно разворачиваются `createPlayerSlice`, `createResourcesSlice`, … из `slices/`, затем дополнительное состояние (`guild`, `craftV2Persisted`, туториал и т.д.) и большой блок cross-slice методов; ремонт собирается через **`buildRepairCrossSlice`** в `src/store/cross-slice/repair-cross-slice.ts`. Полный код — в файле store, а не в наброске с вымышленным `compose(...)`.
 
 **Преимущества:**
 - Единая точка входа для всего state
@@ -201,7 +172,7 @@ sequenceDiagram
     Store->>Store: Сохраняет результат
     
     Note over UI: Таймер отсчёта
-    Note over Store: Автосохранение каждую секунду
+    Note over Store: Облачное сохранение по интервалу (по умолчанию раз в минуту)
 ```
 
 ---
@@ -311,7 +282,7 @@ x-player-id: string
 - **Метод:** `partialize` — сохраняет только состояние, не функции
 
 ### Cloud Storage (Turso/libSQL)
-- **Автосохранение:** Каждую секунду через hook `use-cloud-save.ts`
+- **Автосохранение:** Периодически через `use-cloud-save.ts` (по умолчанию каждые **60 секунд**, `autoSaveInterval`; в `GameLayout` задано 60 000 ms)
 - **Загрузка:** При запуске приложения через API `/api/save`
 - **Идентификатор:** `x-player-id` header
 
@@ -321,7 +292,7 @@ x-player-id: string
 
 ### 1. Composed Store вместо Redux
 **Причина:** Zustand проще и быстрее для данного проекта
-**Результат:** Единый файл (~1540 строк) вместо 10+ файлов
+**Результат:** Один composed-файл (~**1400** строк) плюс слайсы в `slices/` и модули `cross-slice/`, вместо разнесения всего по множеству несвязанных store
 
 ### 2. Modifier System v2 для экспедиций
 **Причина:** Гибкая система модификаторов
@@ -363,7 +334,7 @@ x-player-id: string
 - Не дублируйте типы
 
 ### Store централизован
-- Единый store в `src/store/game-store-composed.ts`
+- Единый store в `src/store/game-store-composed.ts`; cross-slice — также `src/store/cross-slice/`
 - Используйте `useGameStore()` для получения store
 - Не создавайте отдельные store instances
 

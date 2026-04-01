@@ -230,7 +230,8 @@ export const DANGER_EVENTS: ExpeditionEventTemplate[] = [
     type: 'danger',
     icon: '⚠️',
     conditions: {
-      themes: ['underground', 'ruins'],
+      themes: ['underground', 'exploration'],
+      locations: ['ruins'],
     },
     weight: 3,
   },

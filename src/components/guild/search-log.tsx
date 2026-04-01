@@ -4,7 +4,7 @@
 
 'use client'
 
-import React, { useMemo, useCallback, useEffect, useRef } from 'react'
+import React, { useMemo, useCallback, useEffect, useRef, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -92,7 +92,13 @@ export const SearchLog: React.FC<SearchLogProps> = ({
   onSkip,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null)
-  
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!searchState.isSearching) return
+    const id = window.setInterval(() => setNow(Date.now()), 250)
+    return () => clearInterval(id)
+  }, [searchState.isSearching])
+
   // Автоскролл к последней записи
   useEffect(() => {
     if (scrollRef.current) {
@@ -108,10 +114,10 @@ export const SearchLog: React.FC<SearchLogProps> = ({
   // Форматирование времени
   const timeRemaining = useMemo(() => {
     if (!searchState.isSearching) return 'Завершён'
-    const elapsed = Date.now() - searchState.startTime
+    const elapsed = now - searchState.startTime
     const remaining = Math.max(0, searchState.duration - elapsed)
     return formatDuration(remaining)
-  }, [searchState.isSearching, searchState.startTime, searchState.duration])
+  }, [searchState.isSearching, searchState.startTime, searchState.duration, now])
 
   // Последние 3 записи для анимации
   const recentLogIds = useMemo(() => {

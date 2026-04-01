@@ -21,13 +21,13 @@ Next.js 15, TypeScript 5, Zustand 5.0.6 (composed store), Tailwind CSS 4, shadcn
 ## Ключевые файлы проекта
 
 ### State Management (Центральная система)
-- **src/store/game-store-composed.ts** - Единый Zustand store, все slices объединены (~1540 строк)
+- **src/store/game-store-composed.ts** — единый Zustand store (~1400 строк; cross-slice в `src/store/cross-slice/`)
 - **src/store/slices/** - Доменные slices:
   - player-slice.ts - игрок, уровень, опыт, титулы
   - resources-slice.ts - все ресурсы (золото, дерево, камень, железо...)
   - workers-slice.ts - рабочие, здания
   - craft-slice.ts - крафт v1 (legacy)
-  - craft-v2-slice.ts - новая система крафта
+  - крафт v2 — `craftV2Persisted` + `src/hooks/use-craft-v2.ts` (отдельного `craft-v2-slice.ts` нет)
   - orders-slice.ts - заказы NPC
   - guild-slice.ts - гильдия, искатели, экспедиции
   - enchantments-slice.ts - зачарования

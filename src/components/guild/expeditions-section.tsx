@@ -237,32 +237,32 @@ export function ExpeditionsSection() {
   // Инициализация случайных экспедиций
   useEffect(() => {
     if (currentExpeditions.length === 0) {
-      setCurrentExpeditions(getRandomExpeditions(3))
+      queueMicrotask(() => setCurrentExpeditions(getRandomExpeditions(3)))
     }
   }, [guild.level])
 
   // Восстановление черновика при загрузке
   useEffect(() => {
     const draft = loadDraft()
-    if (draft && !draft.isExpired) {
-      // Пытаемся найти и восстановить выбор
-      if (draft.expeditionId) {
-        const expedition = currentExpeditions.find(e => e.id === draft.expeditionId)
-        if (expedition) setSelectedExpedition(expedition)
+    queueMicrotask(() => {
+      if (draft && !draft.isExpired) {
+        if (draft.expeditionId) {
+          const expedition = currentExpeditions.find(e => e.id === draft.expeditionId)
+          if (expedition) setSelectedExpedition(expedition)
+        }
+        if (draft.weaponId) {
+          const weapon = weaponInventory.weapons.find(w => w.id === draft.weaponId)
+          if (weapon) setSelectedWeapon(weapon)
+        }
       }
-      if (draft.weaponId) {
-        const weapon = weaponInventory.weapons.find(w => w.id === draft.weaponId)
-        if (weapon) setSelectedWeapon(weapon)
-      }
-      // Искателя восстанавливаем через RecruitmentInterface
-    }
-    setDraftStatus(getDraftStatus())
+      setDraftStatus(getDraftStatus())
+    })
   }, [currentExpeditions, weaponInventory.weapons])
 
   // Автосохранение при изменении выбора
   useEffect(() => {
     debouncedSaveDraft(selectedExpedition, selectedExtendedAdventurer, selectedWeapon)
-    setDraftStatus(getDraftStatus())
+    queueMicrotask(() => setDraftStatus(getDraftStatus()))
   }, [selectedExpedition, selectedWeapon, selectedExtendedAdventurer])
 
   // Стоимость обновления экспедиций
@@ -573,16 +573,7 @@ export function ExpeditionsSection() {
         {/* Поиск искателей */}
         {selectedWeapon && selectedExpedition && (
           <RecruitmentInterface
-            expedition={mapExpeditionForRecruitment({
-              id: selectedExpedition.id,
-              name: selectedExpedition.name,
-              difficulty: selectedExpedition.difficulty,
-              reward: selectedExpedition.reward,
-              duration: selectedExpedition.duration,
-              failureChance: selectedExpedition.failureChance,
-              weaponLossChance: selectedExpedition.weaponLossChance,
-              minWeaponAttack: selectedExpedition.minWeaponAttack,
-            })}
+            expedition={mapExpeditionForRecruitment(selectedExpedition)}
             weapon={mapWeaponForRecruitment({
               id: selectedWeapon.id,
               name: selectedWeapon.fullName,
@@ -615,7 +606,7 @@ export function ExpeditionsSection() {
                 <div>
                   <h4 className="font-semibold text-stone-200">Готово к отправке</h4>
                   <p className="text-sm text-stone-400">
-                    {selectedExpedition.name} • {selectedAdventurer.name} • {selectedWeapon.name}
+                    {selectedExpedition.name} • {selectedAdventurer.name} • {selectedWeapon.fullName}
                   </p>
                 </div>
                 <Button

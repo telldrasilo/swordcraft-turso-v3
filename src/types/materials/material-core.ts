@@ -100,6 +100,8 @@ export type DiscoveryPath = DiscoveryRequirement
 
 export interface MaterialDiscovery {
   unlockedBy: DiscoveryRequirement[]
+  /** Стоимость исследования (золото и т.п.), если применимо */
+  researchCost?: number
 }
 
 export interface MaterialNode {

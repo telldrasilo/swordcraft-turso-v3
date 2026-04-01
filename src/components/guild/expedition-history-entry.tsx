@@ -509,7 +509,9 @@ export const ExpeditionHistoryEntryComponent: React.FC<ExpeditionHistoryEntryPro
                             <TooltipContent className="max-w-xs">
                               <p className="font-semibold text-green-300">{s.name}</p>
                               <p className="text-sm text-stone-300">{s.description}</p>
-                              <p className="text-xs text-stone-400 mt-1">{s.effect}</p>
+                              <p className="text-xs text-stone-400 mt-1">
+                                Успех +{s.effects.successBonus}% · Золото +{s.effects.goldBonus}% · Души +{s.effects.warSoulBonus}%
+                              </p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
@@ -539,7 +541,9 @@ export const ExpeditionHistoryEntryComponent: React.FC<ExpeditionHistoryEntryPro
                             <TooltipContent className="max-w-xs">
                               <p className="font-semibold text-red-300">{w.name}</p>
                               <p className="text-sm text-stone-300">{w.description}</p>
-                              <p className="text-xs text-red-400 mt-1">Штраф: {w.penalty}%</p>
+                              <p className="text-xs text-red-400 mt-1">
+                                Штраф к успеху: {w.effects.successPenalty}%
+                              </p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>

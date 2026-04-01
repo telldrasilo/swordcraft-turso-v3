@@ -21,9 +21,9 @@ import {
   CraftedWeapon,
   qualityGrades,
   weaponTypeStats,
+  getQualityGrade,
 } from '@/data/weapon-recipes'
 import { weaponRecipes } from '@/data/weapon-recipes'
-import type { WeaponMaterialUsed } from '@/store/slices/craft-slice'
 import { 
   getWarSoulTier,
   getProgressToNextTier,
@@ -224,10 +224,25 @@ export const propertyConfig = {
 // ФУНКЦИИ ПРЕОБРАЗОВАНИЯ
 // ================================
 
+/** Оружие для UI-карточки: legacy CraftedWeapon + опциональные поля v2 */
+export type WeaponCardWeapon = CraftedWeapon & {
+  maxWarSoul?: number
+  currentDurability?: number
+  materialsUsed?: Array<{ partName: string; materialName: string }>
+}
+
+function resolveQualityGradeConfig(weapon: WeaponCardWeapon) {
+  const fromNumeric = getQualityGrade(weapon.quality)
+  return (
+    qualityGrades[weapon.qualityGrade as keyof typeof qualityGrades] ??
+    qualityGrades[fromNumeric]
+  )
+}
+
 /**
  * Извлекает свойства оружия для отображения
  */
-export function extractWeaponProperties(weapon: CraftedWeapon): WeaponProperty[] {
+export function extractWeaponProperties(weapon: WeaponCardWeapon): WeaponProperty[] {
   const properties: WeaponProperty[] = []
   const config = propertyConfig
 
@@ -245,8 +260,8 @@ export function extractWeaponProperties(weapon: CraftedWeapon): WeaponProperty[]
     priority: 1,
   })
 
-  // Прочность
-  const durability = weapon.currentDurability ?? 100
+  // Прочность (v2: currentDurability; v1: durability)
+  const durability = weapon.currentDurability ?? weapon.durability ?? 100
   properties.push({
     id: 'durability',
     name: 'Прочность',
@@ -262,13 +277,14 @@ export function extractWeaponProperties(weapon: CraftedWeapon): WeaponProperty[]
   })
 
   // Качество
+  const qualityGradeConfig = resolveQualityGradeConfig(weapon)
   properties.push({
     id: 'quality',
     name: 'Качество',
     value: weapon.quality,
     maxValue: 100,
     icon: config.quality.icon,
-    color: qualityGrades[weapon.qualityGrade].color,
+    color: qualityGradeConfig.color,
     bgColor: 'bg-stone-800/80',
     tooltip: `${config.quality.tooltipTitle}: ${config.quality.tooltipDesc}`,
     displayType: 'percent',
@@ -498,9 +514,9 @@ const tierNames: Record<string, string> = {
 // ================================
 
 interface WeaponCardProps {
-  weapon: CraftedWeapon
+  weapon: WeaponCardWeapon
   onSell?: (weaponId: string) => void
-  onSelect?: (weapon: CraftedWeapon) => void
+  onSelect?: (weapon: WeaponCardWeapon) => void
   selected?: boolean
   showSellButton?: boolean
   compact?: boolean
@@ -516,7 +532,7 @@ export function WeaponCard({
   compact = false,
   isExpedition = false
 }: WeaponCardProps) {
-  const qualityInfo = qualityGrades[weapon.qualityGrade]
+  const qualityInfo = resolveQualityGradeConfig(weapon)
   const typeStats = weaponTypeStats[weapon.type]
   const recipe = weaponRecipes.find(r => r.id === weapon.recipeId)
   const properties = extractWeaponProperties(weapon)
@@ -713,19 +729,19 @@ export function WeaponCard({
 // ================================
 
 interface WeaponMiniCardProps {
-  weapon: CraftedWeapon
+  weapon: WeaponCardWeapon
   selected?: boolean
-  onSelect?: (weapon: CraftedWeapon) => void
+  onSelect?: (weapon: WeaponCardWeapon) => void
   disabled?: boolean
 }
 
 export function WeaponMiniCard({ weapon, selected, onSelect, disabled }: WeaponMiniCardProps) {
-  const qualityInfo = qualityGrades[weapon.qualityGrade]
+  const qualityInfo = resolveQualityGradeConfig(weapon)
   const typeStats = weaponTypeStats[weapon.type]
   const recipe = weaponRecipes.find(r => r.id === weapon.recipeId)
   const tier = recipe?.tier || 'common'
   const tierColor = qualityColors[tier]
-  const durability = weapon.currentDurability ?? 100
+  const durability = weapon.currentDurability ?? weapon.durability ?? 100
   
   // Мемоизация расчёта тира Души Войны
   const warSoulTier = useMemo(() => {

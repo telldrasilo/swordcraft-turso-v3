@@ -10,28 +10,42 @@ import type { StateCreator } from 'zustand'
 import {
   generateAchievableOrder,
   type OrderGenerationContext,
-  type MaterialAdvance
 } from '@/lib/store-utils/order-achievable-utils'
-import type { CraftedWeaponV2 } from '@/types/craft-v2'
-import { weaponAttack } from '@/lib/weapon-v2-helpers'
+import type {
+  NPCOrder,
+  OrderStatus,
+  OrderBonusItem,
+  MaterialAdvance,
+} from '@/types/npc-order'
+
+export type { NPCOrder, OrderStatus, OrderBonusItem, MaterialAdvance }
 
 // ================================
 // ХЕЛПЕР: Проверка соответствия оружия заказу
 // ================================
+
+/** Снимок оружия для проверки заказа (из инвентаря v2). */
+type OrderWeaponSnapshot = {
+  quality: number
+  attack: number
+  type: string
+  recipeId?: string
+  hiddenTags?: string[]
+}
 
 /**
  * Проверяет, соответствует ли оружие требованиям заказа
  * Использует новую систему hiddenTags с fallback на старую
  */
 function checkWeaponMatchesOrder(
-  weapon: CraftedWeaponV2,
+  weapon: OrderWeaponSnapshot,
   order: NPCOrder
 ): boolean {
   // Проверка качества
   if (weapon.quality < order.minQuality) return false
   
   // Проверка атаки
-  if (order.minAttack && weaponAttack(weapon) < order.minAttack) return false
+  if (order.minAttack && weapon.attack < order.minAttack) return false
   
   // Новая система: проверяем hiddenTags
   if (weapon.hiddenTags && weapon.hiddenTags.length > 0) {
@@ -54,38 +68,6 @@ function checkWeaponMatchesOrder(
 // ================================
 // ТИПЫ
 // ================================
-
-/** Статус заказа */
-export type OrderStatus = 'available' | 'in_progress' | 'completed' | 'expired'
-
-/** Заказ от NPC */
-export interface NPCOrder {
-  id: string
-  clientName: string
-  clientTitle: string
-  clientIcon: string
-  weaponType: string
-  material?: string
-  minQuality: number
-  minAttack?: number
-  goldReward: number
-  fameReward: number
-  bonusItems?: OrderBonusItem[]
-  materialAdvance?: MaterialAdvance
-  advanceTaken?: number  // Сколько аванса было взято
-  materialCost?: number   // Точная стоимость материалов для расчёта награды
-  status: OrderStatus
-  acceptedAt?: number
-  completedAt?: number
-  requiredLevel: number
-  requiredFame: number
-}
-
-/** Бонусный предмет за выполнение заказа */
-export interface OrderBonusItem {
-  resource: string
-  amount: number
-}
 
 /** Состояние заказов */
 export interface OrdersState {

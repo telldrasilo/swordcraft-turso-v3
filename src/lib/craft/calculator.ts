@@ -27,6 +27,30 @@ import type {
   QualityScore,
   QualityRank
 } from '@/types/forecast'
+import {
+  BALANCE_MATERIAL_NEUTRAL,
+  BALANCE_MATERIAL_WEIGHT,
+  BALANCE_MAX,
+  BALANCE_MIN,
+  DEFAULT_ENCHANT_POWER,
+  DEFAULT_REPAIR_POTENTIAL,
+  DEFAULT_WEAPON_BALANCE,
+  ENCHANT_POWER_ROUND_DECIMALS,
+  MATERIAL_EFFECT_QUANTITY_DIVISOR,
+  QUALITY_AVG_MATERIAL_FALLBACK,
+  QUALITY_BASE,
+  QUALITY_MATERIAL_TILT,
+  QUALITY_PER_BLACKSMITH_LEVEL,
+  QUALITY_TECHNIQUE_PER_POINT,
+  SELL_GOLD_PER_ATTACK,
+  SELL_GOLD_PER_DURABILITY,
+  SELL_GOLD_PER_ENCHANT_SLOT,
+  SELL_QUALITY_BASELINE,
+  SOUL_CAPACITY_PER_QUANTITY,
+  WEIGHT_PER_UNIT_DENSITY,
+  WEIGHT_ROUND_DECIMALS,
+} from './constants'
+import { applyPercentMultiplier, contributionFromMaterialPercent } from './formulas'
 
 /**
  * Полный результат расчёта оружия
@@ -75,10 +99,10 @@ export function calculateWeapon(
   let maxDurability = base.durabilityBase
   let weight = base.weightBase
   let soulCapacity = base.soulCapacityBase
-  let balance = 75
-  let repairPotential = 1.0
+  let balance = DEFAULT_WEAPON_BALANCE
+  let repairPotential = DEFAULT_REPAIR_POTENTIAL
   let enchantSlots = 0
-  let enchantPower = 1.0
+  let enchantPower = DEFAULT_ENCHANT_POWER
   
   // Применяем материалы
   for (const { material, quantity } of materialData) {
@@ -86,16 +110,26 @@ export function calculateWeapon(
     const props = material.properties
     
     // Атака: база + бонус от материала * вклад части (упрощённо)
-    attack += attack * (effects.attackBonus / 100) * (quantity / 2)
+    attack += contributionFromMaterialPercent(
+      attack,
+      effects.attackBonus,
+      quantity,
+      MATERIAL_EFFECT_QUANTITY_DIVISOR
+    )
     
     // Прочность
-    durability += durability * (effects.durabilityBonus / 100) * (quantity / 2)
+    durability += contributionFromMaterialPercent(
+      durability,
+      effects.durabilityBonus,
+      quantity,
+      MATERIAL_EFFECT_QUANTITY_DIVISOR
+    )
     
     // Вместимость души
-    soulCapacity += effects.soulCapacity * quantity * 0.5
+    soulCapacity += effects.soulCapacity * quantity * SOUL_CAPACITY_PER_QUANTITY
     
     // Вес
-    weight += props.weight * quantity * 0.1
+    weight += props.weight * quantity * WEIGHT_PER_UNIT_DENSITY
     
     // Ремонт
     repairPotential = Math.min(repairPotential, effects.repairPotential)
@@ -105,7 +139,8 @@ export function calculateWeapon(
     enchantPower *= effects.enchantPower
     
     // Баланс (среднее по гибкости и твёрдости)
-    balance += ((props.flexibility + props.hardness) / 2 - 50) * 0.2
+    balance +=
+      ((props.flexibility + props.hardness) / 2 - BALANCE_MATERIAL_NEUTRAL) * BALANCE_MATERIAL_WEIGHT
   }
   
   // Применяем техники
@@ -113,16 +148,16 @@ export function calculateWeapon(
     const effects = technique.effects
     
     if (effects.qualityBonus) {
-      attack *= 1 + (effects.qualityBonus / 100)
-      durability *= 1 + (effects.qualityBonus / 100)
+      attack = applyPercentMultiplier(attack, effects.qualityBonus)
+      durability = applyPercentMultiplier(durability, effects.qualityBonus)
     }
     
     if (effects.durabilityBonus) {
-      durability *= 1 + (effects.durabilityBonus / 100)
+      durability = applyPercentMultiplier(durability, effects.durabilityBonus)
     }
     
     if (effects.conductivityBonus) {
-      enchantPower *= 1 + (effects.conductivityBonus / 100)
+      enchantPower = applyPercentMultiplier(enchantPower, effects.conductivityBonus)
     }
   }
   
@@ -130,10 +165,10 @@ export function calculateWeapon(
   attack = Math.round(attack)
   durability = Math.round(durability)
   maxDurability = Math.round(durability)
-  weight = Math.round(weight * 10) / 10
+  weight = Math.round(weight * WEIGHT_ROUND_DECIMALS) / WEIGHT_ROUND_DECIMALS
   soulCapacity = Math.round(soulCapacity)
-  balance = Math.round(Math.max(50, Math.min(100, balance)))
-  enchantPower = Math.round(enchantPower * 100) / 100
+  balance = Math.round(Math.max(BALANCE_MIN, Math.min(BALANCE_MAX, balance)))
+  enchantPower = Math.round(enchantPower * ENCHANT_POWER_ROUND_DECIMALS) / ENCHANT_POWER_ROUND_DECIMALS
   
   // 4. Рассчитываем качество
   const quality = calculateQuality(blacksmithLevel, materialData, techniques)
@@ -193,20 +228,20 @@ function calculateQuality(
   techniques: Technique[]
 ): number {
   // Базовое качество от уровня кузнеца
-  let quality = 30 + blacksmithLevel * 2
+  let quality = QUALITY_BASE + blacksmithLevel * QUALITY_PER_BLACKSMITH_LEVEL
   
   // Бонус от качества материалов
   const avgMaterialQuality = materialData.reduce((sum, { material }) => {
     const matQuality = (material.properties.hardness + material.properties.flexibility) / 2
     return sum + matQuality
-  }, 0) / materialData.length || 50
+  }, 0) / materialData.length || QUALITY_AVG_MATERIAL_FALLBACK
   
-  quality += (avgMaterialQuality - 50) * 0.2
+  quality += (avgMaterialQuality - QUALITY_AVG_MATERIAL_FALLBACK) * QUALITY_MATERIAL_TILT
   
   // Бонус от техник
   for (const technique of techniques) {
     if (technique.effects.qualityBonus) {
-      quality += technique.effects.qualityBonus * 0.5
+      quality += technique.effects.qualityBonus * QUALITY_TECHNIQUE_PER_POINT
     }
   }
   
@@ -225,10 +260,10 @@ function calculateSellPrice(
   enchantSlots: number
 ): number {
   // Базовая цена от характеристик
-  let price = attack * 2 + durability * 0.5
+  let price = attack * SELL_GOLD_PER_ATTACK + durability * SELL_GOLD_PER_DURABILITY
   
   // Бонус от качества
-  price *= (quality / 50)  // 100 качество = ×2 цены
+  price *= quality / SELL_QUALITY_BASELINE
   
   // Бонус от редкости материалов
   const rarityMultiplier = materialData.reduce((mult, { material }) => {
@@ -245,7 +280,7 @@ function calculateSellPrice(
   price *= rarityMultiplier
   
   // Бонус от слотов зачарований
-  price += enchantSlots * 20
+  price += enchantSlots * SELL_GOLD_PER_ENCHANT_SLOT
   
   return Math.round(price)
 }

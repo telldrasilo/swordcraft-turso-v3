@@ -20,6 +20,7 @@ import {
   workerClassData,
   type WorkerClass
 } from '@/store'
+import type { Worker as GameWorker } from '@/store/slices/workers-slice'
 import { BALANCE } from '@/hooks/use-game-loop'
 import { 
   TooltipProvider,
@@ -42,19 +43,113 @@ import {
   FireConfirmModal,
 } from '@/components/workers'
 
+function WorkerHireOfferCard({
+  workerClass,
+  index,
+  gold,
+  availableSlots,
+}: {
+  workerClass: WorkerClass
+  index: number
+  gold: number
+  availableSlots: number
+}) {
+  const hireWorker = useGameStore((state) => state.hireWorker)
+  const classData = workerClassData[workerClass]
+  const classInfo = getWorkerClassInfo(workerClass)
+  const Icon = classIcons[workerClass]
+  const cost = useWorkerHireCost(workerClass)
+  const canAfford = gold >= cost
+  const canHire = availableSlots > 0 && canAfford
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.05 }}
+    >
+      <Card className={cn(
+        'card-medieval transition-all',
+        canHire && 'hover:border-amber-600/50'
+      )}>
+        <CardContent className="p-4">
+          <div className="flex items-start gap-4">
+            <RichTooltip
+              title={classData.name}
+              description={classInfo?.description ?? ''}
+              details={classInfo?.tips}
+              icon="👤"
+              side="right"
+            >
+              <div className={cn(
+                'w-14 h-14 rounded-xl flex items-center justify-center cursor-help',
+                'bg-stone-800/50'
+              )}>
+                <Icon className="w-7 h-7 text-amber-400" />
+              </div>
+            </RichTooltip>
+
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <h4 className="font-semibold text-stone-200">{classData.name}</h4>
+                <Badge variant="outline" className="text-xs text-amber-400 border-amber-600">
+                  {classInfo?.role}
+                </Badge>
+              </div>
+              <p className="text-xs text-stone-500 mb-3">{classData.description}</p>
+
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                {Object.entries(classData.baseStats).map(([stat, value]) => {
+                  const statInfo = statsInfo[stat as keyof typeof statsInfo]
+                  return (
+                    <StatTooltip key={stat} statName={stat}>
+                      <div className="flex items-center gap-2 cursor-help">
+                        <span className="text-sm">{statInfo?.icon}</span>
+                        <span className="text-xs text-stone-400">
+                          {statInfo?.name ?? stat}
+                        </span>
+                        <span className="text-xs text-stone-300 ml-auto">{value}</span>
+                      </div>
+                    </StatTooltip>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between mt-4 pt-4 border-t border-stone-700/50">
+            <div className="flex items-center gap-1 text-amber-400">
+              <span className="text-lg font-bold">{cost}</span>
+              <span className="text-xs">золота</span>
+            </div>
+            <Button
+              size="sm"
+              className="bg-gradient-to-r from-amber-800 to-amber-900 hover:from-amber-700 hover:to-amber-800 text-amber-100"
+              disabled={!canHire}
+              onClick={() => hireWorker(workerClass)}
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Нанять
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  )
+}
+
 export function WorkersScreen() {
   const resources = useFormattedResources()
   const workers = useGameStore((state) => state.workers)
   const maxWorkers = useGameStore((state) => state.maxWorkers)
   const buildings = useGameStore((state) => state.buildings)
-  const hireWorker = useGameStore((state) => state.hireWorker)
   const assignWorker = useGameStore((state) => state.assignWorker)
   const fireWorker = useGameStore((state) => state.fireWorker)
   const canGetEmergencyHelp = useGameStore((state) => state.canGetEmergencyHelp)
   const getEmergencyHelp = useGameStore((state) => state.getEmergencyHelp)
   
-  const [selectedWorker, setSelectedWorker] = useState<Worker | null>(null)
-  const [workerToFire, setWorkerToFire] = useState<Worker | null>(null)
+  const [selectedWorker, setSelectedWorker] = useState<GameWorker | null>(null)
+  const [workerToFire, setWorkerToFire] = useState<GameWorker | null>(null)
   
   const availableSlots = maxWorkers - workers.length
   const needsEmergencyHelp = canGetEmergencyHelp()
@@ -259,91 +354,15 @@ export function WorkersScreen() {
             )}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {availableClasses.map((workerClass, index) => {
-              const classData = workerClassData[workerClass]
-              const classInfo = getWorkerClassInfo(workerClass)
-              const Icon = classIcons[workerClass]
-              const cost = useWorkerHireCost(workerClass)
-              const canAfford = resources.gold >= cost
-              const canHire = availableSlots > 0 && canAfford
-              
-              return (
-                <motion.div
-                  key={workerClass}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                >
-                  <Card className={cn(
-                    'card-medieval transition-all',
-                    canHire && 'hover:border-amber-600/50'
-                  )}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-4">
-                        <RichTooltip
-                          title={classData.name}
-                          description={classInfo?.description}
-                          details={classInfo?.tips}
-                          icon="👤"
-                          side="right"
-                        >
-                          <div className={cn(
-                            'w-14 h-14 rounded-xl flex items-center justify-center cursor-help',
-                            'bg-stone-800/50'
-                          )}>
-                            <Icon className="w-7 h-7 text-amber-400" />
-                          </div>
-                        </RichTooltip>
-                        
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-semibold text-stone-200">{classData.name}</h4>
-                            <Badge variant="outline" className="text-xs text-amber-400 border-amber-600">
-                              {classInfo?.role}
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-stone-500 mb-3">{classData.description}</p>
-                          
-                          {/* Характеристики */}
-                          <div className="grid grid-cols-2 gap-2 mb-4">
-                            {Object.entries(classData.baseStats).map(([stat, value]) => {
-                              const statInfo = statsInfo[stat as keyof typeof statsInfo]
-                              return (
-                                <StatTooltip key={stat} statName={stat}>
-                                  <div className="flex items-center gap-2 cursor-help">
-                                    <span className="text-sm">{statInfo?.icon}</span>
-                                    <span className="text-xs text-stone-400">
-                                      {statInfo?.name || stat}
-                                    </span>
-                                    <span className="text-xs text-stone-300 ml-auto">{value}</span>
-                                  </div>
-                                </StatTooltip>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center justify-between mt-4 pt-4 border-t border-stone-700/50">
-                        <div className="flex items-center gap-1 text-amber-400">
-                          <span className="text-lg font-bold">{cost}</span>
-                          <span className="text-xs">золота</span>
-                        </div>
-                        <Button 
-                          size="sm"
-                          className="bg-gradient-to-r from-amber-800 to-amber-900 hover:from-amber-700 hover:to-amber-800 text-amber-100"
-                          disabled={!canHire}
-                          onClick={() => hireWorker(workerClass)}
-                        >
-                          <Plus className="w-4 h-4 mr-1" />
-                          Нанять
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )
-            })}
+            {availableClasses.map((workerClass, index) => (
+              <WorkerHireOfferCard
+                key={workerClass}
+                workerClass={workerClass}
+                index={index}
+                gold={resources.gold}
+                availableSlots={availableSlots}
+              />
+            ))}
           </div>
         </div>
         

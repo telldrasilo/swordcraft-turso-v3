@@ -5,7 +5,7 @@
 
 'use client'
 
-import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+import React, { useState, useCallback, useMemo, useEffect, useLayoutEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -30,6 +30,7 @@ import { SearchLog } from './search-log'
 import { AdventurerCardV2 } from './adventurer-card-v2'
 import { AdventurerFullCard } from './adventurer-full-card'
 import { generateExtendedAdventurer } from '@/lib/adventurer-generator-extended'
+import type { RecruitmentExpeditionView } from '@/lib/adventurer-converter'
 import { generateMessage } from '@/data/adventurer-phrases'
 
 // ================================
@@ -37,18 +38,7 @@ import { generateMessage } from '@/data/adventurer-phrases'
 // ================================
 
 interface RecruitmentInterfaceProps {
-  expedition: {
-    id: string
-    name: string
-    difficulty: string
-    baseGold: number
-    baseWarSoul: number
-    duration: number
-    successChance: number
-    weaponWear: number
-    weaponLossChance: number
-    minWeaponAttack: number
-  }
+  expedition: RecruitmentExpeditionView
   weapon: {
     id: string
     name: string
@@ -172,6 +162,10 @@ function useSearchSimulation(
     accepted: boolean
     message: string
   }>>([])
+  const searchStateRef = useRef(searchState)
+  useLayoutEffect(() => {
+    searchStateRef.current = searchState
+  })
 
   // Остановка поиска
   const stopSearch = useCallback(() => {
@@ -194,12 +188,13 @@ function useSearchSimulation(
     }
 
     // Мгновенно обработать все оставшиеся события
+    const snap = searchStateRef.current
     const remainingEvents = eventsRef.current.filter(e =>
-      !searchState.logs.some(l => l.adventurerId === e.adventurer.id)
+      !snap.logs.some(l => l.adventurerId === e.adventurer.id)
     )
 
     const newLogs: SearchLogEntry[] = []
-    const newFound: AdventurerExtended[] = [...searchState.foundAdventurers]
+    const newFound: AdventurerExtended[] = [...snap.foundAdventurers]
 
     remainingEvents.forEach(event => {
       const logEntry: SearchLogEntry = {
@@ -225,7 +220,7 @@ function useSearchSimulation(
       logs: [...prev.logs, ...newLogs],
       foundAdventurers: newFound,
     }))
-  }, [searchState.logs, searchState.foundAdventurers])
+  }, [])
 
   // Начало поиска (с сохранением уже найденных)
   const startSearch = useCallback((keepExisting: boolean = false) => {
@@ -237,7 +232,8 @@ function useSearchSimulation(
     const events: typeof eventsRef.current = []
     // Используем существующие ID + новые для предотвращения дубликатов
     const usedIds = new Set<string>(keepExisting ? existingAdventurerIds : [])
-    let foundCount = keepExisting ? searchState.foundAdventurers.length : 0
+    const snap = searchStateRef.current
+    let foundCount = keepExisting ? snap.foundAdventurers.length : 0
     let currentTime = 0
     const eventInterval = 4000 // Каждые 4 секунды подходит новый искатель
 
@@ -295,8 +291,8 @@ function useSearchSimulation(
     setExistingAdventurerIds(usedIds)
 
     // Если сохраняем существующих, оставляем их и добавляем логи
-    const initialLogs = keepExisting ? searchState.logs : []
-    const initialFound = keepExisting ? searchState.foundAdventurers : []
+    const initialLogs = keepExisting ? snap.logs : []
+    const initialFound = keepExisting ? snap.foundAdventurers : []
 
     // Сбрасываем состояние
     setSearchState({
@@ -356,7 +352,7 @@ function useSearchSimulation(
         stopSearch()
       }
     }, 500)
-  }, [expedition, guildLevel, stopSearch])
+  }, [expedition, guildLevel, stopSearch, existingAdventurerIds])
 
   // Очистка при размонтировании
   useEffect(() => {
@@ -413,15 +409,34 @@ export const RecruitmentInterface: React.FC<RecruitmentInterfaceProps> = ({
   const [confirmedAdventurer, setConfirmedAdventurer] = useState<AdventurerExtended | null>(null)
 
   // Экспедиция для карточек
-  const expeditionData = useMemo(() => ({
-    difficulty: expedition.difficulty,
-    baseGold: expedition.baseGold,
-    baseWarSoul: expedition.baseWarSoul,
-    duration: expedition.duration,
-    successChance: expedition.successChance,
-    weaponWear: expedition.weaponWear,
-    weaponLossChance: expedition.weaponLossChance,
-  }), [expedition])
+  const expeditionData = useMemo(
+    () => ({
+      difficulty: expedition.difficulty,
+      type: expedition.type,
+      baseGold: expedition.baseGold,
+      baseWarSoul: expedition.baseWarSoul,
+      successChance: expedition.successChance,
+      goldReward: expedition.baseGold,
+      warSoulReward: expedition.baseWarSoul,
+      weaponWear: expedition.weaponWear,
+      weaponLossChance: expedition.weaponLossChance,
+      successModifiers: [] as Array<{
+        source: string
+        sourceIcon: string
+        value: number
+        description: string
+        type: string
+      }>,
+      goldModifiers: [] as Array<{
+        source: string
+        sourceIcon: string
+        value: number
+        description: string
+        type: string
+      }>,
+    }),
+    [expedition]
+  )
 
   // Выбор искателя
   const handleSelect = useCallback((adventurer: AdventurerExtended) => {
@@ -462,7 +477,7 @@ export const RecruitmentInterface: React.FC<RecruitmentInterfaceProps> = ({
           {/* Кнопки */}
           <div className="flex gap-2">
             <Button
-              onClick={startSearch}
+              onClick={() => startSearch(false)}
               className="flex-1"
             >
               <Search className="w-4 h-4 mr-2" />

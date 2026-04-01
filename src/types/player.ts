@@ -63,6 +63,8 @@ export interface GameStatistics {
   weaponsSold: number
   recipesUnlocked: number
   ordersCompleted: number
+  /** Завершённых экспедиций (успех или провал) */
+  totalExpeditions: number
   weaponsSacrificed: number
   enchantmentsApplied: number
 }
@@ -77,6 +79,7 @@ export const initialStatistics: GameStatistics = {
   weaponsSold: 0,
   recipesUnlocked: 6,
   ordersCompleted: 0,
+  totalExpeditions: 0,
   weaponsSacrificed: 0,
   enchantmentsApplied: 0,
 }

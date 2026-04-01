@@ -8,6 +8,9 @@ export * from './approaching'
 
 // Реэкспорт типов
 import type { PhraseTemplate, PhraseType, Gender } from '@/types/adventurer-extended'
+import { getRandomAcceptedPhrase } from './accepted'
+import { getRandomDeclinedPhrase } from './declined'
+import { getRandomApproachingPhrase, getRandomThinkingPhrase } from './approaching'
 
 // Объединённая функция получения фразы
 export function getPhrase(
@@ -17,16 +20,12 @@ export function getPhrase(
 ): PhraseTemplate {
   switch (type) {
     case 'accepted':
-      const { getRandomAcceptedPhrase } = require('./accepted')
       return getRandomAcceptedPhrase(allTags, gender)
     case 'declined':
-      const { getRandomDeclinedPhrase } = require('./declined')
       return getRandomDeclinedPhrase(allTags, gender)
     case 'approaching':
-      const { getRandomApproachingPhrase } = require('./approaching')
       return getRandomApproachingPhrase(allTags)
     case 'considering':
-      const { getRandomThinkingPhrase } = require('./approaching')
       return getRandomThinkingPhrase(allTags, gender)
     default:
       return {

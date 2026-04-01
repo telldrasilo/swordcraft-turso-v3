@@ -129,14 +129,7 @@ export function ForgeScreen() {
         ) : mainTab === 'craft' ? (
           <div className="space-y-6">
             {/* Система крафта v2 */}
-            <CraftContainerV2
-              playerLevel={player.level}
-              forgeLevel={1}
-              onWeaponCreated={(weapon) => {
-                console.log('Weapon created:', weapon)
-                // Интегрировано с game-store
-              }}
-            />
+            <CraftContainerV2 playerLevel={player.level} forgeLevel={1} />
             
             <RepairSection />
           </div>

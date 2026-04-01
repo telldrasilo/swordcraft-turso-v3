@@ -1,7 +1,8 @@
 /**
  * Composed Game Store v2
- * Тонкий слой сборки (~300 строк)
- * 
+ * Слой сборки слайсов + cross-slice действия (ремонт, экспедиции, заказы и т.д.).
+ * Размер файла ~1400 строк; cross-slice ремонт вынесен в `src/store/cross-slice/repair-cross-slice.ts`.
+ *
  * Архитектура:
  * - Slices: Инкапсуляция бизнес-логики по доменам
  * - Composed: Координация cross-slice операций
@@ -73,14 +74,8 @@ import {
 import {
   calculateSacrificeValue as calculateSacrificeValueUtil,
 } from '@/lib/store-utils/enchantment-utils'
-import {
-  findBestBlacksmith,
-  getRepairOptionsForWeapon,
-  calculateRepairCost,
-  calculateMaxRepairPercent,
-  executeRepair as executeRepairUtil,
-  craftedWeaponV2ToWeaponRepairCalc,
-} from '@/lib/store-utils/repair-utils'
+import { buildRepairCrossSlice } from '@/store/cross-slice/repair-cross-slice'
+import { buildGuildExpeditionCrossSlice } from '@/store/cross-slice/guild-expedition-cross-slice'
 import {
   calculateExpeditionOutcome,
   updateKnownAdventurersAfterMission,
@@ -90,9 +85,6 @@ import {
   calculateExpeditionPreview,
   type WeaponForExpedition,
 } from '@/lib/store-utils/expedition-utils'
-
-// Expedition event system
-import { selectEventsForExpedition } from '@/lib/expedition-event-selector'
 
 // ================================
 // ADDITIONAL TYPE IMPORTS
@@ -105,7 +97,6 @@ import {
   type ActiveExpedition,
   type RecoveryQuest,
   getGuildReputationLevel,
-  getMaxActiveExpeditions,
   calculateReputationGain,
   GUILD_LEVELS,
 } from '@/types/guild'
@@ -302,7 +293,8 @@ const initialAdditionalState: AdditionalState = {
 // FULL STORE TYPE
 // ================================
 
-export type GameStore = PlayerSlice & ResourcesSlice & WorkersSlice & CraftSlice & OrdersSlice & TutorialActions & AdditionalState & CrossSliceActions & EncyclopediaSlice
+/** Публичный `completeOrder` задаётся в CrossSliceActions (2 args); slice-метод с 3 args только для внутренней склейки. */
+export type GameStore = PlayerSlice & ResourcesSlice & WorkersSlice & CraftSlice & Omit<OrdersSlice, 'completeOrder'> & TutorialActions & AdditionalState & CrossSliceActions & EncyclopediaSlice
 
 // ================================
 // STORE CREATION
@@ -310,6 +302,22 @@ export type GameStore = PlayerSlice & ResourcesSlice & WorkersSlice & CraftSlice
 
 const STORE_VERSION = 1
 const STORE_NAME = 'swordcraft-store-v2'
+
+/** SSR / Node: нельзя трогать `localStorage` — иначе ReferenceError и пустая страница «Error». */
+function getSsrSafeLocalStorage(): Storage {
+  if (typeof window === 'undefined') {
+    const noop = () => {}
+    return {
+      getItem: () => null,
+      setItem: noop,
+      removeItem: noop,
+      clear: noop,
+      key: () => null,
+      length: 0,
+    } as Storage
+  }
+  return localStorage
+}
 
 export const useGameStore = create<GameStore>()(
   persist(
@@ -561,332 +569,8 @@ export const useGameStore = create<GameStore>()(
         return state.unlockEnchantment(enchantmentId)
       },
 
-      // Repair + Resources + Workers
-      executeWeaponRepair: (weaponId, repairType) => {
-        const state = get()
-        const weapon = state.weaponInventory.weapons.find(w => w.id === weaponId)
-        if (!weapon) {
-          return { success: false, error: 'Оружие не найдено' }
-        }
-
-        const blacksmith = findBestBlacksmith(state.workers)
-        const model = craftedWeaponV2ToWeaponRepairCalc(weapon)
-
-        const result = executeRepairUtil(
-          model,
-          repairType,
-          blacksmith,
-          state.resources.gold,
-          state.resources
-        )
-
-        const roll = result.result
-        const options = getRepairOptionsForWeapon(model, blacksmith)
-        const option = options.find(o => o.type === repairType)
-
-        if (result.success && roll && option) {
-          state.spendResource('gold', option.goldCost)
-          for (const [mat, amount] of Object.entries(option.materials)) {
-            const amt = amount || 0
-            if (amt > 0) state.spendResource(mat as ResourceKey, amt)
-          }
-          if (blacksmith) {
-            get().updateWorkerStamina(blacksmith.id, -option.staminaCost)
-          }
-        }
-
-        if (roll) {
-          set((s) => ({
-            weaponInventory: {
-              ...s.weaponInventory,
-              weapons: s.weaponInventory.weapons.map(w => {
-                if (w.id !== weaponId) return w
-                const cur = w.currentDurability ?? w.stats.durability
-                const newDur = Math.min(
-                  roll.maxDurabilityAfter,
-                  Math.max(0, cur + roll.durabilityRestored)
-                )
-                return {
-                  ...w,
-                  currentDurability: newDur,
-                  stats: {
-                    ...w.stats,
-                    durability: newDur,
-                    maxDurability: roll.maxDurabilityAfter,
-                    attack: Math.max(1, w.stats.attack - roll.attackLost),
-                  },
-                  warSoul: Math.max(0, w.warSoul - roll.soulLost),
-                  epicMultiplier: Math.max(1, w.epicMultiplier - roll.epicLost),
-                }
-              }),
-            },
-          }))
-        }
-
-        return result
-      },
-
-      repairWeaponWithResources: (weaponId) => {
-        const state = get()
-        const weapon = state.weaponInventory.weapons.find(w => w.id === weaponId)
-        if (!weapon) return { success: false, cost: 0, repairedAmount: 0 }
-
-        const blacksmith = findBestBlacksmith(state.workers)
-        if (!blacksmith) return { success: false, cost: 0, repairedAmount: 0 }
-
-        const model = craftedWeaponV2ToWeaponRepairCalc(weapon)
-        const cur = weapon.currentDurability ?? weapon.stats.durability
-        const maxD = weapon.stats.maxDurability
-
-        const cost = calculateRepairCost(model, blacksmith.level)
-        const maxRepair = calculateMaxRepairPercent(blacksmith.level)
-
-        if (!state.canAfford({ gold: cost })) return { success: false, cost, repairedAmount: 0 }
-
-        const repairedAmount = Math.floor((maxD - cur) * (maxRepair / 100))
-
-        state.spendResource('gold', cost)
-
-        set((s) => ({
-          weaponInventory: {
-            ...s.weaponInventory,
-            weapons: s.weaponInventory.weapons.map(w => {
-              if (w.id !== weaponId) return w
-              const c = w.currentDurability ?? w.stats.durability
-              const m = w.stats.maxDurability
-              const next = Math.min(m, c + repairedAmount)
-              return {
-                ...w,
-                currentDurability: next,
-                stats: { ...w.stats, durability: next },
-              }
-            }),
-          },
-        }))
-
-        return { success: true, cost, repairedAmount }
-      },
-
-      // Guild + Resources + Craft + Player
-      startExpeditionFull: (expedition, adventurer, weapon, extendedAdventurer) => {
-        const state = get()
-
-        // Проверяем лимит активных экспедиций
-        const maxActive = getMaxActiveExpeditions(state.guild.level)
-        if (state.guild.activeExpeditions.length >= maxActive) {
-          return false
-        }
-
-        // Проверяем ресурсы
-        const totalCost = expedition.cost.supplies + expedition.cost.deposit
-        if (!state.canAfford({ gold: totalCost })) return false
-
-        // Проверяем оружие (используем новые поля CraftedWeaponV2)
-        if (weapon.currentDurability <= 10) return false
-        if (weapon.stats.attack < expedition.minWeaponAttack) return false
-
-        // Списываем
-        state.spendResource('gold', totalCost)
-
-        // Генерируем события для экспедиции
-        const startedAt = Date.now()
-        const eventResult = selectEventsForExpedition(expedition, startedAt)
-
-        // Создаём экспедицию с правильными полями типа ActiveExpedition
-        const newExpedition: ActiveExpedition = {
-          id: generateId(),
-          expeditionId: expedition.id,
-          expeditionName: expedition.name,
-          expeditionIcon: expedition.icon,
-          adventurerId: adventurer.id,
-          adventurerName: getAdventurerFullName(adventurer),
-          adventurerData: adventurer,
-          adventurerExtended: extendedAdventurer,
-          weaponId: weapon.id,
-          weaponName: weapon.fullName,
-          weaponData: weapon,
-          startedAt: startedAt,
-          endsAt: startedAt + expedition.duration * 1000,
-          deposit: expedition.cost.deposit,
-          suppliesCost: expedition.cost.supplies,
-          events: eventResult.events, // Добавляем сгенерированные события
-        }
-
-        set((s) => ({
-          guild: {
-            ...s.guild,
-            activeExpeditions: [...s.guild.activeExpeditions, newExpedition],
-          },
-        }))
-
-        return true
-      },
-
-      completeExpeditionFull: (expeditionId) => {
-        const state = get()
-        const expedition = state.guild.activeExpeditions.find(e => e.id === expeditionId)
-        if (!expedition) return null
-
-        const template = expeditionTemplates.find(t => t.id === expedition.expeditionId)
-        if (!template) return null
-
-        const weapon = state.weaponInventory.weapons.find(w => w.id === expedition.weaponId)
-        if (!weapon) return null
-
-        // Используем extended данные искателя если есть
-        const adventurerExtended = expedition.adventurerExtended
-
-        const fallbackExtended: AdventurerExtended = {
-          id: expedition.adventurerId,
-          identity: {
-            firstName: expedition.adventurerName,
-            lastName: '',
-            gender: 'male',
-            portraitId: 0,
-          },
-          combat: {
-            level: 10,
-            rarity: 'common',
-            power: 25,
-            precision: 25,
-            endurance: 25,
-            luck: 25,
-            combatStyle: 'berserker',
-            preferredWeapons: [],
-            avoidedWeapons: [],
-          },
-          personality: {
-            primaryTrait: 'brave',
-            secondaryTrait: 'honourable',
-            motivations: ['gold'],
-            socialTags: [],
-            riskTolerance: 'balanced',
-          },
-          traits: [],
-          uniqueBonuses: [],
-          strengths: [],
-          weaknesses: [],
-          requirements: { minAttack: 0 },
-          createdAt: Date.now(),
-          expiresAt: Date.now() + 86400000,
-        }
-
-        // Рассчитываем результат используя калькулятор v2
-        const calculation = calculateExpeditionResultV2(
-          adventurerExtended ?? fallbackExtended,
-          template,
-          state.guild.level,
-          weapon.stats.attack,
-          weapon.currentDurability,
-          weapon.type as any,
-          weapon.id
-        )
-
-        // Определяем успех на основе шанса
-        const roll = Math.random() * 100
-        const success = roll < calculation.successChance
-        const isCrit = success && Math.random() * 100 < calculation.critChance
-
-        // Рассчитываем финальные награды
-        const commission = Math.floor(calculation.commission * (isCrit ? 1.5 : 1))
-        const warSoul = Math.floor(calculation.warSoul * (isCrit ? 1.5 : 1))
-        const glory = Math.floor((template.reward.baseWarSoul * 0.1 + (success ? 5 : 2)) * (isCrit ? 1.5 : 1))
-
-        // Рассчитываем износ оружия
-        const weaponWear = calculation.weaponWear
-
-        // Определяем потерю оружия при провале
-        const weaponLossChance = calculation.weaponLossChance
-        const weaponLost = !success && Math.random() * 100 < weaponLossChance
-
-        const result: ExpeditionResult = {
-          success,
-          commission,
-          warSoul,
-          bonusGold: 0,
-          glory,
-          reputation: success ? calculateReputationGain('expedition', template.reward.baseGold, state.player.level) : 0,
-          weaponWear,
-          weaponLost,
-          isCrit,
-        }
-
-        // Начисляем награды
-        if (result.commission > 0) {
-          state.addResource('gold', result.commission)
-        }
-        if (result.warSoul > 0 && weapon) {
-          // Расчёт эпичности для экспедиций (базовый + бонус за успех/крит)
-          const baseEpicGain = 0.05
-          const successBonus = result.success ? 0.03 : 0
-          const critBonus = result.isCrit ? 0.05 : 0
-          const epicGain = baseEpicGain + successBonus + critBonus + (Math.random() * 0.02)
-          
-          state.addWarSoulToWeapon(weapon.id, result.warSoul, result.weaponWear, epicGain)
-        }
-        if (result.glory) {
-          // Добавляем славу гильдии
-          set((s) => ({
-            guild: {
-              ...s.guild,
-              glory: s.guild.glory + result.glory,
-            },
-          }))
-        }
-
-        // Начисляем репутацию за экспедицию (только при успехе)
-        // Репутация уже включена в result.reputation
-
-        // Обработка потери оружия при провале
-        if (result.weaponLost) {
-          const recoveryQuest: RecoveryQuest = {
-            id: generateId(),
-            lostWeaponId: weapon.id,
-            lostWeaponData: weapon,
-            originalExpeditionId: expedition.expeditionId,
-            originalExpeditionName: expedition.expeditionName,
-            cost: Math.floor(expedition.deposit * 0.5),
-            duration: template.duration * 2,
-            status: 'available',
-          }
-          set((s) => ({
-            guild: {
-              ...s.guild,
-              recoveryQuests: [...s.guild.recoveryQuests, recoveryQuest],
-            },
-          }))
-          state.removeWeapon(weapon.id)
-        }
-
-        // Даём опыт
-        state.addExperience(result.success ? 20 : 5)
-
-        // Удаляем экспедицию и добавляем в историю
-        set((s) => ({
-          guild: {
-            ...s.guild,
-            activeExpeditions: s.guild.activeExpeditions.filter(e => e.id !== expeditionId),
-            history: [...s.guild.history, {
-              id: generateId(),
-              expeditionName: expedition.expeditionName,
-              expeditionIcon: expedition.expeditionIcon,
-              adventurerName: expedition.adventurerName,
-              adventurerData: expedition.adventurerData,
-              adventurerExtended: expedition.adventurerExtended,
-              weaponName: expedition.weaponName,
-              completedAt: Date.now(),
-              success: result.success,
-              commission: result.commission,
-              warSoul: result.warSoul,
-              glory: result.glory,
-              weaponLost: result.weaponLost,
-              isCrit: result.isCrit,
-            }],
-          },
-        }))
-
-        return result
-      },
+      ...buildRepairCrossSlice(set as never, get as never),
+      ...buildGuildExpeditionCrossSlice(set as never, get as never),
 
       // Emergency
       canGetEmergencyHelp: () => {
@@ -981,6 +665,18 @@ export const useGameStore = create<GameStore>()(
         })
 
         return true
+      },
+
+      expireOrder: (orderId) => {
+        set((state) => ({
+          orders: state.orders.map(o =>
+            o.id === orderId && o.status === 'available'
+              ? { ...o, status: 'expired' as const }
+              : o
+          ),
+          activeOrderId:
+            state.activeOrderId === orderId ? null : state.activeOrderId,
+        }))
       },
 
       // Enchantments (simple)
@@ -1297,35 +993,6 @@ export const useGameStore = create<GameStore>()(
         )
       },
 
-      // Repair helpers
-      getRepairOptions: (weaponId) => {
-        const state = get()
-        const weapon = state.weaponInventory.weapons.find(w => w.id === weaponId)
-        if (!weapon) return []
-
-        const model = craftedWeaponV2ToWeaponRepairCalc(weapon)
-        return getRepairOptionsForWeapon(model, findBestBlacksmith(state.workers))
-      },
-
-      getBestBlacksmith: () => {
-        return findBestBlacksmith(get().workers)
-      },
-
-      getWeaponRepairCost: (weaponId) => {
-        const state = get()
-        const weapon = state.weaponInventory.weapons.find(w => w.id === weaponId)
-        if (!weapon) return 0
-
-        const blacksmith = findBestBlacksmith(state.workers)
-        const model = craftedWeaponV2ToWeaponRepairCalc(weapon)
-        return calculateRepairCost(model, blacksmith?.level ?? 1)
-      },
-
-      getMaxRepairPercent: (_weaponId) => {
-        const blacksmith = findBestBlacksmith(get().workers)
-        return blacksmith ? calculateMaxRepairPercent(blacksmith.level) : 0
-      },
-
       // Craft helpers
       getWeaponById: (weaponId) => get().weaponInventory.weapons.find(w => w.id === weaponId),
 
@@ -1394,7 +1061,7 @@ export const useGameStore = create<GameStore>()(
   {
     name: STORE_NAME,
     version: STORE_VERSION,
-    storage: createJSONStorage(() => localStorage),
+    storage: createJSONStorage(getSsrSafeLocalStorage),
     partialize: (state) => ({
       player: state.player,
       resources: state.resources,
@@ -1414,6 +1081,7 @@ export const useGameStore = create<GameStore>()(
       currentScreen: state.currentScreen,
       craftV2Persisted: state.craftV2Persisted,
       shouldPurchaseMaterials: state.shouldPurchaseMaterials,
+      materialKnowledge: state.materialKnowledge,
     }),
     merge: (persistedState: any, currentState) => {
       if (!persistedState || typeof persistedState !== 'object') {
@@ -1429,6 +1097,10 @@ export const useGameStore = create<GameStore>()(
       merged.guild = {
         ...currentState.guild,
         ...(persisted.guild ?? {}),
+      }
+      merged.statistics = {
+        ...initialStatistics,
+        ...((persisted.statistics as Partial<GameStatistics> | undefined) ?? {}),
       }
       return merged
     },

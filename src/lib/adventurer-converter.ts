@@ -5,6 +5,16 @@
 
 import type { Adventurer } from '@/types/guild'
 import type { AdventurerExtended, AdventurerIdentity, CombatStats, Personality, AdventurerTrait as ExtendedTrait } from '@/types/adventurer-extended'
+import type { ExpeditionTemplate } from '@/data/expedition-templates'
+import type { TraitEffectType } from '@/data/adventurer-traits'
+
+const TRAIT_EFFECT_TYPES: readonly TraitEffectType[] = [
+  'success_rate', 'bonus_chance', 'wear', 'soul_points', 'duration', 'magic', 'weapon_loss',
+] as const
+
+function toTraitEffectType(t: string): TraitEffectType {
+  return (TRAIT_EFFECT_TYPES as readonly string[]).includes(t) ? (t as TraitEffectType) : 'success_rate'
+}
 import { generateExtendedAdventurer } from './adventurer-generator-extended'
 
 /**
@@ -117,7 +127,7 @@ export function convertToLegacy(extended: AdventurerExtended, skillOverride?: nu
       icon: t.icon,
       description: t.description,
       effect: {
-        type: firstEffectType,
+        type: toTraitEffectType(firstEffectType),
         value: firstEffectValue,
       },
       rarity: 'common' as const,
@@ -129,48 +139,55 @@ export function convertToLegacy(extended: AdventurerExtended, skillOverride?: nu
     name,
     skill,
     traits: convertedTraits,
+    uniqueBonuses: [],
     requirements: {
       minAttack: extended.requirements.minAttack,
     },
+    portrait: extended.identity.portraitId,
+    createdAt: extended.createdAt,
     hiredAt: Date.now(),
     expiresAt: extended.expiresAt,
   }
 }
 
+/** Срез шаблона экспедиции для UI подбора искателей (в т.ч. AdventurerCardV2) */
+export interface RecruitmentExpeditionView {
+  id: string
+  name: string
+  difficulty: ExpeditionTemplate['difficulty']
+  type: ExpeditionTemplate['type']
+  baseGold: number
+  baseWarSoul: number
+  duration: number
+  successChance: number
+  failureChance: number
+  /** Износ оружия за экспедицию (упрощённая метка для UI) */
+  weaponWear: number
+  weaponLossChance: number
+  minWeaponAttack: number
+  minGuildLevel: number
+}
+
 /**
  * Создаёт отображение экспедиции для RecruitmentInterface
  */
-export function mapExpeditionForRecruitment(expedition: {
-  id: string
-  name: string
-  difficulty: string
-  reward: { baseGold: number; baseWarSoul: number }
-  duration: number
-  failureChance: number
-  weaponWear?: number
-  weaponLossChance?: number
-  minWeaponAttack: number
-}) {
-  // Карта сложности
-  const difficultyMap: Record<string, string> = {
-    easy: 'easy',
-    normal: 'normal',
-    hard: 'hard',
-    extreme: 'extreme',
-    legendary: 'legendary',
-  }
-
+export function mapExpeditionForRecruitment(
+  expedition: ExpeditionTemplate
+): RecruitmentExpeditionView {
   return {
     id: expedition.id,
     name: expedition.name,
-    difficulty: difficultyMap[expedition.difficulty] || 'normal',
+    difficulty: expedition.difficulty,
+    type: expedition.type,
     baseGold: expedition.reward.baseGold,
     baseWarSoul: expedition.reward.baseWarSoul,
     duration: expedition.duration,
-    successChance: 100 - expedition.failureChance,
-    weaponWear: expedition.weaponWear ?? 10,
-    weaponLossChance: expedition.weaponLossChance ?? 5,
+    successChance: Math.max(0, 100 - expedition.failureChance),
+    failureChance: expedition.failureChance,
+    weaponWear: 10,
+    weaponLossChance: expedition.weaponLossChance,
     minWeaponAttack: expedition.minWeaponAttack,
+    minGuildLevel: expedition.minGuildLevel,
   }
 }
 

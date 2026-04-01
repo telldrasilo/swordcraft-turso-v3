@@ -71,7 +71,7 @@ export function RecoveryQuestCard({ quest }: RecoveryQuestCardProps) {
               <Skull className="w-5 h-5 text-red-400" />
             </div>
             <div>
-              <h4 className="font-semibold text-stone-200">Потеряно: {quest.lostWeaponData.name}</h4>
+              <h4 className="font-semibold text-stone-200">Потеряно: {quest.lostWeaponData.fullName}</h4>
               <p className="text-xs text-stone-500">Экспедиция: {quest.originalExpeditionName}</p>
             </div>
           </div>

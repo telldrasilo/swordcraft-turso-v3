@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils'
 import { useGameStore } from '@/store'
 import { getAdventure } from '@/data/adventures'
 import type { ActiveAdventure } from './dungeons-utils'
+import { useEffect, useState } from 'react'
 
 interface ActiveAdventureCardProps {
   activeAdventure: ActiveAdventure
@@ -24,7 +25,12 @@ export function ActiveAdventureCard({
   eventLog 
 }: ActiveAdventureCardProps) {
   const weaponInventory = useGameStore((state) => state.weaponInventory)
-  
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [])
+
   const adventure = getAdventure(activeAdventure.adventureId)
   const weapon = weaponInventory.weapons.find(w => w.id === activeAdventure.weaponId)
   
@@ -72,7 +78,7 @@ export function ActiveAdventureCard({
           <div className="flex items-center gap-1">
             <Timer className="w-3 h-3" />
             <span>
-              Осталось ~{Math.max(0, Math.ceil((activeAdventure.endTime - Date.now()) / 1000))} сек
+              Осталось ~{Math.max(0, Math.ceil((activeAdventure.endTime - now) / 1000))} сек
             </span>
           </div>
           <div className="flex items-center gap-1">

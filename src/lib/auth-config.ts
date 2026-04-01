@@ -1,7 +1,9 @@
 /**
  * NextAuth: демо-провайдер и привязка playerId к JWT/session.
- * В продакшене задайте NEXTAUTH_SECRET; для строгой записи сейвов — ENFORCE_SAVE_AUTH=true
- * (тогда playerId берётся только из сессии, заголовок x-player-id не доверяется).
+ * В продакшене задайте NEXTAUTH_SECRET и NEXTAUTH_URL (или AUTH_TRUST_HOST у прокси).
+ * Локально см. дефолты в `next.config.ts` и `.env.example` — иначе возможен `/api/auth/error`.
+ * Сейвы: при ENFORCE_SAVE_AUTH=true или NODE_ENV=production (и не false) playerId только из сессии.
+ * Клиент: NEXT_PUBLIC_ENFORCE_SAVE_AUTH зеркалирует поведение для bootstrap signIn.
  */
 
 import type { NextAuthOptions } from 'next-auth'

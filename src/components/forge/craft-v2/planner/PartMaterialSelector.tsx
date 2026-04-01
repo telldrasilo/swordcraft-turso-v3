@@ -116,23 +116,17 @@ export function PartMaterialSelector({
   const dominantProperty = recipePart?.dominantProperty
   const secondaryProperty = recipePart?.secondaryProperty
   
-  // Фильтруем и сортируем материалы
-  const materials = useMemo(() => {
-    const allFiltered = getMaterialsForPart(partId, allowedCategories)
-    
-    // Фильтр по открытым в энциклопедии
-    const discovered = filterDiscoveredMaterials(allFiltered, knowledge)
-    
-    // Умная сортировка
-    return smartSortMaterials(discovered, {
-      inventory,
-      knowledge,
-      recipe,
-      partId,
-      blacksmithLevel: playerLevel,
-      dominantProperty,
-    })
-  }, [partId, allowedCategories, inventory, knowledge, recipe, playerLevel, dominantProperty])
+  // Фильтруем и сортируем материалы (без useMemo — корректнее для React Compiler при мутабельном recipe)
+  const allFiltered = getMaterialsForPart(partId, allowedCategories)
+  const discovered = filterDiscoveredMaterials(allFiltered, knowledge)
+  const materials = smartSortMaterials(discovered, {
+    inventory,
+    knowledge,
+    recipe,
+    partId,
+    blacksmithLevel: playerLevel,
+    dominantProperty,
+  })
   
   // Текущий выбранный материал
   const selected = useMemo(() => {

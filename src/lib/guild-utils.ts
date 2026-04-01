@@ -2,34 +2,9 @@
  * Утилиты для гильдии
  */
 
-import {
-  Adventurer,
-  ActiveExpedition,
-  RecoveryQuest,
-  ExpeditionHistoryEntry,
-  GuildStats,
-  GuildState,
-  getGuildLevel,
-  GUILD_LEVELS,
-} from '@/types/guild'
-import { CraftedWeapon } from '@/data/weapon-recipes'
-import {
-  generateAdventurerPool,
-  isAdventurerExpired,
-  getAdventurerFullName,
-  calculateAdventurerBonuses,
-  ADVENTURER_LIFETIME,
-} from '@/lib/adventurer-generator'
-import {
-  ExpeditionTemplate,
-  calculateCommission,
-  calculateWarSoul,
-  calculateSuccessChance,
-  calculateWeaponLossChance,
-  rollBonusRewards,
-  expeditionTemplates,
-  getAvailableExpeditions,
-} from '@/data/expedition-templates'
+import type { Adventurer, RecoveryQuest, GuildState } from '@/types/guild'
+import type { CraftedWeapon } from '@/data/weapon-recipes'
+import type { ExpeditionTemplate } from '@/data/expedition-templates'
 
 // ================================
 // Тип результата экспедиции

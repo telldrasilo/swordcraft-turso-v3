@@ -49,6 +49,8 @@ import {
 import type { AdventurerExtended } from '@/types/adventurer-extended'
 import { getRarityConfig } from '@/data/adventurer-rarity'
 
+const CONTRACT_TIER_ORDER: ContractTier[] = ['bronze', 'silver', 'gold', 'platinum']
+
 // ================================
 // ПРОПСЫ
 // ================================
@@ -84,9 +86,6 @@ export const ContractOfferModal: React.FC<ContractOfferModalProps> = ({
 }) => {
   const [selectedTier, setSelectedTier] = useState<ContractTier>('bronze')
   
-  // Все тиеры
-  const tiers: ContractTier[] = ['bronze', 'silver', 'gold', 'platinum']
-  
   // Проверка доступности каждого тиера
   const tierAvailability = useMemo(() => {
     const result: Record<ContractTier, { available: boolean; reason: string }> = {
@@ -96,7 +95,7 @@ export const ContractOfferModal: React.FC<ContractOfferModalProps> = ({
       platinum: { available: true, reason: '' },
     }
     
-    tiers.forEach(tier => {
+    CONTRACT_TIER_ORDER.forEach(tier => {
       const check = canOfferContract(
         tier,
         guildLevel,
@@ -106,7 +105,7 @@ export const ContractOfferModal: React.FC<ContractOfferModalProps> = ({
         guildGold,
         guildGlory
       )
-      result[tier] = check
+      result[tier] = { available: check.can, reason: check.reason }
     })
     
     return result
@@ -158,7 +157,7 @@ export const ContractOfferModal: React.FC<ContractOfferModalProps> = ({
           <div className="space-y-2">
             <h4 className="text-sm font-medium text-stone-300">Выберите уровень контракта:</h4>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {tiers.map(tier => {
+              {CONTRACT_TIER_ORDER.map(tier => {
                 const available = tierAvailability[tier].available
                 const reason = tierAvailability[tier].reason
                 const isSelected = selectedTier === tier

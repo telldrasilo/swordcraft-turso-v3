@@ -74,7 +74,7 @@ export const SuccessFactorsBlock: React.FC<SuccessFactorsBlockProps> = ({
         
         {quote && (
           <div className="text-right italic text-stone-400 text-sm">
-            "{quote}"
+            «{quote}»
           </div>
         )}
       </div>

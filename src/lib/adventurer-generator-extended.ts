@@ -60,11 +60,33 @@ import {
 import {
   generateUniqueBonuses,
   calculateBonusEffects,
+  uniqueBonuses as uniqueBonusCatalog,
 } from '@/data/unique-bonuses'
+import type { UniqueBonus as UniqueBonusData } from '@/data/unique-bonuses'
 
 // ================================
 // КОНСТАНТЫ
 // ================================
+
+function mapDataUniqueBonusesToExtended(bonuses: UniqueBonusData[]): UniqueBonus[] {
+  return bonuses.map(b => {
+    const nums = Object.values(b.effect).filter((v): v is number => typeof v === 'number')
+    return {
+      id: b.id,
+      name: b.name,
+      description: b.description,
+      type: b.id,
+      value: nums[0] ?? 0,
+    }
+  })
+}
+
+/** Полные определения бонусов для расчёта эффектов (по id из упрощённого формата) */
+function resolveUniqueBonusesForEffects(bonuses: { id: string }[]): UniqueBonusData[] {
+  return bonuses
+    .map(b => uniqueBonusCatalog.find(u => u.id === b.id))
+    .filter((u): u is UniqueBonusData => u != null)
+}
 
 export const ADVENTURER_LIFETIME = 4 * 60 * 60 * 1000 // 4 часа
 export const ADVENTURER_POOL_SIZE = 4
@@ -307,8 +329,8 @@ export function generateExtendedAdventurer(guildLevel: number = 1): AdventurerEx
   // Генерация черт (существующая система)
   const traits = generateTraits(guildLevel)
   
-  // Генерация уникальных бонусов (существующая система)
-  const uniqueBonuses = generateUniqueBonuses(guildLevel)
+  // Генерация уникальных бонусов (существующая система → формат Extended)
+  const uniqueBonuses = mapDataUniqueBonusesToExtended(generateUniqueBonuses(guildLevel))
   
   // Генерация сильных сторон
   const strengthIds = generateStrengths(config.maxStrengths)
@@ -513,7 +535,7 @@ export function calculateAdventurerBonuses(adventurer: AdventurerExtended | Adve
         rarity: 'common' as const,
       }))
     )
-    const uniqueEffects = calculateBonusEffects(adventurer.uniqueBonuses)
+    const uniqueEffects = calculateBonusEffects(resolveUniqueBonusesForEffects(adventurer.uniqueBonuses))
     
     return {
       successRateBonus: traitEffects.success_rate + uniqueEffects.successBonus,
@@ -539,7 +561,7 @@ export function calculateAdventurerBonuses(adventurer: AdventurerExtended | Adve
       rarity: 'common' as const,
     }))
   )
-  const uniqueEffects = calculateBonusEffects(adventurer.uniqueBonuses)
+  const uniqueEffects = calculateBonusEffects(resolveUniqueBonusesForEffects(adventurer.uniqueBonuses))
   
   return {
     successRateBonus: traitEffects.success_rate + uniqueEffects.successBonus,

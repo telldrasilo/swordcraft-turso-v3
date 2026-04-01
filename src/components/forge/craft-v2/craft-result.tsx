@@ -7,7 +7,7 @@
 
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -78,6 +78,47 @@ function StatCard({
         <p className="font-bold text-stone-200">{value}</p>
       </div>
     </div>
+  )
+}
+
+/** Искры для легендарного — случайные параметры фиксируются при монтировании */
+function LegendarySparks() {
+  const [particles] = useState(() =>
+    Array.from({ length: 20 }, () => ({
+      ix: Math.random() * 400 - 200,
+      duration: 1 + Math.random() * 0.5,
+      delay: Math.random() * 0.5,
+      repeatDelay: Math.random() * 2,
+      leftPct: Math.random() * 100,
+    }))
+  )
+  return (
+    <>
+      {particles.map((p, i) => (
+        <motion.div
+          key={i}
+          className="absolute w-1 h-1 bg-amber-400 rounded-full"
+          initial={{
+            x: p.ix,
+            y: 200,
+            opacity: 1,
+          }}
+          animate={{
+            y: -100,
+            opacity: 0,
+          }}
+          transition={{
+            duration: p.duration,
+            delay: p.delay,
+            repeat: Infinity,
+            repeatDelay: p.repeatDelay,
+          }}
+          style={{
+            left: `${p.leftPct}%`,
+          }}
+        />
+      ))}
+    </>
   )
 }
 
@@ -179,30 +220,7 @@ export function CraftResult({ weapon, onCollect, onContinue }: CraftResultProps)
               transition={{ delay: 0.5 }}
               className="absolute inset-0 pointer-events-none overflow-hidden"
             >
-              {Array.from({ length: 20 }).map((_, i) => (
-                <motion.div
-                  key={i}
-                  className="absolute w-1 h-1 bg-amber-400 rounded-full"
-                  initial={{
-                    x: Math.random() * 400 - 200,
-                    y: 200,
-                    opacity: 1,
-                  }}
-                  animate={{
-                    y: -100,
-                    opacity: 0,
-                  }}
-                  transition={{
-                    duration: 1 + Math.random() * 0.5,
-                    delay: Math.random() * 0.5,
-                    repeat: Infinity,
-                    repeatDelay: Math.random() * 2,
-                  }}
-                  style={{
-                    left: `${Math.random() * 100}%`,
-                  }}
-                />
-              ))}
+              <LegendarySparks />
             </motion.div>
           )}
         </CardContent>

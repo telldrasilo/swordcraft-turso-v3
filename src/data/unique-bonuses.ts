@@ -384,7 +384,7 @@ export function applyBonusesToResult(
   let gold = Math.floor(baseResult.gold * (1 + effects.goldBonus / 100))
   let warSoul = Math.floor(baseResult.warSoul * (1 + (effects.soulBonus + skill) / 100))
   const duration = Math.floor(baseResult.duration * (1 - effects.durationReduction / 100))
-  let successChance = Math.min(95, baseResult.successChance + effects.successBonus)
+  const successChance = Math.min(95, baseResult.successChance + effects.successBonus)
   const weaponWear = Math.floor(baseResult.weaponWear * (1 - effects.wearReduction / 100))
   const weaponLossChance = Math.floor(baseResult.weaponLossChance * (1 - effects.lossChanceReduction / 100))
 

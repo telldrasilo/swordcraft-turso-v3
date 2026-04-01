@@ -17,6 +17,9 @@ export {
 } from './calculator'
 export type { WeaponCalculationResult } from './calculator'
 
+export * from './constants'
+export * from './formulas'
+
 // Генератор имён
 export {
   generateWeaponName,

@@ -106,6 +106,7 @@ function getRestoredState(): CraftV2State {
     preview: persisted.preview || null,
     weaponName: persisted.weaponName || null,
     stage: persisted.stage || 'planning',
+    shouldPurchaseMaterials: useGameStore.getState().shouldPurchaseMaterials ?? false,
   }
 }
 
@@ -129,7 +130,9 @@ export function useCraftV2(
 
   // Принудительная синхронизация перед закрытием страницы
   const stateRef = useRef(state)
-  stateRef.current = state
+  useEffect(() => {
+    stateRef.current = state
+  })
   useEffect(() => {
     const handleBeforeUnload = () => {
       const s = stateRef.current
@@ -196,6 +199,7 @@ export function useCraftV2(
       recipeId,
       materials: {},
       techniques: [],
+      shouldPurchaseMaterials: false,
       estimatedTime: 0,
       estimatedStats: {
         attack: 0,
@@ -213,7 +217,7 @@ export function useCraftV2(
     
     setState(prev => ({
       ...prev,
-      plan: emptyPlan,
+      plan: { ...emptyPlan, shouldPurchaseMaterials: prev.shouldPurchaseMaterials },
       preview: null,
       weaponName: null,
       stage: 'planning',
@@ -348,7 +352,7 @@ export function useCraftV2(
       activeCraft,
       stage: 'crafting',
     }))
-  }, [blacksmithLevel, forgeLevel, setState])
+  }, [blacksmithLevel, forgeLevel, setState, state.shouldPurchaseMaterials])
   
   const setShouldPurchaseMaterials = useCallback((should: boolean) => {
     setState(prev => ({ ...prev, shouldPurchaseMaterials: should }))

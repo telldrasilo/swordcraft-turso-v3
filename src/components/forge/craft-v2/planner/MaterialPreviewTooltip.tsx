@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import * as TooltipPrimitive from '@radix-ui/react-tooltip'
 import { TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -25,11 +25,10 @@ interface MaterialPreviewTooltipProps {
 }
 
 function useIsTouchDevice() {
-  const [isTouch, setIsTouch] = useState(false)
-  useEffect(() => {
-    setIsTouch('ontouchstart' in window || navigator.maxTouchPoints > 0)
-  }, [])
-  return isTouch
+  return useState(() =>
+    typeof window !== 'undefined' &&
+    ('ontouchstart' in window || navigator.maxTouchPoints > 0)
+  )[0]
 }
 
 export function MaterialPreviewTooltip({ material, comparison, requiredQuantity, inventoryQuantity, price, expertise = 0, knowledge, children }: MaterialPreviewTooltipProps) {

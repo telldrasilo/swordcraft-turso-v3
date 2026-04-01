@@ -4,7 +4,9 @@
  */
 
 import { useEffect, useCallback, useRef, useState } from 'react'
+import { signIn, getSession } from 'next-auth/react'
 import { useGameStore } from '@/store'
+import { isSaveAuthEnforcedClient } from '@/lib/save-auth'
 
 interface UseCloudSaveOptions {
   autoSaveInterval?: number
@@ -46,20 +48,59 @@ function getTitleByLevel(level: number): string {
 
 const OFFLINE_BACKUP_KEY = 'swordcraft-offline-backup'
 const TIMESTAMP_KEY = 'swordcraft-last-save-timestamp'
+/** Чтобы UI не зависал на «Загрузка сохранения…» при медленном/зависшем Turso или прокси */
+const LOAD_FETCH_TIMEOUT_MS = 12_000
+/** SSR: на сервере нет `navigator`; иначе — падение рендера и «белый экран» у клиентских компонентов */
+const AUTH_BOOTSTRAP_TIMEOUT_MS = 10_000
+
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit | undefined,
+  timeoutMs: number
+): Promise<Response> {
+  const ctrl = new AbortController()
+  const t = setTimeout(() => ctrl.abort(), timeoutMs)
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: ctrl.signal,
+    })
+  } finally {
+    clearTimeout(t)
+  }
+}
+
+function buildSaveFetchHeaders(
+  contentTypeJson: boolean,
+  enforceAuth: boolean,
+  playerId: string
+): HeadersInit {
+  const h: Record<string, string> = {}
+  if (contentTypeJson) {
+    h['Content-Type'] = 'application/json'
+  }
+  if (!enforceAuth) {
+    h['x-player-id'] = playerId
+  }
+  return h
+}
 
 export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult {
   const { autoSaveInterval = 60000, enableAutoSave = true, playerId = 'demo-player' } = options
+  const enforceAuth = isSaveAuthEnforcedClient()
 
+  const [authReady, setAuthReady] = useState(!enforceAuth)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [isOnline, setIsOnline] = useState(navigator.onLine)
-
-  const isLoadingRef = useRef(false)
+  const [isOnline, setIsOnline] = useState(() =>
+    typeof navigator !== 'undefined' ? navigator.onLine : true
+  )
 
   // Отслеживаем состояние сети
   useEffect(() => {
+    setIsOnline(navigator.onLine)
     const handleOnline = () => setIsOnline(navigator.onLine)
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOnline)
@@ -68,6 +109,40 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
       window.removeEventListener('offline', handleOnline)
     }
   }, [])
+
+  useEffect(() => {
+    if (!enforceAuth) return
+    let cancelled = false
+    let settled = false
+    const finish = () => {
+      if (cancelled || settled) return
+      settled = true
+      setAuthReady(true)
+    }
+    const timeoutId = window.setTimeout(() => {
+      console.warn('[CloudSave] Auth bootstrap timeout — продолжаем загрузку сохранения')
+      finish()
+    }, AUTH_BOOTSTRAP_TIMEOUT_MS)
+
+    void (async () => {
+      try {
+        const existing = await getSession()
+        if (!cancelled && !existing) {
+          await signIn('demo', { redirect: false })
+        }
+      } catch (e) {
+        console.error('[CloudSave] Session bootstrap failed:', e)
+      } finally {
+        window.clearTimeout(timeoutId)
+        if (!cancelled) finish()
+      }
+    })()
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timeoutId)
+    }
+  }, [enforceAuth])
 
   // Сбор данных для сохранения
   const collectSaveData = useCallback(() => {
@@ -78,7 +153,7 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
       player: {
         level: state.player?.level || 1,
         experience: state.player?.experience || 0,
-        fame: state.player?.fame || 1,
+        fame: state.player?.fame ?? 0,
       },
       resources: state.resources || {},
       statistics: state.statistics || {},
@@ -95,6 +170,7 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
       knownAdventurers: state.knownAdventurers || [],
       orders: state.orders || [],
       tutorial: state.tutorial || { isActive: true, currentStep: 0 },
+      materialKnowledge: state.materialKnowledge || {},
       playTime: state.statistics?.playTime || 0,
       craftV2Persisted: state.craftV2Persisted || null,
       saveVersion: 3,
@@ -126,15 +202,18 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
 
   // Применение загруженных данных
   const applyLoadedData = useCallback((data: any) => {
-    const level = data.level || 1
+    const p = data.player && typeof data.player === 'object' ? data.player : null
+    const level = Number(data.level ?? p?.level) || 1
+    const experience = Number(data.experience ?? p?.experience) || 0
+    const fame = Number(data.fame ?? p?.fame) || 0
 
     useGameStore.setState({
       player: {
         name: 'Кузнец',
         level: level,
-        experience: data.experience || 0,
+        experience,
         experienceToNextLevel: Math.floor(100 * Math.pow(1.5, level - 1)),
-        fame: data.fame || 0,
+        fame,
         title: getTitleByLevel(level),
       },
       resources: data.resources || {},
@@ -152,6 +231,10 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
       knownAdventurers: data.knownAdventurers || [],
       orders: data.orders || [],
       tutorial: data.tutorial || { isActive: true, currentStep: 0 },
+      materialKnowledge:
+        data.materialKnowledge && typeof data.materialKnowledge === 'object'
+          ? data.materialKnowledge
+          : {},
       craftV2Persisted: data.craftV2Persisted || null,
     })
   }, [])
@@ -173,10 +256,8 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
       try {
         const response = await fetch('/api/save', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-player-id': playerId,
-          },
+          credentials: 'include',
+          headers: buildSaveFetchHeaders(true, enforceAuth, playerId),
           body: JSON.stringify(saveData),
         })
 
@@ -204,13 +285,10 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
       setIsSaving(false)
       return true
     }
-  }, [collectSaveData, isOnline, isSaving, playerId, saveToLocalStorage])
+  }, [collectSaveData, enforceAuth, isOnline, isSaving, playerId, saveToLocalStorage])
 
   // Загрузка
   const load = useCallback(async (): Promise<boolean> => {
-    if (isLoadingRef.current) return false
-
-    isLoadingRef.current = true
     setIsLoading(true)
     setError(null)
 
@@ -220,18 +298,40 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
     try {
       // Сначала пробуем загрузить с сервера
       if (isOnline) {
-        const response = await fetch('/api/save', {
-          method: 'GET',
-          headers: {
-            'x-player-id': playerId,
-          },
-        })
+        try {
+          const response = await fetchWithTimeout(
+            '/api/save',
+            {
+              method: 'GET',
+              credentials: 'include',
+              headers: buildSaveFetchHeaders(false, enforceAuth, playerId),
+            },
+            LOAD_FETCH_TIMEOUT_MS
+          )
 
-        const result = await response.json()
+          let result: { success?: boolean; data?: unknown; error?: string; needsConfig?: boolean } = {}
+          try {
+            result = await response.json()
+          } catch {
+            setError('Некорректный ответ сервера при загрузке')
+          }
 
-        if (result.success && result.data) {
-          loadedData = result.data
-          source = 'server'
+          if (result.success && result.data) {
+            loadedData = result.data
+            source = 'server'
+          } else if (result.needsConfig || response.status === 503) {
+            // Turso не настроен — играем из localStorage / дефолт без блокировки UI
+            setError(null)
+          } else if (!response.ok && result.error) {
+            setError(result.error)
+          }
+        } catch (e) {
+          const err = e instanceof Error ? e : null
+          if (err?.name === 'AbortError') {
+            setError('Таймаут загрузки облака — используем локальные данные')
+          } else {
+            setError(err?.message ?? 'Ошибка сети')
+          }
         }
       }
 
@@ -268,18 +368,16 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
       return false
     } finally {
       setIsLoading(false)
-      isLoadingRef.current = false
     }
-  }, [applyLoadedData, isOnline, loadFromLocalStorage, playerId])
+  }, [applyLoadedData, enforceAuth, isOnline, loadFromLocalStorage, playerId])
 
   // Сброс
   const reset = useCallback(async (): Promise<boolean> => {
     try {
       const response = await fetch('/api/save', {
         method: 'DELETE',
-        headers: {
-          'x-player-id': playerId,
-        },
+        credentials: 'include',
+        headers: buildSaveFetchHeaders(false, enforceAuth, playerId),
       })
 
       const result = await response.json()
@@ -295,14 +393,14 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
       console.error('[CloudSave] Reset error:', err)
       return false
     }
-  }, [playerId])
+  }, [enforceAuth, playerId])
 
-  // Загрузка при монтировании (только один раз)
   const loadRef = useRef(load)
   loadRef.current = load
   useEffect(() => {
-    loadRef.current()
-  }, [])
+    if (!authReady) return
+    void loadRef.current()
+  }, [authReady])
 
   // Автосохранение
   useEffect(() => {

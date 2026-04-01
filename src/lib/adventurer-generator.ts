@@ -329,6 +329,8 @@ function getWeaponTypeName(type: WeaponType): string {
     mace: 'булава',
     spear: 'копьё',
     hammer: 'молот',
+    bow: 'лук',
+    staff: 'посох',
   }
   return names[type] || type
 }

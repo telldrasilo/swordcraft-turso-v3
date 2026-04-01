@@ -128,7 +128,7 @@ export const AdventurerFullCard: React.FC<AdventurerFullCardProps> = ({
     if (!expedition) return null
     return generateAdvice(
       adventurer,
-      { ...expedition, duration: 0, cost: { supplies: 0, deposit: 0 }, minGuildLevel: 1, failureChance: 0, weaponLossChance: 0, recommendedWeaponTypes: [], minWeaponAttack: 0, id: '', name: '', description: '', icon: '' },
+      { ...expedition, duration: 0, cost: { supplies: 0, deposit: 0 }, minGuildLevel: 1, failureChance: 0, weaponLossChance: 0, recommendedWeaponTypes: [], minWeaponAttack: 0, id: '', name: '', description: '', icon: '', reward: { baseGold: expedition.goldReward, baseWarSoul: expedition.warSoulReward } },
       expedition.successChance,
       expedition.goldReward,
       expedition.warSoulReward

@@ -47,7 +47,7 @@ export interface CraftingCost {
   stoneBlocks?: number
 }
 
-// Рецепт оружия
+// Рецепт оружия (legacy v1 в `weapon-recipes.ts`; V2 — `@/types/craft-v2`)
 export interface WeaponRecipe {
   id: string
   name: string
@@ -73,9 +73,6 @@ export interface WeaponRecipe {
   // Разблокировка
   unlocked: boolean
   unlockCondition?: string
-  
-  // UI
-  material?: string // Отображаемое имя материала
 }
 
 // Активный крафт
@@ -457,3 +454,6 @@ export function canCraft(recipe: WeaponRecipe, resources: CraftingCost): boolean
   }
   return true
 }
+
+/** Явный алиас для мест, где рядом импортируется V2 `WeaponRecipe` из `@/types/craft-v2` */
+export type LegacyWeaponRecipe = WeaponRecipe

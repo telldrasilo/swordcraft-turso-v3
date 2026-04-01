@@ -66,7 +66,7 @@ export interface ProductionBuilding {
   name: string
   type: string
   level: number
-  produces: string
+  produces: ResourceKey
   baseProduction: number
   requiredWorkers: number
   staminaCost: number

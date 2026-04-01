@@ -6,6 +6,16 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.test.ts'],
     passWithNoTests: true,
+    coverage: {
+      provider: 'v8',
+      reportsDirectory: './coverage',
+      exclude: [
+        '**/*.test.ts',
+        '**/node_modules/**',
+        'src/app/**',
+        'src/components/**',
+      ],
+    },
   },
   resolve: {
     alias: {

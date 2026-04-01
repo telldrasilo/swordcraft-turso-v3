@@ -11,7 +11,7 @@
 // ================================
 
 export type RawResource = 'iron' | 'copper' | 'tin' | 'silver' | 'goldOre' | 'mithril' | 'wood' | 'stone'
-export type RefinedResource = 'ironIngot' | 'copperIngot' | 'tinIngot' | 'bronzeIngot' | 'silverIngot' | 'goldIngot' | 'mithrilIngot' | 'planks' | 'stoneBlocks'
+export type RefinedResource = 'ironIngot' | 'copperIngot' | 'tinIngot' | 'bronzeIngot' | 'steelIngot' | 'silverIngot' | 'goldIngot' | 'mithrilIngot' | 'planks' | 'stoneBlocks'
 
 export interface RefiningRecipe {
   id: string

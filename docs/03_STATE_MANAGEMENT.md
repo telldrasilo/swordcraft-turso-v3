@@ -2,36 +2,9 @@
 
 ## Обзор
 
-Проект использует **Zustand 5.0.6** для state management с паттерном **Composed Store**. Все слайсы (slices) объединены в одном файле `src/store/game-store-composed.ts` (~1540 строк).
+Проект использует **Zustand 5.0.6** для state management с паттерном **Composed Store**. Все слайсы (slices) объединены в одном файле `src/store/game-store-composed.ts` (~1400 строк); часть cross-slice логики (ремонт оружия) вынесена в `src/store/cross-slice/`.
 
-```typescript
-import { create, StateCreator } from 'zustand'
-import { persist, createJSONStorage } from 'zustand/middleware'
-
-// Компонуем все слайсы
-const useGameStore = create<GameStore>()(
-  compose(
-    persist(
-      name: 'swordcraft-store-v2',
-      version: 1,
-      partialize: (state) => ({ ...state }) // Сохраняем только состояние, не функции
-    )
-  )
-)(
-  // Компонуем слайсы
-  playerSlice,
-  resourcesSlice,
-  workersSlice,
-  craftSlice,
-  craftV2Slice,
-  ordersSlice,
-  guildSlice,
-  enchantmentsSlice,
-  tutorialSlice,
-  encyclopediaSlice
-)
-)
-```
+**Сборка в коде:** в `game-store-composed.ts` — `create<GameStore>()(persist((set, get) => ({ ... }), …))`: подмешиваются вызовы `create*Slice` из `slices/`, дополнительное состояние (`guild`, `craftV2Persisted`, туториал и т.д.) и блок cross-slice действий. Ремонт подключается через `buildRepairCrossSlice` (`src/store/cross-slice/repair-cross-slice.ts`). Крафт v2 — §5 ниже.
 
 ---
 
@@ -375,88 +348,34 @@ resetCraftState() => void
 
 ---
 
-### 5. Craft V2 Slice (`craft-v2-slice.ts`)
+### 5. Крафт v2 (`craftV2Persisted` + `useCraftV2`)
 
-**Домен:** Новая система крафта v2 с детальным управлением материалами
+**Домен:** многоступенчатый крафт, который видит игрок на экране кузницы. Отдельного slice-файла `craft-v2-slice.ts` **нет** — состояние для персиста лежит в composed store, а пошаговая логика — в хуке.
 
-#### State (CraftV2State)
+#### Персистентный блок в store (`CraftV2Persisted`)
+Объявлен в `game-store-composed.ts`, синхронизируется из `src/hooks/use-craft-v2.ts`:
+
 ```typescript
 {
-  // Активный крафт v2
-  activeCraft: ActiveCraftV2 | null {
-    recipeId: string
-    plan: CraftPlan          // План крафта (выбор материалов)
-    progress: number          // 0-100
-    stages: CraftStageInstance[]  // Этапы крафта
-  }
-  
-  // Результат крафта
-  completedWeapon: CraftedWeaponV2 | null {
-    id: string
-    recipeId: string
-    name: string
-    materials: MaterialAssignment[]  // Назначенные материалы
-    techniques: string[]          // Выбранные техники
-    stats: WeaponStats            // Характеристики
-    quality: number
-    qualityGrade: QualityGrade
-    qualityMultiplier: number
-    qualityColor: string
-    qualityNameRu: string
-    sellPrice: number
-    createdAt: number
-  }
-  
-  // История
-  craftedWeapons: CraftedWeaponV2[]
-  
-  // Разблокированное
-  unlockedRecipes: string[]
-  unlockedTechniques: string[]
-  availableMaterials: string[]
-  
-  // Статистика
-  stats: {
-    totalCrafts: number
-    successfulCrafts: number
-    masterpieces: number
-    legendaryItems: number
-  }
-  
-  // Утилита
-  shouldPurchaseMaterials: boolean
+  activeCraft: ActiveCraftV2 | null
+  plan: CraftPlan | null
+  completedWeapon: CraftedWeaponV2 | null
+  stage: 'planning' | 'crafting' | 'completed'
+  preview: unknown | null
+  weaponName: unknown | null
 }
 ```
 
-#### Actions (CraftV2Actions)
-```typescript
-// Планирование
-setCraftPlan(recipeId: string, plan: CraftPlan) => void  // Установить план
-clearCraftPlan() => void                                           // Очистить план
+Флаг **`shouldPurchaseMaterials`** хранится рядом в `AdditionalState` того же файла.
 
-// Начало крафта
-startCraftV2() => void
-updateCraftProgress(progress: number) => void
-completeCraftV2() => void                                      // Завершить крафт
+#### Хук `useCraftV2`
+`src/hooks/use-craft-v2.ts` держит полный `CraftV2State` (план, активный крафт, превью, имя, стадия UI), пишет обратно в `craftV2Persisted` и использует `@/data/recipes`, калькулятор и генератор этапов.
 
-// Разблокировки
-unlockRecipe(recipeId: string) => void
-unlockTechnique(techniqueId: string) => void
-unlockMaterial(materialId: string) => void
+#### Типы (`src/types/craft-v2.ts`)
+- `CraftPlan`, `ActiveCraftV2`, `CraftStageInstance`, `CraftedWeaponV2`, `MaterialAssignment`, `WeaponStats` и др.
 
-// Покупка материалов
-setShouldPurchaseMaterials(should: boolean) => void
-
-// Сброс
-resetCraftV2State() => void
-```
-
-#### Типы из `src/types/craft-v2.ts`
-- `MaterialAssignment` — назначение материалов частям оружия
-- `CraftPlan` — план крафта с назначением материалов
-- `CraftStageInstance` — экземпляр этапа крафта
-- `WeaponStats` — итоговые характеристики оружия
-- `CraftedWeaponV2` — созданное оружие v2
+#### Store-действия, связанные с v2
+См. `game-store-composed.ts`: добавление готового оружия в инвентарь (например `addWeaponV2`), сброс/обновление полей `craftV2Persisted` при сборке результата и сопутствующие cross-slice вызовы из UI контейнера крафта.
 
 ---
 
@@ -851,7 +770,7 @@ persist(
 **Не сохраняет:** Actions, селекторы
 
 ### Cloud Storage (Turso/libSQL)
-- **Автосохранение:** Каждую секунду через `use-cloud-save.ts`
+- **Автосохранение:** Периодически через `use-cloud-save.ts` (по умолчанию каждые **60 секунд**; в `GameLayout` передаётся `autoSaveInterval: 60000`)
 - **Загрузка:** При запуске через API `/api/save`
 - **Идентификатор:** `x-player-id` header
 
@@ -930,10 +849,8 @@ import { useGameStore } from '@/store'
 function MyComponent() {
   const store = useGameStore()
   
-  // Примеры использования
   const { player, resources } = store()
   store.addExperience(100)
-  store.startCraftV2()
 }
 ```
 
@@ -970,7 +887,8 @@ const someAction = async () => {
 
 | Файл | Описание |
 |-------|-----------|
-| `src/store/game-store-composed.ts` | **Единый store** (~1540 строк) |
+| `src/store/game-store-composed.ts` | **Единый store** (~1400 строк) |
+| `src/store/cross-slice/*.ts` | Вынесенная cross-slice логика (ремонт и др.) |
 | `src/store/index.ts` | Экспорт `useGameStore` и типов |
 | `src/store/selectors/index.ts` | Мемоизированные селекторы |
 | `src/store/slices/*.ts` | Доменные слайсы (10+ файлов) |

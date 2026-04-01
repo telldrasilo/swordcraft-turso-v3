@@ -43,6 +43,7 @@ export interface EventPenalty {
   soulEssence?: number
   stamina?: number
   weaponDurability?: number
+  fame?: number
 }
 
 export interface EventChoice {
@@ -266,7 +267,7 @@ export const adventureEvents: AdventureEvent[] = [
       {
         id: 'fight',
         text: 'Напасть!',
-        minWeaponLevel: 15,
+        requiredWeaponLevel: 15,
         outcome: 'victory',
         successChance: 0.3,
         reward: { gold: 1000, fame: 50, bonusItems: [{ resource: 'mithril', amount: 5 }] },
@@ -481,7 +482,7 @@ export const adventureEvents: AdventureEvent[] = [
       {
         id: 'block',
         text: 'Заблокировать оружием',
-        minWeaponLevel: 3,
+        requiredWeaponLevel: 3,
         outcome: 'victory',
         successChance: 0.7,
         penalty: { weaponDurability: 10 },

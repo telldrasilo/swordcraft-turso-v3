@@ -34,6 +34,7 @@ import { MetBadge } from '@/components/ui/met-badge'
 // Импорт новых компонентов
 import { SuccessFactorsBlock, type SuccessFactor } from './SuccessFactorsBlock'
 import { getAdventurerQuote } from './adventurer-quotes'
+import type { RecruitmentExpeditionView } from '@/lib/adventurer-converter'
 
 // ================================
 // ПРОПСЫ
@@ -41,19 +42,7 @@ import { getAdventurerQuote } from './adventurer-quotes'
 
 interface AdventurerCardV2Props {
   adventurer: AdventurerExtended
-  expedition: {
-    id: string
-    name: string
-    difficulty: 'easy' | 'normal' | 'hard' | 'extreme' | 'legendary'
-    type: 'hunt' | 'scout' | 'clear' | 'delivery' | 'magic'
-    baseGold: number
-    baseWarSoul: number
-    duration: number
-    failureChance: number
-    weaponLossChance: number
-    minWeaponAttack: number
-    minGuildLevel: number
-  }
+  expedition: RecruitmentExpeditionView
   guildLevel: number
   weaponAttack: number
   weaponQuality?: number
@@ -176,7 +165,7 @@ export const AdventurerCardV2: React.FC<AdventurerCardV2Props> = ({
         baseGold: expedition.baseGold, 
         baseWarSoul: expedition.baseWarSoul 
       },
-      minGuildLevel: 1,
+      minGuildLevel: expedition.minGuildLevel,
       failureChance: expedition.failureChance,
       weaponLossChance: expedition.weaponLossChance,
       recommendedWeaponTypes: [],
@@ -220,7 +209,12 @@ export const AdventurerCardV2: React.FC<AdventurerCardV2Props> = ({
         ...expedition,
         description: '', icon: '',
         cost: { supplies: 0, deposit: 0 },
-        minGuildLevel: 1, recommendedWeaponTypes: []
+        minGuildLevel: expedition.minGuildLevel,
+        recommendedWeaponTypes: [],
+        reward: {
+          baseGold: expedition.baseGold,
+          baseWarSoul: expedition.baseWarSoul,
+        },
       },
       calc.successChance,
       calc.commission,
@@ -254,10 +248,7 @@ export const AdventurerCardV2: React.FC<AdventurerCardV2Props> = ({
     return 'bg-red-500'
   }, [calc.successChance])
 
-  // Цитата искателя (мемоизируется на основе ID искателя и типа экспедиции)
-  const quote = useMemo(() => {
-    return getAdventurerQuote(adventurer, expedition)
-  }, [adventurer.id, expedition.type])
+  const quote = getAdventurerQuote(adventurer, expedition)
 
   return (
     <motion.div

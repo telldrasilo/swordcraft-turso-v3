@@ -5,6 +5,7 @@
 
 import type { MaterialNode } from '@/types/materials/material-core'
 import type { Material } from '@/types/craft-v2'
+import { materialById, allMaterials } from './library'
 
 /**
  * Преобразует MaterialNode в Material для обратной совместимости
@@ -123,7 +124,6 @@ export function adaptMaterialNodeToMaterial(node: MaterialNode): Material {
  * Получает Material из MaterialNode по ID
  */
 export function getMaterialAsLegacy(id: string): Material | undefined {
-  const { materialById } = require('./library')
   const node = materialById[id]
   if (!node) return undefined
   return adaptMaterialNodeToMaterial(node)
@@ -133,6 +133,5 @@ export function getMaterialAsLegacy(id: string): Material | undefined {
  * Получает все материалы в формате Material[]
  */
 export function getAllMaterialsAsLegacy(): Material[] {
-  const { allMaterials } = require('./library')
   return allMaterials.map(adaptMaterialNodeToMaterial)
 }

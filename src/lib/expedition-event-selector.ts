@@ -126,7 +126,7 @@ function matchesExpedition(
   }
 
   // Проверка флагов босса
-  if (event.flags?.bossOnly && !expedition.tags.special?.includes('boss')) {
+  if (event.flags?.bossOnly && !expedition.tags?.special?.includes('boss')) {
     return false
   }
 

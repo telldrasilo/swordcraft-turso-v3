@@ -223,7 +223,8 @@ function BuyCard({ pkg }: { pkg: typeof buyPackages[0] }) {
 
 // Компонент компактного инвентаря
 function CompactInventory() {
-  const resources = useFormattedResources()
+  const rawResources = useGameStore((s) => s.resources)
+  const formattedResources = useFormattedResources()
   const productionRates = useProductionRates()
   
   const displayResources = [
@@ -242,10 +243,10 @@ function CompactInventory() {
   return (
     <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2">
       {displayResources.map((res) => {
-        const amount = resources[res.id as keyof typeof resources] || 0
+        const amount = rawResources[res.id as keyof Resources] ?? 0
         const rate = productionRates[res.id as keyof typeof productionRates] || 0
         const colors = rarityColors[res.rarity]
-        const formatted = resources.formatted[res.id as keyof typeof resources.formatted]
+        const formatted = formattedResources.formatted[res.id as keyof typeof formattedResources.formatted]
         
         return (
           <motion.div
@@ -275,7 +276,7 @@ function CompactInventory() {
 }
 
 export function ShopScreen() {
-  const resources = useFormattedResources()
+  const formattedResources = useFormattedResources()
   const productionRates = useProductionRates()
   
   const totalProduction = Object.values(productionRates).reduce((sum, rate) => sum + rate, 0)
@@ -298,7 +299,7 @@ export function ShopScreen() {
           </div>
           <Badge className="bg-gradient-to-r from-amber-900 to-amber-800 border-amber-600 text-amber-100 px-4 py-2 text-lg font-bold">
             <Coins className="w-5 h-5 mr-2" />
-            {resources.formatted.gold} 💰
+            {formattedResources.formatted.gold} 💰
           </Badge>
         </div>
         

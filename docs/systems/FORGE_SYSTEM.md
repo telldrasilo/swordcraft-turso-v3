@@ -3,15 +3,19 @@
 ## Обзор
 Кузница отвечает за создание оружия, переплавку материалов, ремонт и работу с инвентарем. В проекте одновременно присутствуют две ветки логики:
 
-- `craft-slice.ts` — старая, более простая система.
-- `craft-v2-slice.ts` — новая система с детальным планированием.
+- `craft-slice.ts` — старая, более простая модель активного крафта и переработки (legacy).
+- Крафт **v2** — состояние `craftV2Persisted` в `game-store-composed.ts` и хук `src/hooks/use-craft-v2.ts` (отдельного `craft-v2-slice.ts` нет).
 
 Главные файлы:
 
 - `src/store/slices/craft-slice.ts`
-- `src/store/slices/craft-v2-slice.ts`
+- `src/store/game-store-composed.ts` (блок `craftV2Persisted` и действия для v2)
+- `src/hooks/use-craft-v2.ts`
 - `src/lib/craft/calculator.ts`
 - `src/lib/craft/forecast-calculator.ts`
+- `src/lib/craft/constants.ts` (коэффициенты расчёта, прогноза и сортировки материалов)
+- `src/lib/craft/formulas.ts`
+- `src/lib/craft/material-sorting.ts`
 - `src/lib/store-utils/craft-utils.ts`
 - `src/data/weapon-recipes.ts`
 - `src/data/refining-recipes.ts`
@@ -58,27 +62,12 @@
 - `WeaponStats`
 - `CraftStageInstance`
 
-Состояние `craft-v2-slice.ts` хранит:
+Персистентный блок **`craftV2Persisted`** в store и локальный state хука держат:
 
-- `activeCraft`
-- `completedWeapon`
-- `craftedWeapons`
-- `unlockedRecipes`
-- `unlockedTechniques`
-- `availableMaterials`
-- `stats`
-- `shouldPurchaseMaterials`
+- `plan`, `activeCraft`, `completedWeapon`, `stage`, предпросмотр расчёта и имя оружия (см. типы в `game-store-composed.ts` и `use-craft-v2.ts`).
+- `shouldPurchaseMaterials` — в `AdditionalState` рядом с `craftV2Persisted`.
 
-Основные действия:
-
-- `setCraftPlan()`
-- `clearCraftPlan()`
-- `startCraftV2()`
-- `updateCraftProgress()`
-- `completeCraftV2()`
-- `unlockRecipe()`
-- `unlockTechnique()`
-- `unlockMaterial()`
+Операции планирования и тайминг этапов выполняются в **`useCraftV2`** (`setRecipe`, `setMaterial`, `startCraft`, `collectWeapon`, `reset` и т.д.); в store остаются методы вроде добавления готового оружия в инвентарь (**`addWeaponV2`**) и синхронизация персиста при сборе результата.
 
 ## План крафта
 План крафта собирается до запуска процесса и включает:
@@ -297,9 +286,13 @@
 - `src/types/craft-v2.ts`
 - `src/types/shared/quality.ts`
 - `src/store/slices/craft-slice.ts`
-- `src/store/slices/craft-v2-slice.ts`
+- `src/store/game-store-composed.ts` (крафт v2: `craftV2Persisted`, инвентарь)
+- `src/hooks/use-craft-v2.ts`
+- `src/lib/craft/constants.ts`
+- `src/lib/craft/formulas.ts`
 - `src/lib/craft/calculator.ts`
 - `src/lib/craft/forecast-calculator.ts`
+- `src/lib/craft/material-sorting.ts`
 - `src/lib/store-utils/craft-utils.ts`
 - `src/data/weapon-recipes.ts`
 - `src/data/recipes/`

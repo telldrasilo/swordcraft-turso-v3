@@ -186,7 +186,7 @@ function CurrentStageCard({ stage }: { stage: CraftStageInstance }) {
         {/* Сообщение */}
         {stage.startMessage && (
           <p className="mt-2 text-sm text-stone-400 italic">
-            "{stage.startMessage}"
+            «{stage.startMessage}»
           </p>
         )}
       </CardContent>

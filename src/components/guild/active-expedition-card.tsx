@@ -68,7 +68,7 @@ export function ActiveExpeditionCard({ expedition }: ActiveExpeditionCardProps) 
     return `${minutes}:${seconds.toString().padStart(2, '0')}`
   }
   
-  const isComplete = timeLeft === 0 || Date.now() >= expedition.endsAt
+  const isComplete = timeLeft === 0
   
   const handleComplete = () => {
     const result = completeExpeditionFull(expedition.id)

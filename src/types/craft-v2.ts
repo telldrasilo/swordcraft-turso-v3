@@ -215,6 +215,9 @@ export interface TechniqueEffects {
   qualityBonus?: number
   durabilityBonus?: number
   conductivityBonus?: number
+  attackBonus?: number
+  /** Влияние на цену/репутацию (проценты или абстрактные очки — по данным техники) */
+  aestheticValue?: number
   appliesTo: string[]   // к каким частям применяется: ['blade'], ['all']
 }
 
@@ -326,9 +329,12 @@ export interface WeaponRecipe {
   stages: RecipeStageConfig[]     // конфигурация этапов
   
   source: RecipeSource
-  
+
   // Требования
   requiredLevel?: number
+
+  /** Опционально: базовая стоимость в игровых ресурсах (заказы, оценки без materialSelections) */
+  cost?: Record<string, number>
 }
 
 /** Конфигурация этапа в рецепте */
@@ -544,6 +550,7 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
 // ================================
 
 // Re-export for convenience
+export type { QualityGrade } from './shared/quality'
 export {
   getQualityGrade,
   getQualityMultiplier,

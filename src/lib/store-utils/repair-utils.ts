@@ -92,15 +92,6 @@ export function craftedWeaponV2ToWeaponRepairCalc(weapon: CraftedWeaponV2): Weap
 // ================================
 
 /**
- * Найти лучшего кузнеца для ремонта
- */
-export function findBestBlacksmith(workers: Worker[]): Worker | null {
-  const blacksmiths = workers.filter(w => w.class === 'blacksmith')
-  if (blacksmiths.length === 0) return null
-  return blacksmiths.sort((a, b) => b.level - a.level)[0] ?? null
-}
-
-/**
  * Получить опции ремонта для оружия
  */
 export function getRepairOptionsForWeapon(

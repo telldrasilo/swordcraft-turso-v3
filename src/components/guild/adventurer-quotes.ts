@@ -102,8 +102,11 @@ export const getAdventurerQuote = (
   } else if (personality === 'cautious' || personality === 'thoughtful') {
     mood = 'cautious'
   }
-  
-  return { text, mood }
+
+  const quoteType: AdventurerQuote['type'] =
+    expeditionType in quotes ? expeditionType : 'clear'
+
+  return { text, mood, type: quoteType }
 }
 
 export default getAdventurerQuote

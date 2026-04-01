@@ -8,8 +8,16 @@
  * - Детализацию по частям оружия
  */
 
-import type { Material, MaterialAssignment, WeaponRecipe } from '@/types/craft-v2'
+import type { Material, MaterialAssignment, WeaponRecipe as V2WeaponRecipe } from '@/types/craft-v2'
+import type { WeaponRecipe as LegacyWeaponRecipe } from '@/data/weapon-recipes'
 import type { Resources, ResourceKey } from '@/store/slices/resources-slice'
+
+/** Рецепт для расчёта стоимости (V2 из craft-v2 или legacy из weapon-recipes). */
+export type RecipeForCraftingCost = V2WeaponRecipe | LegacyWeaponRecipe
+
+function isV2WeaponRecipe(recipe: RecipeForCraftingCost): recipe is V2WeaponRecipe {
+  return 'parts' in recipe && Array.isArray((recipe as V2WeaponRecipe).parts)
+}
 import { getMaterialAsLegacy } from '@/data/materials'
 import { canBuyMaterial, getMaterialPrice, getMaterialShopInfo } from '@/data/material-shop'
 
@@ -220,7 +228,7 @@ function calculateRawResources(
  * Возвращает детальную информацию о требуемых ресурсах
  */
 export function calculateCraftRequirements(
-  recipe: WeaponRecipe,
+  recipe: V2WeaponRecipe,
   materialSelections: MaterialAssignment
 ): Map<ResourceKey, { amount: number; sources: string[]; names: string[] }> {
   const requirements = new Map<ResourceKey, { amount: number; sources: string[]; names: string[] }>()
@@ -255,7 +263,7 @@ export function calculateCraftRequirements(
  * Проверить наличие ресурсов в инвентаре
  */
 export function checkInventoryForCraft(
-  recipe: WeaponRecipe,
+  recipe: V2WeaponRecipe,
   materialSelections: MaterialAssignment,
   inventory: Resources
 ): InventoryCheckResult {
@@ -394,29 +402,34 @@ export function checkInventoryForCraft(
  * Если materialSelections пустой (генерация заказа), используем recipe.cost
  */
 export function getCraftingCost(
-  recipe: WeaponRecipe,
+  recipe: RecipeForCraftingCost,
   materialSelections: MaterialAssignment
 ): Partial<Record<ResourceKey, number>> {
   const cost: Partial<Record<ResourceKey, number>> = {}
-  
-  // Если есть выбранные материалы (при крафте) — используем их
-  if (Object.keys(materialSelections).length > 0) {
-    const totalRequirements = calculateCraftRequirements(recipe, materialSelections)
-    for (const [resourceKey, { amount }] of totalRequirements) {
-      cost[resourceKey] = (cost[resourceKey] || 0) + amount
+
+  if (isV2WeaponRecipe(recipe)) {
+    if (Object.keys(materialSelections).length > 0) {
+      const totalRequirements = calculateCraftRequirements(recipe, materialSelections)
+      for (const [resourceKey, { amount }] of totalRequirements) {
+        cost[resourceKey] = (cost[resourceKey] || 0) + amount
+      }
+    } else if (recipe.cost) {
+      for (const [resourceKey, amount] of Object.entries(recipe.cost)) {
+        if (amount && amount > 0) {
+          cost[resourceKey as ResourceKey] = amount
+        }
+      }
     }
-  } else if (recipe.cost) {
-    // Если нет выбранных материалов (генерация заказа) — используем базовую стоимость рецепта
+  } else {
     for (const [resourceKey, amount] of Object.entries(recipe.cost)) {
       if (amount && amount > 0) {
         cost[resourceKey as ResourceKey] = amount
       }
     }
   }
-  
-  // Добавляем топливо
+
   cost.coal = (cost.coal || 0) + 3
-  
+
   return cost
 }
 

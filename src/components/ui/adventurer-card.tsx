@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
 import { AdventurerTrait } from '@/data/adventurer-traits'
+import type { WeaponType } from '@/data/weapon-recipes'
 import { UniqueBonus, getBonusBgColor, calculateBonusEffects } from '@/data/unique-bonuses'
 import { InfoTooltip } from '@/components/ui/game-tooltip'
 import {
@@ -40,7 +41,7 @@ interface AdventurerCardProps {
     uniqueBonuses: UniqueBonus[]
     requirements: {
       minAttack: number
-      weaponType?: string
+      weaponType?: WeaponType
       minQuality?: number
     }
     portrait: number

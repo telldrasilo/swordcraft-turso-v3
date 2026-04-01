@@ -281,7 +281,7 @@ export const ContractsSection: React.FC<ContractsSectionProps> = ({
                   key={contracted.id}
                   contractedAdventurer={contracted}
                   onAssign={onAssignMission ? () => onAssignMission(contracted.adventurerId) : undefined}
-                  onTerminate={handleTerminateClick}
+                  onTerminate={() => handleTerminateClick(contracted.adventurerId)}
                   isAssignable={!!onAssignMission}
                 />
               ))}

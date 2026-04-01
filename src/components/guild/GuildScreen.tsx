@@ -41,19 +41,17 @@ export function GuildScreen() {
   const reputationToNext = getReputationToNextLevel(currentReputation, currentLevel)
   const maxExpeditions = getMaxActiveExpeditions(currentLevel)
 
-  // Проверяем повышение уровня
+  // Проверяем повышение уровня (отложенный setState вне синхронного тела effect)
   useEffect(() => {
-    if (guild.level > previousLevel) {
+    if (guild.level <= previousLevel) return
+    queueMicrotask(() => {
       setShowLevelUpNotification(true)
       setPreviousLevel(guild.level)
-      
-      // Скрываем уведомление через 5 секунд
-      const timer = setTimeout(() => {
-        setShowLevelUpNotification(false)
-      }, 5000)
-
-      return () => clearTimeout(timer)
-    }
+    })
+    const timer = setTimeout(() => {
+      setShowLevelUpNotification(false)
+    }, 5000)
+    return () => clearTimeout(timer)
   }, [guild.level, previousLevel])
 
   return (

@@ -55,6 +55,7 @@ mindmap
 2. Изучите структуру проекта в [docs/02_PROJECT_STRUCTURE.md](02_PROJECT_STRUCTURE.md)
 3. Для работы с state - читайте [docs/03_STATE_MANAGEMENT.md](03_STATE_MANAGEMENT.md)
 4. Для работы с типами - смотрите [docs/04_TYPES_SYSTEM.md](04_TYPES_SYSTEM.md)
+5. Тесты и команды проверки — раздел **«Тесты и проверка качества»** в [AGENTS.md](../AGENTS.md); скрипты также перечислены в корневом [README.md](../README.md)
 
 ## Файлы документации
 
@@ -70,6 +71,7 @@ mindmap
 |---------|---------|
 | [docs/03_STATE_MANAGEMENT.md](03_STATE_MANAGEMENT.md) | Zustand store, слайсы, actions, selectors |
 | [docs/04_TYPES_SYSTEM.md](04_TYPES_SYSTEM.md) | Все интерфейсы, enum'ы, константы |
+| [docs/PROJECT_AUDIT.md](PROJECT_AUDIT.md) | Актуальные риски и техдолг (живой аудит) |
 
 ### Игровые системы
 | Файл | Описание |
@@ -101,7 +103,7 @@ mindmap
 ## Ключевые файлы проекта
 
 ### State Management
-- [src/store/game-store-composed.ts](../src/store/game-store-composed.ts) - Единый Zustand store (~1540 строк)
+- [src/store/game-store-composed.ts](../src/store/game-store-composed.ts) — единый Zustand store (~1400 строк; cross-slice, напр. ремонт, в [src/store/cross-slice/](../src/store/cross-slice/))
 - Все основные домены сходятся в `game-store-composed.ts`; для зачарований рабочий контракт сейчас проходит через `craft-slice` и cross-slice actions, см. `docs/Ecnchantment_System/`
 
 ### Типы данных

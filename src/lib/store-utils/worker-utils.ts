@@ -199,7 +199,7 @@ export function calculateFireRefund(hireCost: number): number {
 /**
  * Получить возврат за уволенного рабочего
  */
-export function getFireRefund(worker: Worker): number {
+export function getFireRefund(worker: { hireCost: number; class: string }): number {
   const hireCost = worker.hireCost ?? WORKER_CLASS_DATA[worker.class]?.baseCost ?? 50
   return calculateFireRefund(hireCost)
 }
@@ -347,13 +347,13 @@ export function calculateAverageQuality(
 }
 
 /**
- * Найти лучшего кузнеца
+ * Найти лучшего кузнеца (generic — корректный тип для slice `Worker` / утилитного `Worker`).
  */
-export function findBestBlacksmith(workers: Worker[]): Worker | null {
+export function findBestBlacksmith<T extends { class: string; level: number }>(workers: T[]): T | null {
   const blacksmiths = workers.filter(w => w.class === 'blacksmith')
   if (blacksmiths.length === 0) return null
 
-  return blacksmiths.sort((a, b) => b.level - a.level)[0]
+  return blacksmiths.sort((a, b) => b.level - a.level)[0] ?? null
 }
 
 /**

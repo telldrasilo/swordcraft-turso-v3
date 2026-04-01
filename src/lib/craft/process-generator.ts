@@ -17,6 +17,8 @@ import type {
 import { DEFAULT_GAME_CONFIG } from '@/types/craft-v2'
 import { getStageById, allStages } from '@/data/stages'
 import { getMaterialAsLegacy } from '@/data/materials'
+import { getRecipeById } from '@/data/recipes'
+import { getTechniqueById } from '@/data/techniques'
 
 /**
  * Контекст для генерации процесса
@@ -269,15 +271,11 @@ export function createCraftPlan(
   forgeLevel: number = 1,
   shouldPurchaseMaterials: boolean = false
 ): CraftPlan {
-  // Загружаем рецепт
-  const { getRecipeById } = require('@/data/recipes')
   const recipe = getRecipeById(recipeId)
   if (!recipe) {
     throw new Error(`Recipe not found: ${recipeId}`)
   }
   
-  // Загружаем техники
-  const { getTechniqueById } = require('@/data/techniques')
   const techniques: Technique[] = techniqueIds
     .map(id => getTechniqueById(id))
     .filter((t): t is Technique => t !== undefined)
@@ -329,7 +327,7 @@ function calculateWeaponStats(
   let durability = base.durabilityBase
   let weight = base.weightBase
   let soulCapacity = base.soulCapacityBase
-  let balance = 75 // базовый баланс
+  const balance = 75 // базовый баланс
   let repairPotential = 1.0
   let enchantSlots = 0
   let enchantPower = 1.0

@@ -11,6 +11,7 @@ import {
   GuildState,
   initialGuildState,
   GUILD_LEVELS,
+  calculateReputationGain,
 } from '@/types/guild'
 import {
   AdventurerExtended,
@@ -29,10 +30,10 @@ import {
   isAdventurerExpired,
   ADVENTURER_LIFETIME,
   getAdventurerFullName,
-  calculateAdventurerBonuses,
   generateExtendedAdventurer,
   toLegacyAdventurer,
 } from '@/lib/adventurer-generator-extended'
+import { calculateAdventurerBonuses, type Adventurer as PoolAdventurer } from '@/lib/adventurer-generator'
 import {
   ExpeditionTemplate,
   expeditionTemplates,
@@ -181,15 +182,21 @@ export const getTimeUntilRefresh = (state: GuildSliceState): number => {
 
 export const getGuildLevelInfo = (state: GuildSliceState) => {
   const currentLevel = state.level
-  const currentGlory = state.glory
-  const nextLevel = GUILD_LEVELS.find(l => l.level === currentLevel + 1)
-  const requiredGlory = nextLevel?.requiredGlory ?? 0
+  const currentReputation = state.reputation
+  const currentTier = GUILD_LEVELS.find(l => l.level === currentLevel)
+  const nextTier = GUILD_LEVELS.find(l => l.level === currentLevel + 1)
+  const requiredReputation = nextTier?.requiredReputation ?? 0
+  const prevReputation = currentTier?.requiredReputation ?? 0
+  const span = Math.max(1, requiredReputation - prevReputation)
+  const progress = nextTier
+    ? Math.min(100, Math.max(0, ((currentReputation - prevReputation) / span) * 100))
+    : 100
 
   return {
     level: currentLevel,
-    currentGlory,
-    nextLevelGlory: requiredGlory,
-    progress: nextLevel ? Math.min(100, (currentGlory / requiredGlory) * 100) : 0,
+    currentGlory: currentReputation,
+    nextLevelGlory: requiredReputation,
+    progress,
   }
 }
 
@@ -247,7 +254,7 @@ export const calculateExpeditionResult = (
   contract?: ContractedAdventurer
 ): ExpeditionResult => {
   // Рассчитываем бонусы искателя
-  const adventurerBonuses = calculateAdventurerBonuses(adventurer)
+  const adventurerBonuses = calculateAdventurerBonuses(adventurer as PoolAdventurer)
 
   // Базовые расчёты с применением бонусов
   const baseSuccessChance = calculateSuccessChance(expedition, weaponAttack(weapon), 0)
@@ -354,6 +361,9 @@ export const calculateExpeditionResult = (
     warSoul,
     bonusGold: 0,
     glory,
+    reputation: success
+      ? calculateReputationGain('expedition', expedition.reward.baseGold, guildLevel)
+      : 0,
     weaponWear,
     weaponLost,
     recoveryQuest,

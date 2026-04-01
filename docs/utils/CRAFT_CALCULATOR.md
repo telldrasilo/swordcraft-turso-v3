@@ -1,14 +1,19 @@
-﻿# Калькулятор крафта
+# Калькулятор крафта
 
 ## Обзор
 Этот документ описывает вычислительное ядро кузницы. Главная точка входа — `src/lib/craft/calculator.ts`, а прогноз до запуска крафта строится через `src/lib/craft/forecast-calculator.ts`.
 
 ## Главные файлы
-- `src/lib/craft/calculator.ts`
-- `src/lib/craft/forecast-calculator.ts`
+- `src/lib/craft/calculator.ts` — итоговые характеристики после крафта
+- `src/lib/craft/forecast-calculator.ts` — прогноз диапазонов до крафта
+- `src/lib/craft/constants.ts` — **именованные коэффициенты**: расчёт оружия, прогноз, умная сортировка материалов (`material-sorting.ts`)
+- `src/lib/craft/formulas.ts` — чистые хелперы (`applyPercentMultiplier`, `contributionFromMaterialPercent`)
+- `src/lib/craft/material-sorting.ts` — оценки для селектора материалов
 - `src/lib/store-utils/craft-utils.ts`
 - `src/types/craft-v2.ts`
 - `src/types/forecast.ts`
+
+При изменении баланса крафта правьте прежде всего **`constants.ts`**, затем при необходимости формулы в `calculator` / `forecast-calculator` и обновите тесты в `src/lib/craft/*.test.ts`.
 
 ## Что делает `calculateWeapon()`
 Функция собирает итоговое оружие из:
@@ -98,8 +103,11 @@
 - `StatRange`
 
 ## Что проверять при изменениях
+- `src/lib/craft/constants.ts`
+- `src/lib/craft/formulas.ts`
 - `src/lib/craft/calculator.ts`
 - `src/lib/craft/forecast-calculator.ts`
+- `src/lib/craft/material-sorting.ts`
 - `src/types/craft-v2.ts`
 - `src/types/forecast.ts`
 - `src/types/shared/quality.ts`

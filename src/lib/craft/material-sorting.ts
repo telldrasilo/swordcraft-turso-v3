@@ -8,6 +8,27 @@ import type { Resources, ResourceKey } from '@/store/slices/resources-slice'
 import type { MaterialKnowledge } from '@/types/materials/knowledge'
 import { getResourceKeyForMaterial } from './inventory-check'
 import { getMaterialRarity, type MaterialRarity } from '@/types/materials/material-core'
+import {
+  CRAFT_PERCENT_SCALE,
+  MATERIAL_SORT_DENSITY_INVERT_BASE,
+  MATERIAL_SORT_EXPERTISE_TO_POINTS,
+  MATERIAL_SORT_IN_STOCK_SCORE,
+  MATERIAL_SORT_PART_BLADE_CONDUCTIVITY,
+  MATERIAL_SORT_PART_BLADE_HARDNESS,
+  MATERIAL_SORT_PART_GRIP_DENSITY_INVERT,
+  MATERIAL_SORT_PART_GRIP_ELASTICITY,
+  MATERIAL_SORT_PART_METAL_HARDNESS,
+  MATERIAL_SORT_PART_METAL_TOUGHNESS,
+  MATERIAL_SORT_QUALITY_PROPERTY_BLEND,
+  MATERIAL_SORT_QUALITY_SCORE_CAP,
+  MATERIAL_SORT_RARITY_DISPLAY_MAX,
+  MATERIAL_SORT_RARITY_MAX_SCORE,
+  MATERIAL_SORT_RARITY_STEPS,
+  MATERIAL_SORT_WEIGHT_AVAILABILITY,
+  MATERIAL_SORT_WEIGHT_EXPERTISE,
+  MATERIAL_SORT_WEIGHT_QUALITY,
+  MATERIAL_SORT_WEIGHT_RARITY,
+} from './constants'
 
 // ================================
 // ТИПЫ
@@ -94,10 +115,12 @@ function calculateMaterialScore(material: MaterialNode, context: SortContext): n
   const rarityScore = calculateRarityScore(material)
   
   // Общая оценка
-  return availabilityScore * 0.4 + 
-         qualityScore * 0.3 + 
-         expertiseScore * 0.2 + 
-         rarityScore * 0.1
+  return (
+    availabilityScore * MATERIAL_SORT_WEIGHT_AVAILABILITY +
+    qualityScore * MATERIAL_SORT_WEIGHT_QUALITY +
+    expertiseScore * MATERIAL_SORT_WEIGHT_EXPERTISE +
+    rarityScore * MATERIAL_SORT_WEIGHT_RARITY
+  )
 }
 
 /**
@@ -113,7 +136,7 @@ function calculateAvailabilityScore(
   
   const quantity = inventory[resourceKey] || 0
   // Нормализуем: 0 = 0, >=1 = 100
-  return quantity > 0 ? 100 : 0
+  return quantity > 0 ? MATERIAL_SORT_IN_STOCK_SCORE : 0
 }
 
 /**
@@ -126,36 +149,46 @@ function calculateQualityScore(
   dominantProperty?: string
 ): number {
   const rarityValue = RARITY_VALUES[getMaterialRarity(material.economy)] // 1-5
-  const normalizedRarity = ((rarityValue - 1) / 4) * 50 // 0-50
+  const normalizedRarity =
+    ((rarityValue - 1) / MATERIAL_SORT_RARITY_STEPS) * MATERIAL_SORT_RARITY_MAX_SCORE
   
   // Свойства важные для разных частей
   const physical = material.physical
   const arcane = material.arcane
-  const properties = material.properties
-  
+
   let propertyScore = 0
   
   // Если в рецепте указано главное свойство, используем его
   if (dominantProperty) {
     const propValue = getDominantPropertyValue(material, dominantProperty)
-    propertyScore = propValue / 100 * 50
+    propertyScore = (propValue / CRAFT_PERCENT_SCALE) * MATERIAL_SORT_QUALITY_SCORE_CAP
   } else {
     // Иначе используем старую логику на основе части
     switch (partId) {
       case 'blade':
-        // Для лезвия важны: твёрдость + проводимость
-        propertyScore = (physical.hardness * 0.6 + arcane.conductivity * 0.4) / 100 * 50
+        propertyScore =
+          ((physical.hardness * MATERIAL_SORT_PART_BLADE_HARDNESS +
+            arcane.conductivity * MATERIAL_SORT_PART_BLADE_CONDUCTIVITY) /
+            CRAFT_PERCENT_SCALE) *
+          MATERIAL_SORT_QUALITY_SCORE_CAP
         break
         
       case 'guard':
       case 'pommel':
-        // Для гарды/навершия важны: твёрдость + прочность
-        propertyScore = (physical.hardness * 0.7 + physical.toughness * 0.3) / 100 * 50
+        propertyScore =
+          ((physical.hardness * MATERIAL_SORT_PART_METAL_HARDNESS +
+            physical.toughness * MATERIAL_SORT_PART_METAL_TOUGHNESS) /
+            CRAFT_PERCENT_SCALE) *
+          MATERIAL_SORT_QUALITY_SCORE_CAP
         break
         
       case 'grip':
-        // Для рукояти важны: гибкость + меньше вес (используем density)
-        propertyScore = (physical.elasticity * 0.8 + (100 - physical.density) * 0.2) / 100 * 50
+        propertyScore =
+          ((physical.elasticity * MATERIAL_SORT_PART_GRIP_ELASTICITY +
+            (MATERIAL_SORT_DENSITY_INVERT_BASE - physical.density) *
+              MATERIAL_SORT_PART_GRIP_DENSITY_INVERT) /
+            CRAFT_PERCENT_SCALE) *
+          MATERIAL_SORT_QUALITY_SCORE_CAP
         break
         
       default:
@@ -165,7 +198,10 @@ function calculateQualityScore(
     }
   }
   
-  return Math.min(50, normalizedRarity + propertyScore * 0.5)
+  return Math.min(
+    MATERIAL_SORT_QUALITY_SCORE_CAP,
+    normalizedRarity + propertyScore * MATERIAL_SORT_QUALITY_PROPERTY_BLEND
+  )
 }
 
 /**
@@ -198,7 +234,7 @@ function calculateExpertiseScore(
   if (!matKnowledge) return 0
   
   // Экспертиза 0-100 -> оценка 0-20
-  return matKnowledge.expertise * 0.2
+  return matKnowledge.expertise * MATERIAL_SORT_EXPERTISE_TO_POINTS
 }
 
 /**
@@ -207,7 +243,7 @@ function calculateExpertiseScore(
 function calculateRarityScore(material: MaterialNode): number {
   const rarityValue = RARITY_VALUES[getMaterialRarity(material.economy)] // 1-5
   // Нормализуем в 0-10
-  return ((rarityValue - 1) / 4) * 10
+  return ((rarityValue - 1) / MATERIAL_SORT_RARITY_STEPS) * MATERIAL_SORT_RARITY_DISPLAY_MAX
 }
 
 // ================================

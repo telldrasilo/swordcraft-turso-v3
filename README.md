@@ -91,6 +91,9 @@ npm run dev
 - `npm run lint` - Run ESLint
 - `npm run lint:fix` - Fix ESLint issues automatically
 - `npm run type-check` - Run TypeScript type checking
+- `npm run test` - Run Vitest unit tests once
+- `npm run test:watch` - Vitest watch mode
+- `npm run test:coverage` - Tests with V8 coverage report (`coverage/`)
 - `npm run format` - Format code with Prettier
 - `npm run format:check` - Check code formatting
 
@@ -136,6 +139,8 @@ Currently uses demo mode without authentication. Authentication will be added in
 - ESLint with Next.js rules configured
 - Prettier for consistent code formatting
 - Type checking enforced before builds
+- **Tests:** Vitest; test files `src/**/*.test.ts`. Run `npm run test` before pushing; CI runs `npm run test` then `npm run build`.
+- Conventions and CI details for agents: see **«Тесты и проверка качества»** in [AGENTS.md](AGENTS.md).
 
 ### Known Issues
 - Some TypeScript errors exist due to recent strict mode enablement
@@ -147,7 +152,7 @@ Currently uses demo mode without authentication. Authentication will be added in
 - Implement conflict resolution for cloud saves
 - Refactor large files (guild-screen.tsx, craft-slice.ts)
 - Split craft-slice into smaller modules
-- Add unit and integration tests
+- Expand integration / E2E tests (e.g. Playwright) on top of existing Vitest unit suite
 - Implement proper error boundaries
 - Add localization support
 

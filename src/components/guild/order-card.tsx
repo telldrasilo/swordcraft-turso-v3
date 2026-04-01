@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { useGameStore } from '@/store'
-import type { NPCOrder } from '@/data/market-data'
+import type { NPCOrder } from '@/types/npc-order'
 import { calculateGoldRewardRange } from '@/lib/store-utils/order-utils'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 

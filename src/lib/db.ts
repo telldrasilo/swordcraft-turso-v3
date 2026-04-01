@@ -4,13 +4,19 @@
  *
  * Схема Turso (этот файл + миграции ниже) — источник правды для облачных сейвов.
  * Prisma (prisma/schema.prisma, file:./dev.db) — локальная SQLite для prisma generate / опциональных утилит;
- * при изменении колонок game_saves синхронизируйте DDL здесь, Prisma-модель и POST/GET в src/app/api/save/route.ts
+ * при изменении колонок game_saves синхронизируйте всё по чеклисту:
+ *
+ * 1) CREATE_TABLES_SQL + ensureGameSavesColumns (ALTER) в этом файле
+ * 2) model GameSave в prisma/schema.prisma
+ * 3) POST/GET/INSERT/UPDATE/formatSaveData/createNewSave в src/app/api/save/route.ts
+ * 4) saveRequestBodySchema (и при необходимости validateSaveData) в src/lib/save-payload-schema.ts
+ * 5) Клиент: collectSaveData / applyLoadedData в src/hooks/use-cloud-save.ts и partialize в game-store-composed.ts
  */
 
 import { createClient, type Client } from '@libsql/client'
 
 const globalForDb = globalThis as unknown as {
-  turso: Client | undefined
+  turso: Client | null | undefined
   tablesInitialized: boolean
 }
 
@@ -98,7 +104,7 @@ async function initializeTables(db: Client): Promise<void> {
 
 /** Добавляет колонки, появившиеся после первого деплоя (SQLite ALTER). */
 async function ensureGameSavesColumns(db: Client): Promise<void> {
-  const info = await db.execute({ sql: 'PRAGMA table_info(game_saves)' })
+  const info = await db.execute({ sql: 'PRAGMA table_info(game_saves)', args: [] })
   const names = new Set<string>()
   for (const r of info.rows) {
     const row = r as Record<string, unknown>
@@ -108,6 +114,7 @@ async function ensureGameSavesColumns(db: Client): Promise<void> {
   if (!names.has('materialKnowledge')) {
     await db.execute({
       sql: "ALTER TABLE game_saves ADD COLUMN materialKnowledge TEXT DEFAULT '{}'",
+      args: [],
     })
   }
 }

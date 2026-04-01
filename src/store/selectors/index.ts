@@ -81,19 +81,19 @@ export const selectWorkersCount = createSelector(
 
 export const selectHiredWorkers = createSelector(
   [selectWorkers],
-  (workers) => workers.filter(w => w.isHired)
+  (workers) => workers
 )
 
 export const selectIdleWorkers = createSelector(
   [selectWorkers],
-  (workers) => workers.filter(w => w.isHired && !w.currentTask)
+  (workers) => workers.filter(w => w.assignment === 'rest')
 )
 
 export const selectWorkersQuality = createSelector(
   [selectWorkers],
   (workers) => {
     if (workers.length === 0) return 0
-    const averageQuality = workers.reduce((sum, w) => sum + w.quality, 0) / workers.length
+    const averageQuality = workers.reduce((sum, w) => sum + w.stats.quality, 0) / workers.length
     return averageQuality
   }
 )
@@ -147,16 +147,21 @@ export const selectWeaponsByType = createSelector(
   }
 )
 
+function weaponMatchesMaterialTag(w: { hiddenTags?: string[]; recipeId?: string }, tag: string): boolean {
+  if (w.hiddenTags?.includes(tag)) return true
+  return w.recipeId?.includes(tag) ?? false
+}
+
 export const selectWeaponsByMaterial = createSelector(
   [selectWeapons],
   (weapons) => {
     return {
-      iron: weapons.filter(w => w.material === 'iron'),
-      bronze: weapons.filter(w => w.material === 'bronze'),
-      steel: weapons.filter(w => w.material === 'steel'),
-      silver: weapons.filter(w => w.material === 'silver'),
-      gold: weapons.filter(w => w.material === 'gold'),
-      mithril: weapons.filter(w => w.material === 'mithril'),
+      iron: weapons.filter(w => weaponMatchesMaterialTag(w, 'iron')),
+      bronze: weapons.filter(w => weaponMatchesMaterialTag(w, 'bronze')),
+      steel: weapons.filter(w => weaponMatchesMaterialTag(w, 'steel')),
+      silver: weapons.filter(w => weaponMatchesMaterialTag(w, 'silver')),
+      gold: weapons.filter(w => weaponMatchesMaterialTag(w, 'gold')),
+      mithril: weapons.filter(w => weaponMatchesMaterialTag(w, 'mithril')),
     }
   }
 )
@@ -210,8 +215,9 @@ export const selectGuildGlory = createSelector(
 // ================================
 
 export const selectCurrentScreen = (state: GameStore) => state.currentScreen
-export const selectPlayTime = (state: GameStore) => state.playTime
-export const selectSaveVersion = (state: GameStore) => state.saveVersion
+export const selectPlayTime = (state: GameStore) => state.statistics.playTime
+/** Версия формата облачного сейва; в Zustand не хранится, только в API payload. */
+export const selectSaveVersion = (_state: GameStore) => 3
 
 export const selectTutorial = (state: GameStore) => state.tutorial
 

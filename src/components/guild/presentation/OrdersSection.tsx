@@ -11,8 +11,8 @@ import { Button } from '@/components/ui/button'
 import { OrderCard } from '../order-card'
 import { RefreshCw, Coins } from 'lucide-react'
 
-import type { NPCOrder } from '@/data/market-data'
-import type { CraftedWeapon } from '@/data/weapon-recipes'
+import type { NPCOrder } from '@/types/npc-order'
+import type { CraftedWeaponV2 } from '@/types/craft-v2'
 import { calculateGoldRewardRange } from '@/lib/store-utils/order-utils'
 
 interface OrdersSectionProps {
@@ -21,7 +21,7 @@ interface OrdersSectionProps {
   completedOrders: NPCOrder[]
   expiredOrders: NPCOrder[]
   showWeaponSelect: string | null
-  suitableWeapons: CraftedWeapon[]
+  suitableWeapons: CraftedWeaponV2[]
   playerLevel?: number  // Для расчета награды
   onAcceptOrder: (orderId: string) => void
   onCancelOrder: (orderId: string) => void
@@ -47,7 +47,7 @@ export function OrdersSection({
   onRefreshOrders,
 }: OrdersSectionProps) {
   // Функция для расчета награды за конкретное оружие
-  const getRewardForWeapon = (weapon: CraftedWeapon) => {
+  const getRewardForWeapon = (weapon: CraftedWeaponV2) => {
     if (!activeOrder) return 0
     const range = calculateGoldRewardRange(
       activeOrder.minQuality,
@@ -106,14 +106,14 @@ export function OrdersSection({
                               className="flex-1 p-3 bg-green-900/20 hover:bg-green-900/40 border border-green-600/30 rounded-md text-left transition-colors"
                             >
                               <div className="font-medium text-green-300 flex items-center justify-between">
-                                <span>{weapon.name}</span>
+                                <span>{weapon.fullName}</span>
                                 <span className="text-amber-400 flex items-center gap-1 text-sm">
                                   <Coins className="w-3 h-3" />
                                   {reward} золота
                                 </span>
                               </div>
                               <div className="text-xs text-stone-400">
-                                Атака: {weapon.attack} | Качество: {weapon.quality}
+                                Атака: {weapon.stats.attack} | Качество: {weapon.quality}
                               </div>
                             </button>
                             <button
@@ -177,7 +177,7 @@ export function OrdersSection({
               Нет доступных заказов
             </p>
             <p className="text-stone-500 text-xs">
-              Нажмите "Обновить список" для генерации новых заказов
+              Нажмите «Обновить список» для генерации новых заказов
             </p>
           </div>
         )}

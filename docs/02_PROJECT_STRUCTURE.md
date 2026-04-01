@@ -247,7 +247,7 @@ import { GameLayout } from "@/components/layout/game-layout"
 
 | Файл | Описание |
 |-------|-----------|
-| `game-store-composed.ts` | **Единый store** (~1540 строк). Композит всех слайсов с cross-slice операциями. Использует `persist` middleware для localStorage. |
+| `game-store-composed.ts` | **Единый store** (~1400 строк). Композит всех слайсов и cross-slice операций. Использует `persist` middleware для localStorage. |
 
 #### Слайсы (slices/)
 
@@ -256,8 +256,8 @@ import { GameLayout } from "@/components/layout/game-layout"
 | `player-slice.ts` | Игрок | name, level, experience, fame, title, statistics |
 | `resources-slice.ts` | Ресурсы | gold, soulEssence, wood, stone, iron, coal... |
 | `workers-slice.ts` | Рабочие | workers[], buildings[], hiredCount, maxWorkers |
-| `craft-slice.ts` | Крафт v1 (legacy) | activeCraft, activeRefining, weaponInventory, unlockedRecipes |
-| `craft-v2-slice.ts` | Крафт v2 | activeCraftV2, craftPlan, craftProgress |
+| `craft-slice.ts` | Крафт / инвентарь (legacy v1 API + общий инвентарь) | activeCraft, activeRefining, weaponInventory, unlockedRecipes |
+| *(в `game-store-composed.ts` + `use-craft-v2.ts`)* | Крафт v2 | `craftV2Persisted`, этапы и UI; отдельного `craft-v2-slice.ts` нет |
 | `orders-slice.ts` | Заказы NPC | availableOrders[], activeOrderId, completedOrders[], expiredOrders[] |
 | `guild-slice.ts` | Гильдия | level, glory, reputation, adventurers[], activeExpeditions[], history |
 | `enchantments-slice.ts` | Зачарования | unlockedEnchantments[], soulEssence, maxEnchantmentsPerWeapon |
@@ -269,6 +269,12 @@ import { GameLayout } from "@/components/layout/game-layout"
 | Файл | Описание |
 |-------|-----------|
 | `selectors/index.ts` | Мемоизированные селекторы с использованием `reselect`. |
+
+#### Cross-slice (`cross-slice/`)
+
+| Файл | Описание |
+|------|-----------|
+| `repair-cross-slice.ts` | Сборка действий ремонта оружия для подмешивания в composed store. |
 
 ---
 
@@ -493,7 +499,7 @@ import { GameLayout } from "@/components/layout/game-layout"
 
 | Файл | Описание |
 |-------|-----------|
-| `use-cloud-save.ts` | Автосохранение в Turso/libSQL (каждую секунду). |
+| `use-cloud-save.ts` | Автосохранение в Turso/libSQL (по умолчанию раз в **60 секунд**; задаётся `autoSaveInterval`, в `GameLayout` — 60 000 ms). |
 | `use-craft-v2.ts` | Hooks для крафта v2. |
 | `use-game-loop.ts` | Игровой цикл. |
 | `use-mobile.ts` | Определение мобильного устройства. |

@@ -185,16 +185,16 @@ function selectRewardType(eventType: string): EventRewardType {
   if (eventType === 'combat') {
     typeWeights.gold = 50
     typeWeights.warSoul = 35
-    typeWars.glory = 15
+    typeWeights.glory = 15
   } else if (eventType === 'discovery') {
     typeWeights.gold = 35
-    typeWars.item = 25
-    typeWars.material = 20
-    typeWars.warSoul = 20
+    typeWeights.item = 25
+    typeWeights.material = 20
+    typeWeights.warSoul = 20
   } else if (eventType === 'treasure') {
     typeWeights.gold = 60
-    typeWars.item = 30
-    typeWars.essence = 10
+    typeWeights.item = 30
+    typeWeights.essence = 10
   }
 
   // Взвешенный случайный выбор

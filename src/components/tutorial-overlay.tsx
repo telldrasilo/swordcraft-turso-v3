@@ -12,11 +12,11 @@ import { cn } from '@/lib/utils'
 // Компонент подсветки элемента
 function HighlightOverlay({ target, isActive }: { target?: string; isActive: boolean }) {
   const [rect, setRect] = useState<DOMRect | null>(null)
-  const updateRef = useRef<number>()
+  const updateRef = useRef<number | undefined>(undefined)
   
   useEffect(() => {
     if (!target || !isActive) {
-      setRect(null)
+      queueMicrotask(() => setRect(null))
       return
     }
     
@@ -288,26 +288,15 @@ export function TutorialOverlay() {
   const nextTutorialStep = useGameStore((state) => state.nextTutorialStep)
   const skipTutorial = useGameStore((state) => state.skipTutorial)
   
-  const [isVisible, setIsVisible] = useState(false)
-  
   // Текущий шаг
   const currentStepData = tutorialSteps[tutorial.currentStep]
-  
-  // Показывать ли туториал
-  useEffect(() => {
-    if (!tutorial.isActive || tutorial.skipped) {
-      setIsVisible(false)
-      return
-    }
-    
-    // Показываем только если шаг относится к текущему экрану
-    if (currentStepData && currentStepData.screen === currentScreen) {
-      setIsVisible(true)
-    } else {
-      setIsVisible(false)
-    }
-  }, [tutorial.isActive, tutorial.skipped, tutorial.currentStep, currentScreen, currentStepData])
-  
+  const isVisible = Boolean(
+    tutorial.isActive &&
+    !tutorial.skipped &&
+    currentStepData &&
+    currentStepData.screen === currentScreen
+  )
+
   // Обработчики
   const handleNext = () => {
     if (tutorial.currentStep >= tutorialSteps.length - 1) {

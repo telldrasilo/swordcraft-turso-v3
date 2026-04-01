@@ -16,12 +16,13 @@ import {
 } from '@/lib/save-payload-schema'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth-config'
+import { isSaveAuthEnforced } from '@/lib/save-auth'
 
-// Демо-игрок для разработки (без авторизации)
+// Демо-игрок для разработки (если не ENFORCE_SAVE_AUTH и не production)
 const DEMO_PLAYER_ID = 'demo-player'
 
 async function resolvePlayerId(request: NextRequest): Promise<string> {
-  if (process.env.ENFORCE_SAVE_AUTH === 'true') {
+  if (isSaveAuthEnforced()) {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       throw Object.assign(new Error('Unauthorized'), { status: 401 })
@@ -402,6 +403,7 @@ async function createNewSave(db: ReturnType<typeof getDb>, playerId: string) {
     weaponsSold: 0,
     recipesUnlocked: 6,
     ordersCompleted: 0,
+    totalExpeditions: 0,
     weaponsSacrificed: 0,
     enchantmentsApplied: 0,
   }

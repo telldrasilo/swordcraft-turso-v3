@@ -87,7 +87,8 @@ export const weaknesses: WeaknessData[] = [
       goldPenalty: 0,
       warSoulPenalty: 0,
       weaponLossIncrease: 0,
-      weaponWearIncrease: 10   // +10% износ (сложнее защищать оружие)
+      weaponWearIncrease: 10,  // +10% износ (сложнее защищать оружие)
+      refuseChanceBonus: 0
     }
   },
   {

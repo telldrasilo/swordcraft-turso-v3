@@ -51,9 +51,10 @@ export interface CombatStats {
 // ЛИЧНОСТЬ
 // ================================
 
-export type PersonalityTraitId = 
+export type PersonalityTraitId =
   | 'brave' | 'cautious' | 'greedy' | 'honourable' | 'reckless' | 'mercenary'
   | 'glory_seeker' | 'survivor' | 'ambitious' | 'lazy' | 'veteran' | 'hot_headed'
+  | 'daring' | 'thoughtful'
 
 export type MotivationId = 
   | 'gold' | 'glory' | 'challenge' | 'safety' | 'experience' 

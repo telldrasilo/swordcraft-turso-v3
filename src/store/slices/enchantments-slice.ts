@@ -8,7 +8,8 @@ import { StateCreator } from 'zustand'
 
 // Импорт утилит
 import { generateId } from '@/lib/store-utils/generators'
-import { calculateSacrificeValue, canAffordEnchantment as canAffordEnchantmentUtil } from '@/lib/store-utils/enchantment-utils'
+import { calculateSacrificeValue } from '@/lib/store-utils/enchantment-utils'
+import { TIER_NUMBER_TO_STRING } from '@/lib/store-utils/constants'
 
 // ================================
 // ТИПЫ
@@ -78,7 +79,7 @@ export const MAX_ENCHANTMENTS_PER_WEAPON = 3
 // ================================
 
 // Реэкспортируем утилиты для использования в game-store
-export { calculateSacrificeValue, canAffordEnchantmentUtil as canAffordEnchantment }
+export { calculateSacrificeValue }
 
 // ================================
 // SLICE
@@ -98,9 +99,10 @@ export const createEnchantmentsSlice: StateCreator<
     const state = get()
     
     // Рассчитываем награду
+    const tierKey = TIER_NUMBER_TO_STRING[weapon.tier] ?? 'common'
     const result = calculateSacrificeValue(
       weapon.quality,
-      weapon.tier,
+      tierKey,
       weapon.warSoul,
       weapon.epicMultiplier
     )

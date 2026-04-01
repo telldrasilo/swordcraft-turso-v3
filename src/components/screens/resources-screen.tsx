@@ -14,9 +14,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { 
-  useGameStore, 
-  useFormattedResources,
-  type ProductionBuilding
+  useGameStore,
+  type ProductionBuilding,
+  type Resources,
 } from '@/store'
 import { useProductionRates } from '@/hooks/use-game-loop'
 import { 
@@ -68,12 +68,6 @@ const allResources = [
   { id: 'planks', name: 'Доски', rarity: 'uncommon' as const, category: 'Материалы' },
   { id: 'stoneBlocks', name: 'Блоки камня', rarity: 'uncommon' as const, category: 'Материалы' },
 ]
-
-// Получить форматированное значение ресурса
-function getFormattedValue(resources: ReturnType<typeof useFormattedResources>, id: string): string {
-  const formatted = resources.formatted as Record<string, string>
-  return formatted[id] ?? Math.floor((resources as Record<string, number>)[id] || 0).toString()
-}
 
 // Компонент карточки ресурса
 function ResourceCard({ res, amount, rate }: { res: typeof allResources[0]; amount: number; rate: number }) {
@@ -375,7 +369,7 @@ function RefiningSection() {
 }
 
 export function ResourcesScreen() {
-  const resources = useFormattedResources()
+  const resources = useGameStore((s) => s.resources)
   const productionRates = useProductionRates()
   
   // Общая скорость производства
@@ -412,7 +406,7 @@ export function ResourcesScreen() {
           // Для валюты и сырья показываем всегда, для остальных - только если есть ресурсы
           if (category !== 'Валюта' && category !== 'Сырьё') {
             const hasAnyResource = categoryResources.some(res => 
-              (resources[res.id as keyof typeof resources] || 0) > 0
+              (resources[res.id as keyof Resources] ?? 0) > 0
             )
             if (!hasAnyResource) return null
           }
@@ -427,7 +421,7 @@ export function ResourcesScreen() {
               <CardContent>
                 <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-2">
                   {categoryResources.map((res) => {
-                    const amount = resources[res.id as keyof typeof resources] || 0
+                    const amount = resources[res.id as keyof Resources] ?? 0
                     const rate = productionRates[res.id as keyof typeof productionRates] || 0
                     
                     // Скрываем пустые ресурсы кроме валюты и сырья

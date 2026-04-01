@@ -19,34 +19,13 @@ import { ORDER_MIN_QUALITY, ORDER_MAX_QUALITY, ORDER_BASE_GOLD_REWARD, ORDER_BAS
 import type { OrderCompletionParams, OrderCompletionResult } from './types'
 import type { WeaponRecipe } from '@/data/weapon-recipes'
 import { getCraftingCost } from '@/lib/craft/inventory-check'
+import type { NPCOrder, MaterialAdvance } from '@/types/npc-order'
 
 // ================================
 // ТИПЫ
 // ================================
 
-export interface MaterialAdvance {
-  materials: { resource: string; amount: number }[]
-  totalCost: number
-}
-
-export interface NPCOrder {
-  id: string
-  clientName: string
-  clientTitle: string
-  clientIcon: string
-  weaponType: string
-  material?: string
-  minQuality: number
-  minAttack?: number
-  goldReward: number
-  fameReward: number
-  bonusItems?: { resource: string; amount: number }[]
-  materialAdvance?: MaterialAdvance
-  status: 'available' | 'in_progress' | 'completed' | 'expired'
-  acceptedAt?: number
-  requiredLevel: number
-  requiredFame: number
-}
+export type { NPCOrder, MaterialAdvance }
 
 export interface OrderGenerationParams {
   playerLevel: number
@@ -404,7 +383,7 @@ export function checkExpiredOrders(orders: NPCOrder[]): NPCOrder[] {
   const now = Date.now()
 
   return orders.map(order => {
-    if (order.status === 'available' && isOrderExpired(order.deadline, now)) {
+    if (order.status === 'available' && order.deadline != null && isOrderExpired(order.deadline, now)) {
       return { ...order, status: 'expired' as const }
     }
     return order

@@ -9,6 +9,10 @@ const compat = new FlatCompat({
   baseDirectory: __dirname,
 });
 
+/**
+ * Политика: ошибки (error) ломают `next build`; предупреждения (warn) — техдолг.
+ * Поэтапно поднимать warn→error по доменам (store → API → UI), не включать массово за один проход.
+ */
 const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
@@ -22,6 +26,10 @@ const eslintConfig = [
       "skills",
       "swordcraft/**",
       "docs/**",
+      // Корневые артефакты вне src (согласовано с tsconfig exclude)
+      "lib/**",
+      "data/**",
+      "types/**",
     ],
   },
   {
