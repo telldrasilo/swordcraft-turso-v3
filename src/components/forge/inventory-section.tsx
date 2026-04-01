@@ -15,14 +15,13 @@ import { WeaponInventoryCard } from './weapon-inventory-card'
 
 export function InventorySection() {
   const weapons = useGameStore((state) => state.weaponInventory.weapons)
-  const [sortBy, setSortBy] = useState<'date' | 'price' | 'quality'>('date')
+  const [sortBy, setSortBy] = useState<'date' | 'quality'>('date')
   const [filterQuality, setFilterQuality] = useState<string>('all')
   
   // Мемоизированная сортировка оружия
   const sortedWeapons = useMemo(() => {
     return [...weapons].sort((a, b) => {
       if (sortBy === 'date') return b.createdAt - a.createdAt
-      if (sortBy === 'price') return b.sellPrice - a.sellPrice
       if (sortBy === 'quality') return b.quality - a.quality
       return 0
     })
@@ -37,7 +36,6 @@ export function InventorySection() {
   
   // Мемоизированная статистика
   const stats = useMemo(() => {
-    const totalValue = weapons.reduce((sum, w) => sum + w.sellPrice, 0)
     const avgAttack = weapons.length > 0
       ? Math.round(weapons.reduce((sum, w) => sum + w.stats.attack, 0) / weapons.length)
       : 0
@@ -45,7 +43,7 @@ export function InventorySection() {
       w => w.qualityGrade === 'masterpiece' || w.qualityGrade === 'legendary'
     ).length
     
-    return { totalValue, avgAttack, masterpieceCount, count: weapons.length }
+    return { avgAttack, masterpieceCount, count: weapons.length }
   }, [weapons])
   
   return (
@@ -61,8 +59,8 @@ export function InventorySection() {
         </Card>
         <Card className="card-medieval bg-stone-800/50">
           <CardContent className="p-3 text-center">
-            <Coins className="w-5 h-5 mx-auto text-amber-500 mb-1" />
-            <p className="text-xl font-bold text-amber-400">{stats.totalValue}</p>
+            <Coins className="w-5 h-5 mx-auto text-stone-500 mb-1 opacity-60" />
+            <p className="text-sm font-medium text-stone-400">В разработке</p>
             <p className="text-xs text-stone-500">Общая стоимость</p>
           </CardContent>
         </Card>
@@ -115,11 +113,10 @@ export function InventorySection() {
           <SortAsc className="w-3 h-3 text-stone-500" />
           <select 
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as 'date' | 'price' | 'quality')}
+            onChange={(e) => setSortBy(e.target.value as 'date' | 'quality')}
             className="bg-stone-800 border border-stone-600 rounded px-2 py-1 text-xs text-stone-300"
           >
             <option value="date">По дате</option>
-            <option value="price">По цене</option>
             <option value="quality">По качеству</option>
           </select>
         </div>

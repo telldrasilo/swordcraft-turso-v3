@@ -179,6 +179,8 @@ Interface ActiveExpedition:
 - startedAt: number
 - endsAt: number
 
+Канон и расширения (события, снимки модуля экспедиций): `src/types/guild.ts` — `events`, `locationId`, `missionTemplateId`, `contractType`, `moduleEventSnapshots`, кэши имён/иконок, `weaponData`, …
+
 ---
 
 ### 7. Зачарования (Shared) — src/types/shared/enchantment.ts
@@ -228,6 +230,10 @@ Type EnchantmentEffect = damage | defense | speed | regen | lifesteal | burn | s
 ---
 
 ### 9. Материалы (Materials) — src/types/materials/material-core.ts
+
+**Актуально (код):** интерфейс `MaterialNode` и `MaterialClass = 'metal' | 'mineral' | 'wood' | 'leather' | 'organic' | 'other'` — только в `material-core.ts`. Экспедиционные id: узлы в [`src/data/materials/library/expedition/`](../src/data/materials/library/expedition/), маппинг [`docs/expedition-material-id-map.md`](expedition-material-id-map.md), гайд добавления — [`docs/data/MATERIALS_ADDING.md`](data/MATERIALS_ADDING.md).
+
+*Фрагмент ниже — устаревшее краткое описание; при расхождении ориентироваться на исходники.*
 
 Type MaterialClass = metal | wood | leather | stone | ore | organic
 

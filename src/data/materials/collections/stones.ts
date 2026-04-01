@@ -1,36 +1,13 @@
 /**
- * Коллекция: Камни
- * Групповой экспорт для обработки камня
+ * Коллекция: Камни (минералы без тегов ore/gem)
  */
 
 import type { MaterialNode } from '@/types/materials/material-core'
-import {
-  fieldstone,
-  flint,
-  granite,
-  obsidian,
-  bloodstone,
-} from '../library'
+import { allMaterials } from '../library'
 
-export const stonesCollection: MaterialNode[] = [
-  fieldstone,
-  flint,
-  granite,
-  obsidian,
-  bloodstone,
-]
-
-// Обычные камни
-export const commonStones = stonesCollection.filter(m => 
-  m.economy.tier <= 2
-)
-
-// Редкие камни
-export const rareStones = stonesCollection.filter(m => 
-  m.economy.tier >= 3
-)
-
-// Магические камни
-export const magicalStones = stonesCollection.filter(m => 
-  m.arcane.conductivity >= 30
+export const stonesCollection: MaterialNode[] = allMaterials.filter(
+  m =>
+    m.identity.class === 'mineral' &&
+    !m.identity.tags.includes('ore') &&
+    !m.identity.tags.includes('gem')
 )

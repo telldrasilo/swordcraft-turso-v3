@@ -18,12 +18,18 @@ export * from './leathers'
 // Руды
 export * from './ores'
 
+// Ресурсы мира (добыча в т.ч. через экспедиции) — единый каталог MaterialNode
+export * from './world-resources'
+// Реэкспорт фабрики legacy и алиас expeditionMaterialNodes → worldResourceNodes
+export * from './expedition'
+
 // Импорт всех материалов для коллекций
 import { iron, steel, highCarbonSteel, silverAlloy, coldIron, mithril } from './metals'
 import { fieldstone, flint, granite, obsidian, bloodstone } from './stones'
 import { birch, oak, ash, ebony, ironwood } from './woods'
 import { rawLeather, tannedLeather, bullLeather, dragonLeather } from './leathers'
 import { ironOre, copperOre, tinOre } from './ores'
+import { worldResourceNodes } from './world-resources'
 
 // Массивы для быстрого доступа
 export const allMetals = [iron, steel, highCarbonSteel, silverAlloy, coldIron, mithril]
@@ -39,6 +45,7 @@ export const allMaterials = [
   ...allWoods,
   ...allLeathers,
   ...allOres,
+  ...worldResourceNodes,
 ]
 
 // Карта материалов по ID

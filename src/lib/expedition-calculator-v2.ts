@@ -10,6 +10,11 @@
 import type { AdventurerExtended, WeaponType } from '@/types/adventurer-extended'
 import type { ExpeditionTemplate, ExpeditionDifficulty } from '@/data/expedition-templates'
 import { difficultyInfo } from '@/data/expedition-templates'
+import type { ContractType } from '@/modules/expeditions/data/missions/_mission-template'
+import {
+  splitMissionClientPayment,
+  type MissionGoldSplit,
+} from '@/lib/expedition-contract-economy'
 import { 
   calculateModifiers, 
   type ModifierContext,
@@ -31,7 +36,10 @@ export interface ModifierDetail {
 
 export interface ExpeditionCalculation {
   successChance: number
+  /** Доля кузнеца после комиссии гильдии (золото заказчика → гильдия → кузнец / авантюрист) */
   commission: number
+  /** Детализация по золоту заказчика */
+  economy: MissionGoldSplit
   warSoul: number
   weaponWear: number
   weaponLossChance: number
@@ -61,10 +69,6 @@ export interface ExpeditionCalculation {
 // ================================
 // КОНСТАНТЫ
 // ================================
-
-const BASE_COMMISSION_PERCENT = 15
-const COMMISSION_PER_GUILD_LEVEL = 2
-const MAX_COMMISSION_PERCENT = 30
 
 const BASE_CRIT_CHANCE = 5 // 5% базовый шанс крита
 
@@ -134,7 +138,8 @@ export function calculateExpeditionResult(
   weaponQualityRank?: string,
   weaponEpicMultiplier?: number,
   weaponCombatMaterialId?: string,
-  weaponQuality?: number
+  weaponQuality?: number,
+  contractType: ContractType = 'exploration'
 ): ExpeditionCalculation {
   // ===== 1. ПОДГОТОВКА КОНТЕКСТА (v2 - с новыми полями оружия) =====
   const context: ModifierContext = {
@@ -145,7 +150,7 @@ export function calculateExpeditionResult(
       difficulty: expedition.difficulty,
       duration: expedition.duration,
       minWeaponAttack: expedition.minWeaponAttack || 5,
-      enemyTypes: [], // TODO: добавить в шаблон
+      enemyTypes: expedition.enemyTypes ?? [],
     },
     weapon: {
       id: weaponId,
@@ -199,13 +204,9 @@ export function calculateExpeditionResult(
     goldMult += mod.effectiveValue / 100
   }
   const finalGold = Math.floor(baseGold * goldMult)
-  
-  // Комиссия
-  const commissionPercent = Math.min(
-    MAX_COMMISSION_PERCENT,
-    BASE_COMMISSION_PERCENT + (guildLevel - 1) * COMMISSION_PER_GUILD_LEVEL
-  )
-  const finalCommission = Math.floor(finalGold * commissionPercent / 100)
+
+  const economy = splitMissionClientPayment(finalGold, guildLevel, contractType)
+  const finalCommission = economy.blacksmithGold
   
   // Души войны
   let warSoulMult = 1
@@ -278,6 +279,7 @@ export function calculateExpeditionResult(
   return {
     successChance: Math.round(finalSuccess),
     commission: finalCommission,
+    economy,
     warSoul: finalWarSoul,
     weaponWear: Math.round(finalWeaponWear),
     weaponLossChance: Math.round(finalWeaponLoss),

@@ -26,7 +26,7 @@ Next.js 15, TypeScript 5, Zustand 5.0.6 (composed store), Tailwind CSS 4, shadcn
 - **Туториал** → docs/systems/TUTORIAL_SYSTEM.md
 
 ### При работе с данными:
-- **Материалы** → docs/data/MATERIALS_DATA.md
+- **Материалы** → docs/data/MATERIALS_DATA.md; полный гайд добавления и энциклопедии — **docs/data/MATERIALS_ADDING.md**; маппинг id экспедиций — **docs/expedition-material-id-map.md**
 - **Рецепты** → docs/data/RECIPES_DATA.md
 - **Техники** → docs/data/TECHNIQUES_DATA.md
 - **Искатели** → docs/data/ADVENTURERS_DATA.md

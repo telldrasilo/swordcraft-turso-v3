@@ -5,6 +5,7 @@
 
 import type { StateCreator } from 'zustand'
 import type { MaterialKnowledge, KnowledgeThreshold } from '@/types/materials'
+import type { MaterialDisplayCategory } from '@/types/materials/material-core'
 import {
   getKnowledgeThreshold,
   calculateKnowledgeGain,
@@ -14,8 +15,8 @@ import {
 // ТИПЫ
 // ================================
 
-/** Категория отображения энциклопедии */
-export type EncyclopediaCategory = 'all' | 'ores' | 'ingots' | 'stones' | 'wood' | 'leather' | 'other'
+/** Категория отображения энциклопедии (как вкладки материалов в UI) */
+export type EncyclopediaCategory = MaterialDisplayCategory
 
 /** Состояние энциклопедии */
 export interface EncyclopediaState {
@@ -106,7 +107,7 @@ export const initialEncyclopediaState: EncyclopediaState = {
   selectedCategory: 'all',
   searchQuery: '',
   sortBy: 'rarity',
-  showOnlyDiscovered: true,
+  showOnlyDiscovered: false,
 }
 
 // ================================

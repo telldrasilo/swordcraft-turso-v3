@@ -484,7 +484,11 @@ function getMissionTypeName(type: ExpeditionType): string {
     scout: 'разведку',
     clear: 'зачистку',
     delivery: 'доставку',
-    magic: 'магические миссии'
+    magic: 'магические миссии',
+    rescue: 'спасение',
+    gather: 'сбор ресурсов',
+    escort: 'сопровождение',
+    investigate: 'расследование',
   }
   return names[type] || 'миссию'
 }

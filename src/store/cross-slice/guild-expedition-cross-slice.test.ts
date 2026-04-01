@@ -44,6 +44,7 @@ function mockDeps(over: Partial<GuildExpeditionStoreDeps> = {}): GuildExpedition
     updateStatistics: vi.fn(),
     removeWeapon: vi.fn(() => false),
     addWarSoulToWeapon: vi.fn(() => false),
+    addMaterialToStash: vi.fn(),
     ...over,
   }
 }

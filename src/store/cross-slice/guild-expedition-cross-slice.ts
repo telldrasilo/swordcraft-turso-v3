@@ -4,8 +4,18 @@
 
 import { generateId } from '@/lib/store-utils/generators'
 import { expeditionTemplates, type ExpeditionTemplate } from '@/data/expedition-templates'
-import { selectEventsForExpedition } from '@/lib/expedition-event-selector'
+import { missionModuleToCalculatorTemplate } from '@/lib/expedition-mission-bridge'
+import {
+  aggregateModuleEventEffectsForCompletion,
+  buildExpeditionStartEvents,
+} from '@/lib/expedition-module-events-host'
 import { calculateExpeditionResult as calculateExpeditionResultV2 } from '@/lib/expedition-calculator-v2'
+import { getLocationById, getMissionById } from '@/modules/expeditions'
+import {
+  CONTRACT_CONFIG,
+  type ContractType,
+} from '@/modules/expeditions/data/missions/_mission-template'
+import { getRouteDurationSeconds } from '@/lib/expedition-contract-economy'
 import { getAdventurerFullName } from '@/lib/adventurer-generator'
 import type { CraftedWeaponV2 } from '@/types/craft-v2'
 import type { AdventurerExtended } from '@/types/adventurer-extended'
@@ -14,6 +24,7 @@ import type {
   ActiveExpedition,
   GuildState,
   RecoveryQuest,
+  StartExpeditionFullOptions,
 } from '@/types/guild'
 import { getMaxActiveExpeditions, calculateReputationGain } from '@/types/guild'
 import type { ExpeditionResult } from '@/store/slices/guild-slice'
@@ -37,6 +48,9 @@ export type GuildExpeditionStoreDeps = {
     durabilityLoss?: number,
     epicGain?: number
   ) => boolean
+  discoverMaterial?: (materialId: string) => void
+  addMaterialExpertise?: (materialId: string, amount: number) => void
+  addMaterialToStash?: (materialId: string, amount: number) => void
 }
 
 export function buildGuildExpeditionCrossSlice<S extends GuildExpeditionStoreDeps>(
@@ -48,7 +62,8 @@ export function buildGuildExpeditionCrossSlice<S extends GuildExpeditionStoreDep
       expedition: ExpeditionTemplate,
       adventurer: Adventurer,
       weapon: CraftedWeaponV2,
-      extendedAdventurer?: AdventurerExtended
+      extendedAdventurer?: AdventurerExtended,
+      options?: StartExpeditionFullOptions
     ): boolean => {
       const state = get()
 
@@ -57,16 +72,35 @@ export function buildGuildExpeditionCrossSlice<S extends GuildExpeditionStoreDep
         return false
       }
 
-      const totalCost = expedition.cost.supplies + expedition.cost.deposit
-      if (!state.canAfford({ gold: totalCost })) return false
-
       if (weapon.currentDurability <= 10) return false
       if (weapon.stats.attack < expedition.minWeaponAttack) return false
 
-      state.spendResource('gold', totalCost)
-
       const startedAt = Date.now()
-      const eventResult = selectEventsForExpedition(expedition, startedAt)
+      const expeditionForEvents: ExpeditionTemplate =
+        options?.contractOverride != null
+          ? { ...expedition, moduleContractType: options.contractOverride }
+          : expedition
+      const eventResult = buildExpeditionStartEvents(expeditionForEvents, startedAt)
+
+      const durMult = Math.max(0.1, options?.devBalance?.durationMultiplier ?? 1)
+      const contractKey: ContractType =
+        options?.contractOverride ?? expedition.moduleContractType ?? 'exploration'
+      const routeSec = getRouteDurationSeconds(expedition.duration, contractKey)
+      const wallMs = Math.max(1000, Math.round((routeSec * 1000) / durMult))
+
+      const db = options?.devBalance
+      const eventGold = db?.eventGoldMultiplier ?? db?.quantityMultiplier ?? 1
+      const matQty = db?.materialQuantityMultiplier ?? 1
+      const matRare = db?.materialRarityMultiplier ?? 1
+      const devBalanceTweaks =
+        db &&
+        (db.durationMultiplier !== 1 ||
+          eventGold !== 1 ||
+          db.qualityShift !== 0 ||
+          matQty !== 1 ||
+          matRare !== 1)
+          ? db
+          : undefined
 
       const newExpedition: ActiveExpedition = {
         id: generateId(),
@@ -81,10 +115,18 @@ export function buildGuildExpeditionCrossSlice<S extends GuildExpeditionStoreDep
         weaponName: weapon.fullName,
         weaponData: weapon,
         startedAt: startedAt,
-        endsAt: startedAt + expedition.duration * 1000,
+        endsAt: startedAt + wallMs,
         deposit: expedition.cost.deposit,
         suppliesCost: expedition.cost.supplies,
         events: eventResult.events,
+        locationId: eventResult.locationId,
+        missionTemplateId: eventResult.missionTemplateId,
+        contractType: eventResult.contractType,
+        moduleEventSnapshots:
+          eventResult.moduleEventSnapshots.length > 0
+            ? eventResult.moduleEventSnapshots
+            : undefined,
+        devBalanceTweaks,
       }
 
       set((s) => ({
@@ -97,13 +139,68 @@ export function buildGuildExpeditionCrossSlice<S extends GuildExpeditionStoreDep
       return true
     },
 
+    skipExpeditionToNextEvent: (expeditionId: string): void => {
+      const state = get()
+      const ex = state.guild.activeExpeditions.find((e) => e.id === expeditionId)
+      if (!ex?.events?.length) return
+
+      const now = Date.now()
+      const sorted = [...ex.events].sort((a, b) => a.triggeredAt - b.triggeredAt)
+      const next = sorted.find((e) => e.triggeredAt > now)
+      if (!next) return
+
+      const delta = next.triggeredAt - now
+      set((s) => ({
+        guild: {
+          ...s.guild,
+          activeExpeditions: s.guild.activeExpeditions.map((e) => {
+            if (e.id !== expeditionId) return e
+            const newEnds = Math.max(now, e.endsAt - delta)
+            return {
+              ...e,
+              endsAt: newEnds,
+              events: e.events!.map((ev) => ({ ...ev, triggeredAt: ev.triggeredAt - delta })),
+            }
+          }),
+        },
+      }))
+    },
+
+    skipExpeditionTimelineToEnd: (expeditionId: string): void => {
+      const state = get()
+      const ex = state.guild.activeExpeditions.find((e) => e.id === expeditionId)
+      if (!ex) return
+
+      const now = Date.now()
+      set((s) => ({
+        guild: {
+          ...s.guild,
+          activeExpeditions: s.guild.activeExpeditions.map((e) => {
+            if (e.id !== expeditionId) return e
+            return {
+              ...e,
+              endsAt: now,
+              events: e.events?.map((ev) => ({
+                ...ev,
+                triggeredAt: Math.min(ev.triggeredAt, now),
+              })),
+            }
+          }),
+        },
+      }))
+    },
+
     completeExpeditionFull: (expeditionId: string): ExpeditionResult | null => {
       const state = get()
       const expedition = state.guild.activeExpeditions.find((e) => e.id === expeditionId)
       if (!expedition) return null
 
-      const template = expeditionTemplates.find((t) => t.id === expedition.expeditionId)
-      if (!template) return null
+      let template = expeditionTemplates.find((t) => t.id === expedition.expeditionId)
+      if (!template) {
+        const mission = getMissionById(expedition.expeditionId)
+        if (!mission) return null
+        template = missionModuleToCalculatorTemplate(mission)
+      }
 
       const weapon = state.weaponInventory.weapons.find((w) => w.id === expedition.weaponId)
       if (!weapon) return null
@@ -145,6 +242,8 @@ export function buildGuildExpeditionCrossSlice<S extends GuildExpeditionStoreDep
         expiresAt: Date.now() + 86400000,
       }
 
+      const activeContract: ContractType = expedition.contractType ?? 'exploration'
+
       const calculation = calculateExpeditionResultV2(
         adventurerExtended ?? fallbackExtended,
         template,
@@ -156,11 +255,59 @@ export function buildGuildExpeditionCrossSlice<S extends GuildExpeditionStoreDep
         weapon.qualityRank,
         weapon.epicMultiplier,
         weapon.combatMaterialId,
-        weapon.quality
+        weapon.quality,
+        activeContract
+      )
+
+      let successChanceBonus = 0
+      let moduleBonusGold = 0
+      const mergedMaterialGrants: Array<{ materialId: string; quantity: number }> = []
+      if (expedition.locationId && expedition.moduleEventSnapshots?.length) {
+        const location = getLocationById(expedition.locationId)
+        if (location) {
+          const seedBase = Math.floor(expedition.startedAt % 2147483647)
+          const agg = aggregateModuleEventEffectsForCompletion(
+            expedition.moduleEventSnapshots,
+            location,
+            seedBase
+          )
+          successChanceBonus = agg.successChanceDelta
+          moduleBonusGold = agg.bonusGold
+          const byId = new Map<string, number>()
+          for (const g of agg.materialGrants) {
+            byId.set(g.materialId, (byId.get(g.materialId) ?? 0) + g.quantity)
+          }
+          mergedMaterialGrants.push(
+            ...[...byId.entries()].map(([materialId, quantity]) => ({ materialId, quantity }))
+          )
+        }
+      }
+
+      const tweaks = expedition.devBalanceTweaks
+      const eventGoldMult = tweaks?.eventGoldMultiplier ?? tweaks?.quantityMultiplier ?? 1
+      const matQtyMult = tweaks?.materialQuantityMultiplier ?? 1
+      const matRareMult = tweaks?.materialRarityMultiplier ?? 1
+      if (tweaks) {
+        successChanceBonus += tweaks.qualityShift
+        moduleBonusGold = Math.floor(moduleBonusGold * eventGoldMult)
+      }
+
+      const matContractMult = CONTRACT_CONFIG[activeContract].materialFindMultiplier
+      const adjustedMaterialGrants = mergedMaterialGrants.map((g) => ({
+        materialId: g.materialId,
+        quantity: Math.max(
+          1,
+          Math.floor(g.quantity * matContractMult * matQtyMult * matRareMult)
+        ),
+      }))
+
+      const adjustedSuccessChance = Math.min(
+        100,
+        Math.max(0, calculation.successChance + successChanceBonus)
       )
 
       const roll = Math.random() * 100
-      const success = roll < calculation.successChance
+      const success = roll < adjustedSuccessChance
       const isCrit = success && Math.random() * 100 < calculation.critChance
 
       const commission = Math.floor(calculation.commission * (isCrit ? 1.5 : 1))
@@ -174,11 +321,12 @@ export function buildGuildExpeditionCrossSlice<S extends GuildExpeditionStoreDep
       const weaponLossChance = calculation.weaponLossChance
       const weaponLost = !success && Math.random() * 100 < weaponLossChance
 
+      const eventLootGold = success ? moduleBonusGold : 0
       const result: ExpeditionResult = {
         success,
         commission,
         warSoul,
-        bonusGold: 0,
+        bonusGold: eventLootGold,
         glory,
         reputation: success
           ? calculateReputationGain('expedition', template.reward.baseGold, state.player.level)
@@ -186,10 +334,30 @@ export function buildGuildExpeditionCrossSlice<S extends GuildExpeditionStoreDep
         weaponWear,
         weaponLost,
         isCrit,
+        materialsGained:
+          success && adjustedMaterialGrants.length > 0 ? adjustedMaterialGrants : undefined,
       }
 
       if (result.commission > 0) {
         state.addResource('gold', result.commission)
+      }
+      if (result.bonusGold > 0) {
+        state.addResource('gold', result.bonusGold)
+      }
+
+      const discover = state.discoverMaterial
+      const addExpertise = state.addMaterialExpertise
+      const addToStash = state.addMaterialToStash
+      if (
+        success &&
+        (discover || addToStash || adjustedMaterialGrants.length > 0)
+      ) {
+        for (const { materialId, quantity } of adjustedMaterialGrants) {
+          discover?.(materialId)
+          addToStash?.(materialId, quantity)
+          const expertiseGain = Math.min(50, Math.max(1, Math.round(Math.sqrt(quantity) * 3)))
+          addExpertise?.(materialId, expertiseGain)
+        }
       }
       if (result.warSoul > 0 && weapon) {
         const baseEpicGain = 0.05
@@ -215,7 +383,10 @@ export function buildGuildExpeditionCrossSlice<S extends GuildExpeditionStoreDep
           lostWeaponData: weapon,
           originalExpeditionId: expedition.expeditionId,
           originalExpeditionName: expedition.expeditionName,
-          cost: Math.floor(expedition.deposit * 0.5),
+          cost: Math.max(
+            50,
+            Math.floor(((template.reward?.baseGold ?? expedition.suppliesCost) || 100) * 0.35)
+          ),
           duration: template.duration * 2,
           status: 'available',
         }

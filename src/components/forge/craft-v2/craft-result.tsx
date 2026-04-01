@@ -14,12 +14,13 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
   Sword, Shield, Star, Zap, Package, CheckCircle2,
-  Sparkles, Coins, Heart, Timer
+  Sparkles, Heart, Timer
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 import type { CraftedWeaponV2 } from '@/types/craft-v2'
 import { QUALITY_GRADES_CONFIG } from '@/types/craft-v2'
+import { getQualityWithinGradeDisplay } from '@/lib/craft/quality-display'
 
 // ================================
 // КОНСТАНТЫ
@@ -159,6 +160,7 @@ export function CraftResult({ weapon, onCollect, onContinue }: CraftResultProps)
     QUALITY_CONFIG.find(g => g.grade === weapon.qualityGrade) ??
     QUALITY_CONFIG[1] ??
     QUALITY_CONFIG[0]!
+  const qInGrade = getQualityWithinGradeDisplay(weapon.quality)
   
   return (
     <motion.div
@@ -195,9 +197,6 @@ export function CraftResult({ weapon, onCollect, onContinue }: CraftResultProps)
               <Sword className="w-3 h-3 mr-1" />
               {weapon.type}
             </Badge>
-            <Badge variant="outline" className="bg-stone-800">
-              Тир {weapon.tier}
-            </Badge>
           </div>
           
           {/* Качество */}
@@ -206,8 +205,8 @@ export function CraftResult({ weapon, onCollect, onContinue }: CraftResultProps)
             <Badge className={cn("text-lg px-4 py-1", qualityConfig.color, "bg-stone-800")}>
               {qualityConfig.nameRu}
             </Badge>
-            <span className="text-sm text-stone-500">
-              {weapon.quality} из 100
+            <span className="text-sm text-stone-500 tabular-nums">
+              В градации: {qInGrade.step} / {qInGrade.steps}
             </span>
           </div>
           
@@ -260,12 +259,6 @@ export function CraftResult({ weapon, onCollect, onContinue }: CraftResultProps)
             label="Душа Войны"
             value={`${weapon.warSoul}/${weapon.maxWarSoul}`}
             color="bg-purple-600/30 text-purple-400"
-          />
-          <StatCard
-            icon={<Coins className="w-4 h-4" />}
-            label="Цена продажи"
-            value={`${weapon.sellPrice} 💰`}
-            color="bg-amber-600/30 text-amber-400"
           />
         </CardContent>
       </Card>

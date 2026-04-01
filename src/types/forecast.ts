@@ -19,18 +19,19 @@ export interface StatRange {
 
 export type QualityRank = 'S' | 'A' | 'B' | 'C' | 'D' | 'F'
 
+/** Диапазоны синхронизированы с getQualityRank в types/craft-v2.ts */
 export const QUALITY_RANKS: Record<QualityRank, {
   name: string
   range: [number, number]
   color: string
   glow?: string
 }> = {
-  S: { name: 'Легендарное', range: [95, 100], color: 'text-amber-400', glow: 'shadow-amber-400/50' },
-  A: { name: 'Эпическое', range: [85, 94], color: 'text-purple-400' },
-  B: { name: 'Отличное', range: [70, 84], color: 'text-blue-400' },
-  C: { name: 'Хорошее', range: [55, 69], color: 'text-green-400' },
-  D: { name: 'Обычное', range: [40, 54], color: 'text-stone-400' },
-  F: { name: 'Неудачное', range: [0, 39], color: 'text-red-400' },
+  S: { name: 'Легендарное', range: [96, 100], color: 'text-amber-400', glow: 'shadow-amber-400/50' },
+  A: { name: 'Эпическое', range: [86, 95], color: 'text-purple-400' },
+  B: { name: 'Отличное', range: [71, 85], color: 'text-blue-400' },
+  C: { name: 'Хорошее', range: [51, 70], color: 'text-green-400' },
+  D: { name: 'Стандартное', range: [31, 50], color: 'text-stone-400' },
+  F: { name: 'Слабое', range: [0, 30], color: 'text-red-400' },
 }
 
 // ================================

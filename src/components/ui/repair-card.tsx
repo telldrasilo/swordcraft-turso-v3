@@ -29,7 +29,8 @@ import { useGameStore } from '@/store'
 import { qualityGrades } from '@/lib/craft/weapon-display-meta'
 import type { QualityGrade } from '@/store/slices/craft-slice'
 import type { CraftedWeaponV2 } from '@/types/craft-v2'
-import { QUALITY_GRADE_V2_TO_LEGACY, TIER_NUMBER_TO_STRING } from '@/lib/store-utils/constants'
+import { QUALITY_GRADE_V2_TO_LEGACY } from '@/lib/store-utils/constants'
+import { weaponRecipes } from '@/data/weapon-recipes'
 import { 
   RepairOption,
   RepairType,
@@ -87,8 +88,9 @@ export function RepairCard({ weapon, onSelect, selectedOption }: RepairCardProps
   // Получаем ресурсы из стора
   const resources = useGameStore((state) => state.resources)
   
-  // Тир оружия
-  const tier = TIER_NUMBER_TO_STRING[weapon.tier] ?? 'common'
+  /** Редкость рецепта (для оформления карточки); расчёт ремонта по-прежнему использует weapon.tier */
+  const legacyRecipe = weaponRecipes.find((r) => r.id === weapon.recipeId)
+  const tier = (legacyRecipe?.tier as string | undefined) ?? 'common'
   
   // Прочность для индикатора
   const durabilityPercent = (durability / maxDurability) * 100

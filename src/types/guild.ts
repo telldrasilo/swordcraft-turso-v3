@@ -6,6 +6,7 @@ import type { AdventurerExtended } from './adventurer-extended'
 import type { KnownAdventurer } from './known-adventurer'
 import type { CraftedWeaponV2 } from './craft-v2'
 import type { ExpeditionEvent } from './expedition-events'
+import type { ModuleExpeditionEventSnapshot } from '@/lib/expedition-module-events-host'
 
 // Импортируем типы из adventurer-traits
 import type { AdventurerTrait } from '@/data/adventurer-traits'
@@ -22,6 +23,8 @@ export type {
   ExpeditionReward,
   ExpeditionCost,
 } from '@/data/expedition-templates'
+
+export type { ExpeditionMissionType } from '@/types/expedition-domain'
 
 // ================================
 // ИСКАТЕЛИ ПРИКЛЮЧЕНИЙ
@@ -57,6 +60,34 @@ export interface Adventurer {
 // ExpeditionReward, ExpeditionCost реэкспортируются выше из @/data/expedition-templates
 
 // ================================
+// ОПЦИИ СТАРТА ЭКСПЕДИЦИИ (договор, отладка баланса)
+// ================================
+
+/** Множители для ручного тестирования баланса (только UI отладки) */
+export interface ExpeditionDevBalanceTweaks {
+  /**
+   * Множитель золота из событий модуля (`grant_resource` gold) при завершении.
+   * @deprecated предпочтительно `eventGoldMultiplier`
+   */
+  quantityMultiplier?: number
+  /** Множитель золота из событий модуля */
+  eventGoldMultiplier?: number
+  /** Добавка к Δ шанса успеха от событий (п.п.) */
+  qualityShift: number
+  /** Ускорение таймера: >1 — короче реальное время миссии */
+  durationMultiplier: number
+  /** Множитель количества материалов из событий (после множителя договора) */
+  materialQuantityMultiplier?: number
+  /** Надстройка над «удачей» по материалам (1 = как в договоре) */
+  materialRarityMultiplier?: number
+}
+
+export interface StartExpeditionFullOptions {
+  contractOverride?: 'exploration' | 'speed'
+  devBalance?: ExpeditionDevBalanceTweaks
+}
+
+// ================================
 // АКТИВНЫЕ ЭКСПЕДИЦИИ
 // ================================
 
@@ -77,6 +108,13 @@ export interface ActiveExpedition {
   deposit: number // Сохранённый депозит
   suppliesCost: number // Сохранённая стоимость снабжения
   events?: ExpeditionEvent[] // События во время экспедиции (опционально для обратной совместимости)
+  /** Модуль экспедиций: локация, миссия, договор и снимки событий для эффектов при завершении */
+  locationId?: string
+  missionTemplateId?: string
+  contractType?: 'exploration' | 'speed'
+  moduleEventSnapshots?: ModuleExpeditionEventSnapshot[]
+  /** Сохранённые коэффициенты отладки (влияют на завершение, если заданы) */
+  devBalanceTweaks?: ExpeditionDevBalanceTweaks
 }
 
 // ================================

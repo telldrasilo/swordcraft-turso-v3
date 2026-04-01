@@ -126,7 +126,11 @@ export interface MaterialNode {
 export function getDisplayCategory(material: MaterialNode): MaterialDisplayCategory {
   const { class: matClass, tags, id } = material.identity
 
-  if (matClass === 'mineral' && (tags.includes('ore') || id === 'coal')) {
+  if (matClass === 'mineral' && tags.includes('gem')) {
+    return 'gems'
+  }
+
+  if (matClass === 'mineral' && (tags.includes('ore') || id === 'coal' || id === 'ancient_coal')) {
     return 'ores'
   }
 
@@ -144,6 +148,10 @@ export function getDisplayCategory(material: MaterialNode): MaterialDisplayCateg
 
   if (matClass === 'leather') {
     return 'leather'
+  }
+
+  if (matClass === 'organic') {
+    return 'organics'
   }
 
   return 'other'
@@ -193,14 +201,25 @@ export const RARITY_LABELS: Record<MaterialRarity, string> = {
 // КАТЕГОРИИ ДЛЯ ОТОБРАЖЕНИЯ
 // ================================
 
-export type MaterialDisplayCategory = 'all' | 'ores' | 'ingots' | 'stones' | 'wood' | 'leather' | 'other'
+export type MaterialDisplayCategory =
+  | 'all'
+  | 'ores'
+  | 'ingots'
+  | 'stones'
+  | 'gems'
+  | 'wood'
+  | 'leather'
+  | 'organics'
+  | 'other'
 
 export const MATERIAL_CATEGORIES: { id: MaterialDisplayCategory; label: string }[] = [
   { id: 'all', label: 'Все' },
   { id: 'ores', label: 'Руды' },
   { id: 'ingots', label: 'Слитки' },
   { id: 'stones', label: 'Камни' },
+  { id: 'gems', label: 'Кристаллы' },
   { id: 'wood', label: 'Дерево' },
   { id: 'leather', label: 'Кожа' },
+  { id: 'organics', label: 'Органика' },
   { id: 'other', label: 'Другое' },
 ]

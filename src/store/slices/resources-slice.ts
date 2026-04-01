@@ -48,6 +48,8 @@ export type CraftingCost = Partial<Record<ResourceKey, number>>
 /** Состояние ресурсов */
 export interface ResourcesState {
   resources: Resources
+  /** Склад материалов по id из каталога (экспедиции, др.) — не валюта и не soulEssence */
+  materialStash: Record<string, number>
 }
 
 /** Actions для ресурсов */
@@ -58,6 +60,7 @@ export interface ResourcesActions {
   spendResources: (cost: CraftingCost) => boolean
   sellResource: (resource: ResourceKey, amount: number) => boolean
   getResourceSellPrice: (resource: ResourceKey) => number
+  addMaterialToStash: (materialId: string, amount: number) => void
 }
 
 /** Полный тип slice */
@@ -122,6 +125,7 @@ export const createResourcesSlice: StateCreator<
 > = (set, get) => ({
   // State
   resources: initialResources,
+  materialStash: {},
 
   // Actions
   addResource: (resource, amount) => set((state) => ({
@@ -184,6 +188,16 @@ export const createResourcesSlice: StateCreator<
 
   getResourceSellPrice: (resource) => {
     return RESOURCE_SELL_PRICES[resource] || 1
+  },
+
+  addMaterialToStash: (materialId, amount) => {
+    if (!materialId || amount <= 0) return
+    set((state) => ({
+      materialStash: {
+        ...state.materialStash,
+        [materialId]: Math.max(0, (state.materialStash[materialId] ?? 0) + amount),
+      },
+    }))
   },
 })
 

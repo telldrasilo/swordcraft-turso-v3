@@ -18,14 +18,14 @@ function TooltipProvider({
   )
 }
 
+/**
+ * Корень подсказки. Один {@link TooltipProvider} должен быть выше по дереву
+ * (см. {@link AppProviders}) — иначе вложенные провайдеры ломают клики/фокус.
+ */
 function Tooltip({
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Root>) {
-  return (
-    <TooltipProvider>
-      <TooltipPrimitive.Root data-slot="tooltip" {...props} />
-    </TooltipProvider>
-  )
+  return <TooltipPrimitive.Root data-slot="tooltip" {...props} />
 }
 
 function TooltipTrigger({

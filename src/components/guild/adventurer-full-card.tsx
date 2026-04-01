@@ -24,6 +24,7 @@ import { getStrengthById, doesStrengthApply } from '@/data/adventurer-tags/stren
 import { getWeaknessById, doesWeaknessApply } from '@/data/adventurer-tags/weaknesses'
 import { generateAdvice, type Advice } from '@/lib/adventurer-advice'
 import { MetBadge } from '@/components/ui/met-badge'
+import type { ExpeditionDifficulty, ExpeditionType } from '@/data/expedition-templates'
 
 // Подкомпоненты
 import {
@@ -38,8 +39,8 @@ import {
 // ================================
 
 interface ExpeditionData {
-  difficulty: 'easy' | 'normal' | 'hard' | 'extreme' | 'legendary'
-  type: 'hunt' | 'scout' | 'clear' | 'delivery' | 'magic'
+  difficulty: ExpeditionDifficulty
+  type: ExpeditionType
   baseGold: number
   baseWarSoul: number
   successChance: number

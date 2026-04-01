@@ -19,6 +19,8 @@ import {
 } from '@/lib/craft/process-generator'
 import { 
   calculateWeapon, 
+  calculateForecast,
+  rollWeaponOutcome,
   type WeaponCalculationResult 
 } from '@/lib/craft/calculator'
 import { 
@@ -29,7 +31,20 @@ import { getRecipeById } from '@/data/recipes'
 import { getMaterialAsLegacy } from '@/data/materials'
 import { getTechniqueById } from '@/data/techniques'
 import { useGameStore } from '@/store/game-store-composed'
-import { getQualityRank } from '@/types/craft-v2'
+import type { WeaponForecast } from '@/types/forecast'
+import type { MaterialKnowledge } from '@/types/materials/knowledge'
+import { buildCompletedWeaponV2 } from '@/hooks/use-craft-v2-helpers'
+
+function buildExpertiseMap(
+  knowledge: Record<string, MaterialKnowledge> | undefined
+): Record<string, number> {
+  const m: Record<string, number> = {}
+  if (!knowledge || typeof knowledge !== 'object') return m
+  Object.entries(knowledge).forEach(([id, k]) => {
+    m[id] = k?.expertise ?? 0
+  })
+  return m
+}
 
 // ================================
 // ТИПЫ
@@ -45,8 +60,11 @@ export interface CraftV2State {
   /** Готовое оружие */
   completedWeapon: CraftedWeaponV2 | null
   
-  /** Предварительный расчёт */
+  /** Предварительный расчёт (ожидаемые характеристики до броска) */
   preview: WeaponCalculationResult | null
+
+  /** Диапазоны min–max для итогового крафта */
+  forecast: WeaponForecast | null
   
   /** Имя оружия */
   weaponName: WeaponNameResult | null
@@ -88,6 +106,7 @@ const initialState: CraftV2State = {
   activeCraft: null,
   completedWeapon: null,
   preview: null,
+  forecast: null,
   weaponName: null,
   stage: 'planning',
   shouldPurchaseMaterials: false,
@@ -103,6 +122,7 @@ function getRestoredState(): CraftV2State {
     activeCraft: persisted.activeCraft || null,
     completedWeapon: persisted.completedWeapon || null,
     preview: persisted.preview || null,
+    forecast: persisted.forecast ?? null,
     weaponName: persisted.weaponName || null,
     stage: persisted.stage || 'planning',
     shouldPurchaseMaterials: useGameStore.getState().shouldPurchaseMaterials ?? false,
@@ -119,6 +139,7 @@ export function useCraftV2(
 ): UseCraftV2Return {
   const [state, setStateRaw] = useState<CraftV2State>(() => getRestoredState())
   const setCraftV2Persisted = useGameStore(s => s.setCraftV2Persisted)
+  const materialKnowledge = useGameStore(s => s.materialKnowledge)
   
   const setState = useCallback((updater: CraftV2State | ((prev: CraftV2State) => CraftV2State)) => {
     setStateRaw(prev => {
@@ -141,6 +162,7 @@ export function useCraftV2(
         completedWeapon: s.completedWeapon,
         stage: s.stage,
         preview: s.preview,
+        forecast: s.forecast,
         weaponName: s.weaponName,
       })
     }
@@ -163,10 +185,11 @@ export function useCraftV2(
         completedWeapon: state.completedWeapon,
         stage: state.stage,
         preview: state.preview,
+        forecast: state.forecast,
         weaponName: state.weaponName,
       })
     }
-  }, [state.stage, state.completedWeapon, state.activeCraft, state.plan, state.preview, state.weaponName, setCraftV2Persisted])
+  }, [state.stage, state.completedWeapon, state.activeCraft, state.plan, state.preview, state.forecast, state.weaponName, setCraftV2Persisted])
 
   // Refs для отложенных обновлений
   const materialsRef = useRef<MaterialAssignment>(
@@ -190,7 +213,7 @@ export function useCraftV2(
     
     const recipe = getRecipeById(recipeId)
     if (!recipe) {
-      setState(prev => ({ ...prev, plan: null, preview: null, weaponName: null }))
+      setState(prev => ({ ...prev, plan: null, preview: null, forecast: null, weaponName: null }))
       return
     }
     
@@ -218,6 +241,7 @@ export function useCraftV2(
       ...prev,
       plan: { ...emptyPlan, shouldPurchaseMaterials: prev.shouldPurchaseMaterials },
       preview: null,
+      forecast: null,
       weaponName: null,
       stage: 'planning',
     }))
@@ -262,7 +286,7 @@ export function useCraftV2(
     const techniqueIds = techniquesRef.current
     
     if (!recipeId || Object.keys(materials).length === 0) {
-      setState(prev => ({ ...prev, preview: null, weaponName: null }))
+      setState(prev => ({ ...prev, preview: null, forecast: null, weaponName: null }))
       return
     }
     
@@ -277,7 +301,15 @@ export function useCraftV2(
     const combatMaterialId = materials[combatPart]?.materialId
     const combatMaterial = combatMaterialId ? getMaterialAsLegacy(combatMaterialId) : null
     
+    const expertiseMap = buildExpertiseMap(materialKnowledge)
     const preview = calculateWeapon(recipe, materials, techniques, blacksmithLevel)
+    const forecast = calculateForecast(
+      recipe,
+      materials,
+      techniques,
+      blacksmithLevel,
+      expertiseMap
+    )
     const weaponName = generateWeaponName(recipe, combatMaterial || null, preview.quality)
     
     const stages = generateCraftStages(recipe, materials, techniques, blacksmithLevel, forgeLevel)
@@ -286,6 +318,7 @@ export function useCraftV2(
     setState(prev => ({
       ...prev,
       preview,
+      forecast,
       weaponName,
       plan: prev.plan ? {
         ...prev.plan,
@@ -296,7 +329,7 @@ export function useCraftV2(
         estimatedQuality: preview.qualityGrade,
       } : null,
     }))
-  }, [blacksmithLevel, forgeLevel, setState])
+  }, [blacksmithLevel, forgeLevel, materialKnowledge, setState])
   
   // ================================
   // CRAFT ACTIONS
@@ -390,79 +423,54 @@ export function useCraftV2(
       }))
       craft.currentStageIndex = craft.stages.length - 1
       
-      // Создаем оружие если есть данные
-      if (prev.preview && prev.weaponName && prev.plan) {
+      if (prev.preview && prev.plan) {
         const recipe = getRecipeById(prev.plan.recipeId)
-        
-        // Генерируем уникальный ID: w_timestamp_random
-        const uniqueId = `w_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`
-        
-        // Получаем combatMaterialId для hiddenTags
-        const recipeData = getRecipeById(prev.plan.recipeId)
-        const combatPart = recipeData?.combatPart || 'blade'
-        const combatMatId = prev.plan.materials[combatPart]?.materialId || 'unknown'
-        
-        // Генерируем hiddenTags
-        const hiddenTags = [
-          recipe?.type || 'sword',
-          combatMatId,
-          `q:${Math.floor(prev.preview.quality)}`,
-          `rank:${prev.weaponName.qualityRank || 'F'}`,
-        ]
-        
-        const completedWeapon: CraftedWeaponV2 = {
-          id: uniqueId,
-          recipeId: prev.plan.recipeId,
-          prefix: prev.weaponName.prefix,
-          baseName: prev.weaponName.baseName,
-          suffix: prev.weaponName.suffix,
-          fullName: prev.weaponName.fullName,
-          type: recipe?.type || 'sword',
-          tier: recipe?.baseStats ? Math.ceil(prev.preview.stats.attack / 20) : 1,
-          materials: prev.preview.materials,
-          stats: prev.preview.stats,
-          quality: prev.preview.quality,
-          qualityGrade: prev.preview.qualityGrade,
-          qualityRank: prev.weaponName.qualityRank || getQualityRank(prev.preview.quality),
-          warSoul: 0,
-          maxWarSoul: prev.preview.stats.soulCapacity,
-          createdAt: Date.now(),
-          adventureCount: 0,
-          sellPrice: prev.preview.sellPrice,
-          hiddenTags,
-          combatMaterialId: combatMatId,
-          currentDurability: prev.preview.stats.durability,
-          epicMultiplier: 1.0,
-          techniquesUsed: prev.plan.techniques,
-        }
-        
+        if (!recipe) return prev
+
+        const techniques = prev.plan.techniques
+          .map(id => getTechniqueById(id))
+          .filter((t): t is NonNullable<typeof t> => t !== undefined)
+
+        const expertiseMap = buildExpertiseMap(useGameStore.getState().materialKnowledge)
+        const forecast =
+          prev.forecast ??
+          calculateForecast(recipe, prev.plan.materials, techniques, blacksmithLevel, expertiseMap)
+
+        const rolled = rollWeaponOutcome(prev.preview, forecast)
+        const combatPart = recipe.combatPart || 'blade'
+        const combatMatId = prev.plan.materials[combatPart]?.materialId
+        const combatMaterial = combatMatId ? getMaterialAsLegacy(combatMatId) ?? null : null
+        const weaponName = generateWeaponName(recipe, combatMaterial, rolled.quality)
+        const completedWeapon = buildCompletedWeaponV2(prev.plan, rolled, weaponName, recipe)
+
         return {
           ...prev,
           activeCraft: null,
           completedWeapon,
+          weaponName,
           stage: 'completed' as const,
         }
       }
-      
+
       return prev
     })
-  }, [state.stage, state.activeCraft, setState])
+  }, [state.stage, state.activeCraft, setState, blacksmithLevel])
   
   // ================================
   // RESULT ACTIONS
   // ================================
   
   const collectWeapon = useCallback(() => {
-    const { completedWeapon, preview, weaponName, plan } = state
-    
-    if (!completedWeapon || !preview || !weaponName || !plan) return null
-    
+    const { completedWeapon } = state
+
+    if (!completedWeapon) return null
+
     setState(prev => ({
       ...prev,
       completedWeapon: null,
       stage: 'planning',
     }))
-    
+
     return completedWeapon
   }, [state, setState])
   
@@ -523,58 +531,32 @@ export function useCraftV2(
         if (!currentStageFound && craft.stages.length > 0) {
           craft.status = 'completed'
           
-          if (prev.preview && prev.weaponName && prev.plan) {
+          if (prev.preview && prev.plan) {
             const recipe = getRecipeById(prev.plan.recipeId)
-            
-            // Генерируем уникальный ID: w_timestamp_random
-            const uniqueId = `w_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`
-            
-            // Получаем combatMaterialId для hiddenTags
-            const recipeData = getRecipeById(prev.plan.recipeId)
-            const combatPart = recipeData?.combatPart || 'blade'
-            const combatMatId = prev.plan.materials[combatPart]?.materialId || 'unknown'
-            
-            // Генерируем hiddenTags
-            const hiddenTags = [
-              recipe?.type || 'sword',                              // тип оружия
-              combatMatId,                                          // материал combatPart
-              `q:${Math.floor(prev.preview.quality)}`,              // качество числом
-              `rank:${prev.weaponName.qualityRank || 'F'}`,         // ранг качества
-            ]
-            
-            const completedWeapon: CraftedWeaponV2 = {
-              id: uniqueId,
-              recipeId: prev.plan.recipeId,
-              prefix: prev.weaponName.prefix,
-              baseName: prev.weaponName.baseName,
-              suffix: prev.weaponName.suffix,
-              fullName: prev.weaponName.fullName,
-              type: recipe?.type || 'sword',
-              tier: recipe?.baseStats ? Math.ceil(prev.preview.stats.attack / 20) : 1,
-              materials: prev.preview.materials,
-              stats: prev.preview.stats,
-              quality: prev.preview.quality,
-              qualityGrade: prev.preview.qualityGrade,
-              qualityRank: prev.weaponName.qualityRank || getQualityRank(prev.preview.quality),
-              warSoul: 0,
-              maxWarSoul: prev.preview.stats.soulCapacity,
-              createdAt: Date.now(),
-              adventureCount: 0,
-              sellPrice: prev.preview.sellPrice,
-              // Скрытые теги для системы заказов
-              hiddenTags,
-              combatMaterialId: combatMatId,
-              // Runtime-поля
-              currentDurability: prev.preview.stats.durability,
-              epicMultiplier: 1.0,
-              techniquesUsed: prev.plan.techniques,
-            }
-            
-            return {
-              ...prev,
-              activeCraft: null,
-              completedWeapon,
-              stage: 'completed' as const,
+            if (recipe) {
+              const techniques = prev.plan.techniques
+                .map(id => getTechniqueById(id))
+                .filter((t): t is NonNullable<typeof t> => t !== undefined)
+
+              const expertiseMap = buildExpertiseMap(useGameStore.getState().materialKnowledge)
+              const forecast =
+                prev.forecast ??
+                calculateForecast(recipe, prev.plan.materials, techniques, blacksmithLevel, expertiseMap)
+
+              const rolled = rollWeaponOutcome(prev.preview, forecast)
+              const combatPart = recipe.combatPart || 'blade'
+              const combatMatId = prev.plan.materials[combatPart]?.materialId
+              const combatMaterial = combatMatId ? getMaterialAsLegacy(combatMatId) ?? null : null
+              const weaponName = generateWeaponName(recipe, combatMaterial, rolled.quality)
+              const completedWeapon = buildCompletedWeaponV2(prev.plan, rolled, weaponName, recipe)
+
+              return {
+                ...prev,
+                activeCraft: null,
+                completedWeapon,
+                weaponName,
+                stage: 'completed' as const,
+              }
             }
           }
         }
@@ -584,7 +566,7 @@ export function useCraftV2(
     }, 100)
     
     return () => clearInterval(interval)
-  }, [state.stage, state.activeCraft, setState])
+  }, [state.stage, state.activeCraft, setState, blacksmithLevel])
   
   // ================================
   // RETURN

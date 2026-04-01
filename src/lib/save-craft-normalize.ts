@@ -17,6 +17,7 @@ export interface CraftV2PersistedLike {
   completedWeapon: CraftedWeaponV2 | null
   stage: 'planning' | 'crafting' | 'completed'
   preview: unknown | null
+  forecast: unknown | null
   weaponName: unknown | null
 }
 
@@ -26,6 +27,7 @@ export const defaultCraftV2Persisted: CraftV2PersistedLike = {
   completedWeapon: null,
   stage: 'planning',
   preview: null,
+  forecast: null,
   weaponName: null,
 }
 
@@ -98,6 +100,7 @@ export function mergeCraftV2PersistedFromSave(
         : defaultCraftV2Persisted.completedWeapon,
     stage: partial.stage ?? defaultCraftV2Persisted.stage,
     preview: partial.preview !== undefined ? partial.preview : defaultCraftV2Persisted.preview,
+    forecast: partial.forecast !== undefined ? partial.forecast : defaultCraftV2Persisted.forecast,
     weaponName:
       partial.weaponName !== undefined ? partial.weaponName : defaultCraftV2Persisted.weaponName,
   }

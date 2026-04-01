@@ -10,7 +10,6 @@ import { useState, useMemo } from 'react'
 import { getAvailableRecipes } from '@/data/recipes'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { TooltipProvider } from '@/components/ui/tooltip'
 import { useGameStore } from '@/store'
 import { cn } from '@/lib/utils'
 
@@ -47,8 +46,7 @@ export function ForgeScreen() {
   const weaponCount = weapons.length
   
   return (
-    <TooltipProvider>
-      <div className="p-4 md:p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-6">
         {/* Заголовок */}
         <div className="flex items-center justify-between">
           <div>
@@ -135,6 +133,5 @@ export function ForgeScreen() {
           </div>
         ) : null}
       </div>
-    </TooltipProvider>
   )
 }

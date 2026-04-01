@@ -14,11 +14,20 @@ export {
 export { 
   calculateWeapon,
   getQualityInfo,
+  calculateForecast,
+  calculateAverageExpertise,
+  rollWeaponOutcome,
+  computeSellPriceForWeapon,
 } from './calculator'
 export type { WeaponCalculationResult } from './calculator'
 
 export * from './constants'
 export * from './formulas'
+export {
+  getQualityWithinGradeDisplay,
+  describeQualityRange,
+} from './quality-display'
+export type { QualityWithinGradeDisplay } from './quality-display'
 
 // Генератор имён
 export {

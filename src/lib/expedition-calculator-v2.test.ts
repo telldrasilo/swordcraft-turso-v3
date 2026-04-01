@@ -8,8 +8,8 @@ import {
   getRatingColor,
 } from '@/lib/expedition-calculator-v2'
 
-const goblinHunt = expeditionTemplates.find((t) => t.id === 'goblin_hunt')
-const wolfPack = expeditionTemplates.find((t) => t.id === 'wolf_pack')
+const easyHunt = expeditionTemplates.find((t) => t.id === 'oak_grove_hunt_boars_1')
+const normalHunt = expeditionTemplates.find((t) => t.id === 'oak_grove_hunt_wolves_1')
 
 function requireTemplate(
   t: (typeof expeditionTemplates)[number] | undefined,
@@ -57,7 +57,7 @@ function testAdventurer(combatLevel: number): AdventurerExtended {
 
 describe('calculateExpeditionResult', () => {
   it('has numeric invariants and optimal levelMatch for easy mission', () => {
-    const tpl = requireTemplate(goblinHunt, 'goblin_hunt')
+    const tpl = requireTemplate(easyHunt, 'oak_grove_hunt_boars_1')
     const adv = testAdventurer(5)
     const r = calculateExpeditionResult(adv, tpl, 3, 12)
 
@@ -74,23 +74,33 @@ describe('calculateExpeditionResult', () => {
     expect(r.recommendation.rating).toMatch(/excellent|good|risky|dangerous/)
   })
 
-  it('commission increases (or stays equal) with higher guild level for same gold path', () => {
-    const tpl = requireTemplate(goblinHunt, 'goblin_hunt')
+  it('economy: higher guild level takes more for guild, less for blacksmith (exploration 20%)', () => {
+    const tpl = requireTemplate(easyHunt, 'oak_grove_hunt_boars_1')
     const adv = testAdventurer(5)
     const low = calculateExpeditionResult(adv, tpl, 1, 12)
     const high = calculateExpeditionResult(adv, tpl, 9, 12)
 
-    // Same inputs → same finalGold path; commission % rises 15% → 30% capped
-    expect(high.commission).toBeGreaterThanOrEqual(low.commission)
-    const gold = tpl.reward.baseGold
-    const expectedLow = Math.floor(gold * 0.15)
-    const expectedHigh = Math.floor(gold * 0.3)
-    expect(low.commission).toBe(expectedLow)
-    expect(high.commission).toBe(expectedHigh)
+    expect(low.economy.clientGrossGold).toBe(high.economy.clientGrossGold)
+    expect(high.economy.guildFeeGold).toBeGreaterThan(low.economy.guildFeeGold)
+    expect(high.commission).toBe(high.economy.blacksmithGold)
+    expect(high.commission).toBeLessThanOrEqual(low.commission)
+    const gross = low.economy.clientGrossGold
+    expect(low.economy.guildFeeGold).toBe(Math.floor((gross * 15) / 100))
+    expect(high.economy.guildFeeGold).toBe(Math.floor((gross * 30) / 100))
+    const poolLow = gross - low.economy.guildFeeGold
+    expect(low.commission).toBe(Math.floor((poolLow * 20) / 100))
+  })
+
+  it('speed contract gives blacksmith a larger share than exploration at same guild level', () => {
+    const tpl = requireTemplate(easyHunt, 'oak_grove_hunt_boars_1')
+    const adv = testAdventurer(5)
+    const explore = calculateExpeditionResult(adv, tpl, 3, 12, 50, 'sword', 'w', undefined, undefined, undefined, 50, 'exploration')
+    const speed = calculateExpeditionResult(adv, tpl, 3, 12, 50, 'sword', 'w', undefined, undefined, undefined, 50, 'speed')
+    expect(speed.commission).toBeGreaterThan(explore.commission)
   })
 
   it('levelMatch dangerous when adventurer far below mission tier', () => {
-    const tpl = requireTemplate(wolfPack, 'wolf_pack')
+    const tpl = requireTemplate(normalHunt, 'oak_grove_hunt_wolves_1')
     // normal: levelRange [8, 20] → dangerous if level < 8 - 5 = 3
     const adv = testAdventurer(2)
     const r = calculateExpeditionResult(adv, tpl, 1, 15)
@@ -99,7 +109,7 @@ describe('calculateExpeditionResult', () => {
   })
 
   it('levelMatch overlevel when adventurer far above easy mission band', () => {
-    const tpl = requireTemplate(goblinHunt, 'goblin_hunt')
+    const tpl = requireTemplate(easyHunt, 'oak_grove_hunt_boars_1')
     const adv = testAdventurer(22)
     const r = calculateExpeditionResult(adv, tpl, 1, 12)
 
@@ -107,7 +117,7 @@ describe('calculateExpeditionResult', () => {
   })
 
   it('lower weapon durability does not break invariants', () => {
-    const tpl = requireTemplate(goblinHunt, 'goblin_hunt')
+    const tpl = requireTemplate(easyHunt, 'oak_grove_hunt_boars_1')
     const adv = testAdventurer(5)
     const r = calculateExpeditionResult(adv, tpl, 3, 12, 15)
     expect(r.successChance).toBeGreaterThanOrEqual(5)

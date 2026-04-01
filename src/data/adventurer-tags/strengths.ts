@@ -6,6 +6,7 @@
  */
 
 import type { StrengthId } from '@/types/adventurer-extended'
+import type { ExpeditionDifficulty, ExpeditionType } from '@/data/expedition-templates'
 
 export interface StrengthData {
   id: StrengthId
@@ -22,8 +23,8 @@ export interface StrengthData {
   }
   // Условия применения (опционально)
   conditions?: {
-    difficulty?: ('easy' | 'normal' | 'hard' | 'extreme' | 'legendary')[]
-    missionType?: ('hunt' | 'scout' | 'clear' | 'delivery' | 'magic')[]
+    difficulty?: ExpeditionDifficulty[]
+    missionType?: ExpeditionType[]
   }
 }
 
@@ -177,8 +178,8 @@ export function getStrengthById(id: StrengthId): StrengthData | undefined {
 // Функция проверки, применяется ли сила к данной миссии
 export function doesStrengthApply(
   strength: StrengthData,
-  difficulty: 'easy' | 'normal' | 'hard' | 'extreme' | 'legendary',
-  missionType: 'hunt' | 'scout' | 'clear' | 'delivery' | 'magic'
+  difficulty: ExpeditionDifficulty,
+  missionType: ExpeditionType
 ): boolean {
   if (!strength.conditions) return true // Применяется всегда
   

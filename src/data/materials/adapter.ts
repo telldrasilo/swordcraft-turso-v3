@@ -6,6 +6,23 @@
 import type { MaterialNode } from '@/types/materials/material-core'
 import type { Material } from '@/types/craft-v2'
 import { materialById, allMaterials } from './library'
+import { metalMaterials } from './metals'
+import { stoneMaterials } from './stone'
+import { woodMaterials, leatherMaterials } from './organic'
+
+/** Прилагательные для нейминга оружия — из legacy Material; id совпадают с MaterialNode. */
+const LEGACY_MATERIAL_ADJECTIVES: Record<string, string> = (() => {
+  const map: Record<string, string> = {}
+  for (const m of [
+    ...metalMaterials,
+    ...stoneMaterials,
+    ...woodMaterials,
+    ...leatherMaterials,
+  ]) {
+    if (m.adjective) map[m.id] = m.adjective
+  }
+  return map
+})()
 
 /**
  * Преобразует MaterialNode в Material для обратной совместимости
@@ -54,7 +71,7 @@ export function adaptMaterialNodeToMaterial(node: MaterialNode): Material {
   const material: Material = {
     id: node.identity.id,
     name: node.identity.name,
-    adjective: '', // Не хранится в MaterialNode
+    adjective: LEGACY_MATERIAL_ADJECTIVES[node.identity.id] ?? '',
     category: classToCategory[node.identity.class] || 'other',
     description: node.summary.basic,
     

@@ -11,7 +11,9 @@ import {
   Clock,
   CheckCircle,
   Undo2,
-  TrendingUp
+  TrendingUp,
+  FastForward,
+  Flag,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -25,6 +27,8 @@ import { useState, useEffect } from 'react'
 
 // Импорт журнала событий
 import { ExpeditionEventLog } from './expeditions/ExpeditionEventLog'
+import { EXPEDITION_DEV_UI_ENABLED } from '@/lib/expedition-dev-tools'
+import { getMaterialName } from '@/modules/expeditions'
 
 // Импорт функции показа уведомлений
 import { showReputationNotification } from './ReputationNotification'
@@ -36,9 +40,12 @@ interface ActiveExpeditionCardProps {
 export function ActiveExpeditionCard({ expedition }: ActiveExpeditionCardProps) {
   const completeExpeditionFull = useGameStore((state) => state.completeExpeditionFull)
   const cancelExpedition = useGameStore((state) => state.cancelExpedition)
+  const skipExpeditionToNextEvent = useGameStore((state) => state.skipExpeditionToNextEvent)
+  const skipExpeditionTimelineToEnd = useGameStore((state) => state.skipExpeditionTimelineToEnd)
   
   const [timeLeft, setTimeLeft] = useState<number>(0)
   const [progress, setProgress] = useState<number>(0)
+  const [wallNow, setWallNow] = useState(() => Date.now())
   const [showRewards, setShowRewards] = useState(false)
   const [lastResult, setLastResult] = useState<ExpeditionResult | null>(null)
   
@@ -47,6 +54,7 @@ export function ActiveExpeditionCard({ expedition }: ActiveExpeditionCardProps) 
     
     const updateTime = () => {
       const now = Date.now()
+      setWallNow(now)
       const remaining = Math.max(0, expedition.endsAt - now)
       const elapsed = now - expedition.startedAt
       
@@ -66,6 +74,13 @@ export function ActiveExpeditionCard({ expedition }: ActiveExpeditionCardProps) 
   }
   
   const isComplete = timeLeft === 0
+
+  const sortedEv = expedition.events
+    ? [...expedition.events].sort((a, b) => a.triggeredAt - b.triggeredAt)
+    : []
+  const nextEventAt = !isComplete
+    ? sortedEv.find((e) => e.triggeredAt > wallNow)
+    : undefined
   
   const handleComplete = () => {
     const result = completeExpeditionFull(expedition.id)
@@ -126,12 +141,40 @@ export function ActiveExpeditionCard({ expedition }: ActiveExpeditionCardProps) 
                 startedAt={expedition.startedAt}
                 endsAt={expedition.endsAt}
                 isComplete={isComplete}
+                locationId={expedition.locationId}
+                contractType={expedition.contractType ?? 'exploration'}
+                devBalanceTweaks={expedition.devBalanceTweaks}
               />
             </div>
           )}
 
           {!isComplete ? (
             <>
+              {EXPEDITION_DEV_UI_ENABLED && (
+                <div className="mt-3 flex flex-wrap gap-2 rounded-md border border-dashed border-amber-700/40 bg-stone-950/50 p-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="text-xs border-amber-800/50 text-amber-100"
+                    disabled={nextEventAt === undefined}
+                    onClick={() => skipExpeditionToNextEvent(expedition.id)}
+                  >
+                    <FastForward className="w-3.5 h-3.5 mr-1" />
+                    До следующего события
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="text-xs border-amber-800/50 text-amber-100"
+                    onClick={() => skipExpeditionTimelineToEnd(expedition.id)}
+                  >
+                    <Flag className="w-3.5 h-3.5 mr-1" />
+                    К концу миссии
+                  </Button>
+                </div>
+              )}
               <Progress value={progress} className="h-2 bg-stone-800 mt-3" />
               <Button
                 size="sm"
@@ -140,7 +183,7 @@ export function ActiveExpeditionCard({ expedition }: ActiveExpeditionCardProps) 
                 onClick={() => cancelExpedition(expedition.id)}
               >
                 <Undo2 className="w-4 h-4 mr-1" />
-                Отменить (возврат 50% депозита)
+                Отменить миссию
               </Button>
             </>
           ) : (
@@ -207,6 +250,20 @@ export function ActiveExpeditionCard({ expedition }: ActiveExpeditionCardProps) 
                               <TrendingUp className="w-4 h-4 inline mr-1" />
                               +{lastResult.reputation}
                             </span>
+                          </div>
+                        )}
+
+                        {lastResult.materialsGained && lastResult.materialsGained.length > 0 && (
+                          <div className="rounded-lg p-3 border border-emerald-700/40 bg-emerald-950/25">
+                            <p className="text-xs text-emerald-400/90 mb-2">Материалы на склад</p>
+                            <ul className="text-sm text-stone-300 space-y-1 max-h-32 overflow-y-auto">
+                              {lastResult.materialsGained.map((g) => (
+                                <li key={g.materialId} className="flex justify-between gap-2">
+                                  <span>{getMaterialName(g.materialId)}</span>
+                                  <span className="text-emerald-300 tabular-nums">×{g.quantity}</span>
+                                </li>
+                              ))}
+                            </ul>
                           </div>
                         )}
 

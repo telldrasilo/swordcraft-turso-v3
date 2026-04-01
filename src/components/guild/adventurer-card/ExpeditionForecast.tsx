@@ -17,14 +17,15 @@ import {
 import { TrendingUp } from 'lucide-react'
 import type { Advice } from '@/lib/adventurer-advice'
 import { ModifierBadge } from './ModifierBadge'
+import type { ExpeditionDifficulty, ExpeditionType } from '@/data/expedition-templates'
 
 // ================================
 // ТИПЫ
 // ================================
 
 interface ExpeditionData {
-  difficulty: 'easy' | 'normal' | 'hard' | 'extreme' | 'legendary'
-  type: 'hunt' | 'scout' | 'clear' | 'delivery' | 'magic'
+  difficulty: ExpeditionDifficulty
+  type: ExpeditionType
   baseGold: number
   baseWarSoul: number
   successChance: number

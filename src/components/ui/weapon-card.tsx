@@ -7,7 +7,7 @@
 
 import { motion } from 'framer-motion'
 import {
-  Sword, Heart, Star, Sparkles, Coins, Map, Shield,
+  Sword, Heart, Star, Sparkles, Map, Shield,
   Flame, Wind, Droplet, Sun, Moon,
   Diamond, Crown, Target,
 } from 'lucide-react'
@@ -15,15 +15,19 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { InfoTooltip } from '@/components/ui/game-tooltip'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { useMemo } from 'react'
-import type { CraftedWeaponV2 } from '@/types/craft-v2'
+import type { CraftedWeaponV2, QualityGrade } from '@/types/craft-v2'
 import {
   qualityGrades,
   weaponTypeStats,
   getQualityGrade,
 } from '@/lib/craft/weapon-display-meta'
-import { TIER_NUMBER_TO_STRING } from '@/lib/store-utils/constants'
 import { weaponRecipes } from '@/data/weapon-recipes'
 import {
   getWarSoulTier,
@@ -232,6 +236,19 @@ function resolveQualityGradeConfig(weapon: WeaponCardWeapon) {
     qualityGrades[weapon.qualityGrade as keyof typeof qualityGrades] ??
     qualityGrades[fromNumeric]
   )
+}
+
+const QUALITY_BADGE_BG: Record<QualityGrade, string> = {
+  poor: 'bg-red-900/90',
+  common: 'bg-stone-600/95',
+  good: 'bg-green-900/80',
+  excellent: 'bg-blue-900/80',
+  masterpiece: 'bg-purple-900/80',
+  legendary: 'bg-amber-800/90',
+}
+
+function resolveQualityBadgeBg(grade: QualityGrade): string {
+  return QUALITY_BADGE_BG[grade] ?? 'bg-stone-800'
 }
 
 /**
@@ -534,16 +551,12 @@ export function WeaponCard({
   const legacyRecipe = weaponRecipes.find((r) => r.id === weapon.recipeId)
   const properties = extractWeaponProperties(weapon)
 
-  const tier =
-    (legacyRecipe?.tier as string | undefined) ??
-    TIER_NUMBER_TO_STRING[weapon.tier] ??
-    'common'
+  const tier = (legacyRecipe?.tier as string | undefined) ?? 'common'
   const tierColor = qualityColors[tier] ?? qualityColors['common']
   const materialLabel = legacyRecipe?.material ?? weapon.combatMaterialId
 
   // Мемоизация расчёта тира Души Войны для оптимизации
   const warSoulTier = useMemo(() => {
-    if (weapon.warSoul <= 0) return null
     return getWarSoulTier(weapon.warSoul, weapon.maxWarSoul ?? 100)
   }, [weapon.warSoul, weapon.maxWarSoul])
 
@@ -607,26 +620,60 @@ export function WeaponCard({
             
             {/* Бейджи качества */}
             <div className="flex flex-col items-end gap-1">
-              <Badge className={cn('font-semibold cursor-help', qualityInfo.color)}>
-                {qualityInfo.name}
-              </Badge>
-              <div className="flex items-center gap-1">
-                <Badge variant="outline" className={cn('text-xs', tierColor.text, tierColor.border)}>
-                  {tierNames[tier]}
-                </Badge>
-                {/* Бейдж тира Души Войны */}
-                {warSoulTier && (
-                  <Badge 
+              <Tooltip delayDuration={200}>
+                <TooltipTrigger asChild>
+                  <Badge
+                    variant="outline"
                     className={cn(
-                      'text-xs font-semibold gap-1',
-                      warSoulTier.bgColor,
-                      warSoulTier.color
+                      'font-semibold cursor-help border-stone-600/90',
+                      resolveQualityBadgeBg(weapon.qualityGrade),
+                      'text-stone-100 shadow-inner'
                     )}
-                    title={`${warSoulTier.icon} ${warSoulTier.name}: +${warSoulTier.bonus.successBonus}% успеха, +${warSoulTier.bonus.goldBonus}% золота, +${warSoulTier.bonus.warSoulBonus}% душ`}
                   >
-                    <span>{warSoulTier.icon}</span>
-                    <span>{warSoulTier.name}</span>
+                    {qualityInfo.name}
                   </Badge>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="max-w-xs">
+                  <p>Качество: {qualityInfo.name}</p>
+                  <p className="text-xs text-stone-400 mt-1">Влияет на характеристики и цену</p>
+                </TooltipContent>
+              </Tooltip>
+              <div className="flex items-center gap-1">
+                <Tooltip delayDuration={200}>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className={cn('text-xs cursor-help', tierColor.text, tierColor.border)}>
+                      {tierNames[tier]}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent side="left" className="max-w-xs">
+                    <p className="font-medium text-stone-200">Редкость по рецепту</p>
+                    <p className="text-xs text-stone-400 mt-1">
+                      Градация рецепта крафта. Не совпадает с тиром Души войны и с градацией качества изготовления.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+                {warSoulTier && (
+                  <Tooltip delayDuration={200}>
+                    <TooltipTrigger asChild>
+                      <Badge
+                        className={cn(
+                          'text-xs font-semibold gap-1 cursor-help',
+                          warSoulTier.bgColor,
+                          warSoulTier.color
+                        )}
+                      >
+                        <span>{warSoulTier.icon}</span>
+                        <span>{warSoulTier.name}</span>
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent side="left" className="max-w-xs">
+                      <p className="font-medium text-stone-200">Душа войны: {warSoulTier.name}</p>
+                      <p className="text-xs text-stone-400 mt-1">{warSoulTier.description}</p>
+                      <p className="text-xs text-stone-500 mt-2">
+                        Растёт в экспедициях. Тир даёт бонусы к успеху, золоту и накоплению души.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
                 )}
               </div>
             </div>
@@ -688,26 +735,19 @@ export function WeaponCard({
             </div>
           )}
 
-          {/* Цена продажи и кнопка */}
-          {showSellButton && (
-            <div className="flex items-center justify-between pt-2 border-t border-stone-700/50">
-              <div className="flex items-center gap-1.5">
-                <Coins className="w-4 h-4 text-amber-400" />
-                <span className="text-amber-400 font-semibold">{weapon.sellPrice}</span>
-              </div>
-              {onSell && (
-                <Button 
-                  size="sm"
-                  variant="outline"
-                  className="border-green-600/50 text-green-400 hover:bg-green-800/30"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onSell(weapon.id)
-                  }}
-                >
-                  Продать
-                </Button>
-              )}
+          {showSellButton && onSell && (
+            <div className="flex items-center justify-end pt-2 border-t border-stone-700/50">
+              <Button 
+                size="sm"
+                variant="outline"
+                className="border-green-600/50 text-green-400 hover:bg-green-800/30"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onSell(weapon.id)
+                }}
+              >
+                Продать
+              </Button>
             </div>
           )}
 
@@ -739,10 +779,7 @@ interface WeaponMiniCardProps {
 export function WeaponMiniCard({ weapon, selected, onSelect, disabled }: WeaponMiniCardProps) {
   const qualityInfo = resolveQualityGradeConfig(weapon)
   const legacyRecipe = weaponRecipes.find((r) => r.id === weapon.recipeId)
-  const tier =
-    (legacyRecipe?.tier as string | undefined) ??
-    TIER_NUMBER_TO_STRING[weapon.tier] ??
-    'common'
+  const tier = (legacyRecipe?.tier as string | undefined) ?? 'common'
   const tierColor = qualityColors[tier] ?? qualityColors['common']
   const maxDur = weapon.stats.maxDurability || 1
   const curDur = weapon.currentDurability ?? maxDur
@@ -750,7 +787,6 @@ export function WeaponMiniCard({ weapon, selected, onSelect, disabled }: WeaponM
   
   // Мемоизация расчёта тира Души Войны
   const warSoulTier = useMemo(() => {
-    if (weapon.warSoul <= 0) return null
     return getWarSoulTier(weapon.warSoul, weapon.maxWarSoul ?? 100)
   }, [weapon.warSoul, weapon.maxWarSoul])
 
@@ -818,12 +854,6 @@ export function WeaponMiniCard({ weapon, selected, onSelect, disabled }: WeaponM
                 {qualityInfo.name}
               </span>
             </div>
-          </div>
-          
-          {/* Цена */}
-          <div className="flex items-center gap-1 text-amber-400 text-sm">
-            <Coins className="w-3 h-3" />
-            {weapon.sellPrice}
           </div>
         </div>
       </Card>

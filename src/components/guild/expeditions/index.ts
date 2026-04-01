@@ -5,3 +5,4 @@
 
 export { ExpeditionSelectionCard } from './ExpeditionSelectionCard'
 export { WeaponSelectionCard } from './WeaponSelectionCard'
+export { ExpeditionLocationMissionBoard } from './ExpeditionLocationMissionBoard'

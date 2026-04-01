@@ -23,6 +23,8 @@ interface ExpeditionSelectionCardProps {
   canSelect: boolean
   onSelect: () => void
   reason?: string
+  /** Полный текст миссии и цель; для сетки одинаковой высоты используйте с `items-stretch` + `h-full` у обёртки */
+  variant?: 'default' | 'missionBoard'
 }
 
 // ================================
@@ -34,22 +36,24 @@ export const ExpeditionSelectionCard: React.FC<ExpeditionSelectionCardProps> = (
   isSelected,
   canSelect,
   onSelect,
-  reason
+  reason,
+  variant = 'default',
 }) => {
   const difficulty = difficultyInfo[expedition.difficulty]
   const type = typeInfo[expedition.type]
-  const totalCost = expedition.cost.supplies + expedition.cost.deposit
+  const clientBudget = expedition.reward?.baseGold ?? 0
+  const guildOps = expedition.cost.supplies + expedition.cost.deposit
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      className="h-full"
+      className="h-full w-full min-w-0"
     >
       <Card
         className={cn(
-          "card-medieval cursor-pointer transition-all h-full flex flex-col",
+          "card-medieval cursor-pointer transition-all h-full w-full min-w-0 flex flex-col",
           isSelected && "ring-2 ring-amber-500 border-amber-500 bg-gradient-to-b from-amber-900/30 to-stone-900/50 shadow-lg shadow-amber-900/30",
           !canSelect && "opacity-50"
         )}
@@ -74,8 +78,38 @@ export const ExpeditionSelectionCard: React.FC<ExpeditionSelectionCardProps> = (
             </Badge>
           </div>
 
+          {variant === 'missionBoard' && expedition.moduleLocationName && (
+            <p className="text-[11px] text-stone-500 mb-1 flex-shrink-0">
+              <span className="text-stone-500/80">Локация: </span>
+              {expedition.moduleLocationName}
+            </p>
+          )}
+
+          {variant === 'missionBoard' && expedition.moduleClientName && (
+            <p className="text-[11px] text-stone-500 mb-1.5 flex-shrink-0">
+              <span className="text-stone-500/80">Заказчик: </span>
+              <span className="text-stone-300">{expedition.moduleClientName}</span>
+            </p>
+          )}
+
+          {variant === 'missionBoard' && expedition.moduleObjective && (
+            <p className="text-xs text-stone-300 mb-2 flex-shrink-0 leading-snug">
+              <span className="font-medium text-amber-200/90">Цель: </span>
+              {expedition.moduleObjective}
+            </p>
+          )}
+
           {/* Описание */}
-          <p className="text-xs text-stone-400 mb-3 line-clamp-2 flex-shrink-0">{expedition.description}</p>
+          <p
+            className={cn(
+              'text-xs text-stone-400 mb-3',
+              variant === 'missionBoard'
+                ? 'flex-1 min-h-0 leading-relaxed whitespace-pre-wrap'
+                : 'line-clamp-2 flex-shrink-0'
+            )}
+          >
+            {expedition.description}
+          </p>
 
           {/* Параметры */}
           <div className="grid grid-cols-2 gap-2 text-xs mb-3 flex-shrink-0">
@@ -83,9 +117,9 @@ export const ExpeditionSelectionCard: React.FC<ExpeditionSelectionCardProps> = (
               <Timer className="w-3 h-3 flex-shrink-0" />
               <span>{Math.floor(expedition.duration / 60)} мин</span>
             </div>
-            <div className="flex items-center gap-1.5 text-amber-400">
+            <div className="flex items-center gap-1.5 text-emerald-400/90">
               <Coins className="w-3 h-3 flex-shrink-0" />
-              <span>{totalCost} 💰</span>
+              <span>Заказчик: {clientBudget}+ 💰</span>
             </div>
             <div className="flex items-center gap-1.5 text-red-400">
               <Sword className="w-3 h-3 flex-shrink-0" />
@@ -95,6 +129,9 @@ export const ExpeditionSelectionCard: React.FC<ExpeditionSelectionCardProps> = (
               <Skull className="w-3 h-3 flex-shrink-0" />
               <span>{expedition.failureChance}% риск</span>
             </div>
+            <p className="col-span-2 text-[10px] text-stone-500 leading-snug">
+              Снабжение и залог по контракту ({guildOps} 💰) платит заказчик — не списывается с вашего счёта.
+            </p>
           </div>
 
           {/* Награды */}

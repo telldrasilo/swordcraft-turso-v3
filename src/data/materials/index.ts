@@ -17,22 +17,22 @@ import {
   allMaterials,
   materialById,
   allMetals,
-  allStones,
   allWoods,
   allLeathers,
-  allOres,
 } from './library'
 
 // Реэкспорт для обратной совместимости
 export { allMaterials }
 export { materialById }
 
-// Группировка по классам (для энциклопедии и крафта)
+// Группировка по классам (для энциклопедии и крафта; в т.ч. world-resources)
 export const materialsByClass = {
   metal: allMetals,
-  mineral: [...allStones, ...allOres],
+  mineral: allMaterials.filter(m => m.identity.class === 'mineral'),
   wood: allWoods,
   leather: allLeathers,
+  organic: allMaterials.filter(m => m.identity.class === 'organic'),
+  other: allMaterials.filter(m => m.identity.class === 'other'),
 }
 
 /**

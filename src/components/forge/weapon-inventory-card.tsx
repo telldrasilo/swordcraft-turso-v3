@@ -6,8 +6,8 @@
 
 import { motion } from 'framer-motion'
 import {
-  Sword, Heart, Star, Coins, Map as MapIcon, Crown, Sparkles,
-  Package, Hammer
+  Sword, Heart, Star, Map as MapIcon, Crown, Sparkles,
+  Package,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -18,14 +18,15 @@ import {
 } from '@/components/ui/tooltip'
 import { useGameStore } from '@/store'
 import { weaponTypeStats } from '@/lib/craft/weapon-display-meta'
-import type { CraftedWeaponV2 } from '@/types/craft-v2'
+import type { CraftedWeaponV2, QualityGrade } from '@/types/craft-v2'
 import { getQualityColor, getQualityNameRu } from '@/types/craft-v2'
 import { cn } from '@/lib/utils'
-import { WeaponIcon, qualityColors } from './forge-utils'
+import { WeaponIcon } from './forge-utils'
 import {
   getWarSoulTier,
   getProgressToNextTier,
 } from '@/lib/war-soul-utils'
+import { getQualityWithinGradeDisplay } from '@/lib/craft/quality-display'
 
 interface WeaponInventoryCardProps {
   weapon: CraftedWeaponV2
@@ -38,10 +39,11 @@ export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
   const qualityColor = getQualityColor(weapon.quality)
   const qualityNameRu = getQualityNameRu(weapon.quality)
   
+  const qInGrade = getQualityWithinGradeDisplay(weapon.quality)
   const qualityInfo = {
     grade: qualityGrade,
     name: qualityNameRu,
-    multiplier: weapon.quality / 100,
+    multiplier: qInGrade.multiplier,
     color: qualityColor,
   }
 
@@ -64,16 +66,16 @@ export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
   const durabilityColor = durabilityPercent > 50 ? 'text-green-400' : durabilityPercent > 25 ? 'text-yellow-400' : 'text-red-400'
   const durabilityBgColor = durabilityPercent > 50 ? 'bg-green-500' : durabilityPercent > 25 ? 'bg-yellow-500' : 'bg-red-500'
   
-  // Тир оружия (число в строку для отображения)
-  const tierNum = weapon.tier
-  const tierStr = tierNum <= 1 ? 'common' : tierNum <= 2 ? 'uncommon' : tierNum <= 3 ? 'rare' : tierNum <= 4 ? 'epic' : 'legendary'
-  const tierColor =
-    qualityColors[tierStr] ??
-    qualityColors.common ?? {
-      text: 'text-stone-400',
-      bg: 'bg-stone-900/80',
-      border: 'border-stone-600',
-    }
+  /** Фон иконки по градации качества (не от attack-tier) */
+  const iconBgByQuality: Record<QualityGrade, string> = {
+    poor: 'bg-stone-900/50',
+    common: 'bg-stone-900/50',
+    good: 'bg-green-900/30',
+    excellent: 'bg-blue-900/30',
+    masterpiece: 'bg-purple-900/30',
+    legendary: 'bg-amber-900/30',
+  }
+  const iconBoxBg = iconBgByQuality[weapon.qualityGrade] ?? 'bg-stone-900/50'
   // Тир Души Войны
   const warSoulTier = weapon.warSoul > 0 || (weapon.maxWarSoul ?? 0) > 0 
     ? getWarSoulTier(weapon.warSoul, weapon.maxWarSoul ?? 100)
@@ -108,7 +110,7 @@ export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
             <div className="flex items-center gap-3">
               <div className={cn(
                 'w-14 h-14 rounded-xl flex items-center justify-center text-2xl',
-                tierColor.bg
+                iconBoxBg
               )}>
                 <WeaponIcon type={weapon.type} />
               </div>
@@ -124,31 +126,54 @@ export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
             <div className="flex flex-col items-end gap-1">
               <Tooltip delayDuration={200}>
                 <TooltipTrigger asChild>
-                  <Badge className={cn('font-semibold cursor-help', qualityInfo.color)}>
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      'font-semibold cursor-help border-stone-600/90',
+                      qualityBgColor,
+                      'text-stone-100 shadow-inner'
+                    )}
+                  >
                     {qualityInfo.name}
                   </Badge>
                 </TooltipTrigger>
-                <TooltipContent side="left">
+                <TooltipContent side="left" className="max-w-xs">
                   <p>Качество: {qualityInfo.name} (×{qualityInfo.multiplier})</p>
-                  <p className="text-xs text-stone-400">Влияет на атаку и цену</p>
+                  <p className="text-xs text-stone-400">Влияет на характеристики оружия</p>
                 </TooltipContent>
               </Tooltip>
-              <Badge variant="outline" className={cn('text-xs cursor-help', tierColor.text, tierColor.border)}>
-                Тир {tierNum}
-              </Badge>
               {/* Бейдж тира Души Войны */}
               {warSoulTier && (
-                <Badge 
-                  className={cn(
-                    'text-xs font-semibold gap-1',
-                    warSoulTier.bgColor,
-                    warSoulTier.color
-                  )}
-                  title={`${warSoulTier.icon} ${warSoulTier.name}: +${warSoulTier.bonus.successBonus}% успеха, +${warSoulTier.bonus.goldBonus}% золота, +${warSoulTier.bonus.warSoulBonus}% душ`}
-                >
-                  <span>{warSoulTier.icon}</span>
-                  <span>{warSoulTier.name}</span>
-                </Badge>
+                <Tooltip delayDuration={200}>
+                  <TooltipTrigger asChild>
+                    <Badge
+                      className={cn(
+                        'text-xs font-semibold gap-1 cursor-help',
+                        warSoulTier.bgColor,
+                        warSoulTier.color
+                      )}
+                    >
+                      <span>{warSoulTier.icon}</span>
+                      <span>{warSoulTier.name}</span>
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent side="left" className="max-w-xs">
+                    <p className="font-medium text-stone-200">
+                      Душа войны: {warSoulTier.name}
+                    </p>
+                    <p className="text-xs text-stone-400 mt-1">{warSoulTier.description}</p>
+                    <p className="text-xs text-stone-500 mt-2">
+                      Накапливается при успешных экспедициях с этим оружием. Тир влияет на бонусы к шансу успеха, золоту и скорости роста души.
+                    </p>
+                    {(warSoulTier.bonus.successBonus > 0 ||
+                      warSoulTier.bonus.goldBonus > 0 ||
+                      warSoulTier.bonus.warSoulBonus > 0) && (
+                      <p className="text-xs text-amber-200/90 mt-2">
+                        Сейчас: +{warSoulTier.bonus.successBonus}% успех, +{warSoulTier.bonus.goldBonus}% золото, +{warSoulTier.bonus.warSoulBonus}% душа
+                      </p>
+                    )}
+                  </TooltipContent>
+                </Tooltip>
               )}
             </div>
           </div>
@@ -199,7 +224,7 @@ export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
               </TooltipContent>
             </Tooltip>
 
-            {/* КАЧЕСТВО */}
+            {/* КАЧЕСТВО (ступени внутри градации v2) */}
             <Tooltip delayDuration={200}>
               <TooltipTrigger asChild>
                 <div className="flex items-center gap-2 cursor-help">
@@ -207,20 +232,29 @@ export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
                   <div className="flex-1">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs text-stone-500">Качество</span>
-                      <span className={cn('text-xs font-medium', qualityInfo.color)}>{weapon.quality}/100</span>
+                      <span className={cn('text-xs font-medium tabular-nums', qualityInfo.color)}>
+                        {qInGrade.step}/{qInGrade.steps}
+                      </span>
                     </div>
                     <div className="h-2 bg-stone-800 rounded-full overflow-hidden">
                       <div 
                         className={cn('h-full rounded-full transition-all', qualityBgColor)} 
-                        style={{ width: `${weapon.quality}%` }} 
+                        style={{ width: `${Math.round(qInGrade.progressInGrade * 100)}%` }} 
                       />
                     </div>
                   </div>
                 </div>
               </TooltipTrigger>
-              <TooltipContent side="top">
-                <p className={cn('font-semibold', qualityInfo.color)}>Качество: {weapon.quality}/100</p>
-                <p className="text-xs text-stone-400">Влияет на атаку и цену. Зависит от навыков кузнецов</p>
+              <TooltipContent side="top" className="max-w-xs">
+                <p className={cn('font-semibold', qualityInfo.color)}>
+                  {qualityInfo.name}: шаг {qInGrade.step} из {qInGrade.steps}
+                </p>
+                <p className="text-xs text-stone-400 mt-1">
+                  Градация при крафте. Выше шаг — сильнее бонус к характеристикам.
+                  {qInGrade.nextGradeMin !== null && (
+                    <> До следующей градации: {qInGrade.nextGradeMin - weapon.quality}.</>
+                  )}
+                </p>
               </TooltipContent>
             </Tooltip>
           </div>
@@ -334,35 +368,6 @@ export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
             </div>
           )}
 
-          {/* ===== ТЕХНИКИ ===== */}
-          {weapon.techniquesUsed && weapon.techniquesUsed.length > 0 && (
-            <div className="pt-2 border-t border-stone-700/50 mb-3">
-              <p className="text-xs text-stone-500 mb-2 flex items-center gap-1">
-                <Hammer className="w-3 h-3" />
-                Техники
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {weapon.techniquesUsed.map((tech, idx) => (
-                  <Badge 
-                    key={idx}
-                    variant="outline"
-                    className="text-xs bg-purple-900/20 border-purple-600/30 text-purple-300"
-                  >
-                    {tech}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ===== ТЕХНИКИ ===== */}
-          <div className="flex items-center justify-between pt-2 border-t border-stone-700/50 mb-3">
-            <span className="text-xs text-stone-500">Цена продажи:</span>
-            <div className="flex items-center gap-1.5 text-amber-400 font-semibold">
-              <Coins className="w-4 h-4" />
-              <span>{weapon.sellPrice}</span>
-            </div>
-          </div>
         </CardContent>
       </Card>
     </motion.div>

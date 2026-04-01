@@ -76,6 +76,7 @@ import {
   type GuildState,
   type Adventurer,
   type ActiveExpedition,
+  type StartExpeditionFullOptions,
   getGuildReputationLevel,
   GUILD_LEVELS,
 } from '@/types/guild'
@@ -148,8 +149,16 @@ interface CrossSliceActions {
   repairWeaponWithResources: (weaponId: string) => { success: boolean; cost: number; repairedAmount: number }
 
   // Guild + Resources + Craft + Player
-  startExpeditionFull: (expedition: ExpeditionTemplate, adventurer: Adventurer, weapon: CraftedWeaponV2, extendedAdventurer?: AdventurerExtended) => boolean
+  startExpeditionFull: (
+    expedition: ExpeditionTemplate,
+    adventurer: Adventurer,
+    weapon: CraftedWeaponV2,
+    extendedAdventurer?: AdventurerExtended,
+    options?: StartExpeditionFullOptions
+  ) => boolean
   completeExpeditionFull: (expeditionId: string) => ExpeditionResult | null
+  skipExpeditionToNextEvent: (expeditionId: string) => void
+  skipExpeditionTimelineToEnd: (expeditionId: string) => void
 
   // Emergency
   canGetEmergencyHelp: () => boolean
@@ -231,6 +240,8 @@ export interface CraftV2Persisted {
   completedWeapon: CraftedWeaponV2 | null
   stage: 'planning' | 'crafting' | 'completed'
   preview: any | null
+  /** Прогноз min–max (разброс крафта); может отсутствовать в старых сейвах */
+  forecast: any | null
   weaponName: any | null
 }
 
@@ -240,6 +251,7 @@ export const initialCraftV2Persisted: CraftV2Persisted = {
   completedWeapon: null,
   stage: 'planning',
   preview: null,
+  forecast: null,
   weaponName: null,
 }
 
@@ -733,10 +745,6 @@ export const useGameStore = create<GameStore>()(
         const expedition = state.guild.activeExpeditions.find(e => e.id === expeditionId)
         if (!expedition) return false
 
-        // Возвращаем часть затрат (используем suppliesCost вместо cost.supplies)
-        const refund = Math.floor(expedition.suppliesCost * 0.5)
-        state.addResource('gold', refund)
-
         set((s) => ({
           guild: {
             ...s.guild,
@@ -915,6 +923,7 @@ export const useGameStore = create<GameStore>()(
         const initialState = {
           player: initialPlayer,
           resources: initialResources,
+          materialStash: {} as Record<string, number>,
           workers: [],
           buildings: initialBuildings,
           weaponInventory: initialWeaponInventory,
@@ -949,6 +958,7 @@ export const useGameStore = create<GameStore>()(
     partialize: (state) => ({
       player: state.player,
       resources: state.resources,
+      materialStash: state.materialStash,
       statistics: state.statistics,
       workers: state.workers,
       buildings: state.buildings,
@@ -985,6 +995,13 @@ export const useGameStore = create<GameStore>()(
       merged.statistics = {
         ...initialStatistics,
         ...((persisted.statistics as Partial<GameStatistics> | undefined) ?? {}),
+      }
+      if (
+        !('materialStash' in merged) ||
+        merged.materialStash == null ||
+        typeof merged.materialStash !== 'object'
+      ) {
+        ;(merged as { materialStash: Record<string, number> }).materialStash = {}
       }
       // P2-Craft-04: убрано поле slice activeCraft; старые persist-файлы могли содержать ключ
       if ('activeCraft' in (merged as Record<string, unknown>)) {

@@ -60,6 +60,8 @@ export interface ExpeditionResult {
   bonusResources?: { resource: string; amount: number }[]
   bonusEssence?: number
   isCrit?: boolean
+  /** Материалы на склад после экспедиции (канон. id) */
+  materialsGained?: { materialId: string; quantity: number }[]
   // Новые поля для контрактов
   loyaltyChange?: number
   contractTerminated?: boolean

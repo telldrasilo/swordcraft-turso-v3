@@ -4,7 +4,12 @@
  */
 
 import type { AdventurerExtended } from '@/types/adventurer-extended'
-import type { ExpeditionTemplate, ExpeditionDifficulty, ExpeditionType } from '@/data/expedition-templates'
+import {
+  difficultyInfo,
+  type ExpeditionTemplate,
+  type ExpeditionDifficulty,
+  type ExpeditionType,
+} from '@/data/expedition-templates'
 import { getCombatStyleById } from '@/data/adventurer-tags/combat-styles'
 import { getStrengthById, doesStrengthApply } from '@/data/adventurer-tags/strengths'
 import { getWeaknessById, doesWeaknessApply } from '@/data/adventurer-tags/weaknesses'
@@ -323,20 +328,17 @@ function getMissionTypeName(type: ExpeditionType): string {
     scout: 'разведке',
     clear: 'зачистке',
     delivery: 'доставке',
-    magic: 'магической миссии'
+    magic: 'магической миссии',
+    rescue: 'спасении',
+    gather: 'сборе ресурсов',
+    escort: 'сопровождении',
+    investigate: 'расследовании',
   }
   return names[type]
 }
 
 function getDifficultyLevelRange(difficulty: ExpeditionDifficulty): [number, number] {
-  const ranges: Record<ExpeditionDifficulty, [number, number]> = {
-    easy: [1, 10],
-    normal: [8, 20],
-    hard: [18, 30],
-    extreme: [28, 40],
-    legendary: [38, 50]
-  }
-  return ranges[difficulty]
+  return difficultyInfo[difficulty].levelRange
 }
 
 // ================================

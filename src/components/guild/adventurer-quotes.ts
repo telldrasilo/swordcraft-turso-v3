@@ -6,6 +6,7 @@
 'use client'
 
 import type { AdventurerExtended } from '@/types/adventurer-extended'
+import type { ExpeditionType } from '@/data/expedition-templates'
 
 // ================================
 // ТИПЫ
@@ -14,16 +15,10 @@ import type { AdventurerExtended } from '@/types/adventurer-extended'
 export interface AdventurerQuote {
   text: string
   mood: 'confident' | 'cautious' | 'enthusiastic' | 'determined'
-  type: 'hunt' | 'scout' | 'clear' | 'delivery' | 'magic'
+  type: ExpeditionType
 }
 
-export interface QuotesByType {
-  hunt: string[]
-  scout: string[]
-  clear: string[]
-  delivery: string[]
-  magic: string[]
-}
+export type QuotesByType = Record<ExpeditionType, string[]>
 
 // ================================
 // ЦИТАТЫ ПО ТИПУ ЭКСПЕДИЦИЙ
@@ -67,6 +62,34 @@ const quotes: QuotesByType = {
     "Артефакты таинственного мастерства!",
     "Сила сияет во мне, когда я применяю магию!",
   ],
+  rescue: [
+    "Нужно успеть вовремя!",
+    "Я не брошу тех, кто в беде!",
+    "За спасённых жизней — честь!",
+    "Держитесь, я иду!",
+    "Сложно, но оно того стоит!",
+  ],
+  gather: [
+    "Ресурсы сами не соберутся!",
+    "Аккуратно и с запасом!",
+    "Знание троп пригодится!",
+    "Соберу всё по списку!",
+    "Полезная работа для гильдии!",
+  ],
+  escort: [
+    "Довезу целым и невредимым!",
+    "Дорога бывает коварной!",
+    "Сопровождение — моя специализация!",
+    "Берегите фланги!",
+    "Честь каравана — мой долг!",
+  ],
+  investigate: [
+    "Нужны факты и улики!",
+    "Загадки зовут меня!",
+    "Распутаю, что к чему!",
+    "Истина где-то рядом…",
+    "Осторожность прежде всего!",
+  ],
 }
 
 // Резервные цитаты для неизвестных типов
@@ -83,10 +106,10 @@ const fallbackQuotes: string[] = [
 
 export const getAdventurerQuote = (
   adventurer: AdventurerExtended,
-  expedition: { type: string }
+  expedition: { type: ExpeditionType }
 ): AdventurerQuote => {
-  const expeditionType = expedition.type as keyof QuotesByType
-  const typeQuotes = quotes[expeditionType] || fallbackQuotes
+  const expeditionType = expedition.type
+  const typeQuotes = quotes[expeditionType] ?? fallbackQuotes
   
   // Выбираем случайную цитату
   const text = typeQuotes[Math.floor(Math.random() * typeQuotes.length)]
@@ -103,8 +126,7 @@ export const getAdventurerQuote = (
     mood = 'cautious'
   }
 
-  const quoteType: AdventurerQuote['type'] =
-    expeditionType in quotes ? expeditionType : 'clear'
+  const quoteType: AdventurerQuote['type'] = quotes[expeditionType] ? expeditionType : 'clear'
 
   return { text, mood, type: quoteType }
 }

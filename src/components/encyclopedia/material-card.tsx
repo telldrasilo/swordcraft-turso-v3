@@ -55,12 +55,15 @@ export function MaterialCard({ material, knowledge, onClick }: MaterialCardProps
   const showStrengths = expertise >= 50
   const showDetails = expertise >= 75
 
+  const undiscovered = expertise < 1
+
   return (
     <Card
       className={cn(
         'cursor-pointer transition-all hover:scale-[1.02] hover:shadow-lg',
         RARITY_BG_COLORS[rarity],
-        'border'
+        'border',
+        undiscovered && 'ring-1 ring-stone-600/40'
       )}
       onClick={onClick}
     >
@@ -100,6 +103,13 @@ export function MaterialCard({ material, knowledge, onClick }: MaterialCardProps
       </CardHeader>
 
       <CardContent className="space-y-3">
+        {undiscovered && (
+          <p className="text-sm text-stone-500 leading-snug">
+            <span className="text-stone-400 font-medium">Не изучено.</span>{' '}
+            Используйте материал в крафте или добудьте в мире, чтобы открыть сведения.
+          </p>
+        )}
+
         {/* Прогресс экспертизы */}
         <div>
           <div className="flex items-center justify-between text-xs mb-1">

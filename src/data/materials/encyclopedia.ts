@@ -23,8 +23,10 @@ export const encyclopediaByCategory: Record<MaterialDisplayCategory, MaterialNod
   ores: encyclopediaMaterials.filter(m => getDisplayCategory(m) === 'ores'),
   ingots: encyclopediaMaterials.filter(m => getDisplayCategory(m) === 'ingots'),
   stones: encyclopediaMaterials.filter(m => getDisplayCategory(m) === 'stones'),
+  gems: encyclopediaMaterials.filter(m => getDisplayCategory(m) === 'gems'),
   wood: encyclopediaMaterials.filter(m => getDisplayCategory(m) === 'wood'),
   leather: encyclopediaMaterials.filter(m => getDisplayCategory(m) === 'leather'),
+  organics: encyclopediaMaterials.filter(m => getDisplayCategory(m) === 'organics'),
   other: encyclopediaMaterials.filter(m => getDisplayCategory(m) === 'other'),
 }
 

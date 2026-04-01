@@ -4,31 +4,19 @@
  */
 
 import type { MaterialNode } from '@/types/materials/material-core'
-import {
-  iron,
-  steel,
-  highCarbonSteel,
-  silverAlloy,
-  coldIron,
-  mithril,
-} from '../library'
+import { allMaterials } from '../library'
 
-export const metalsCollection: MaterialNode[] = [
-  iron,
-  steel,
-  highCarbonSteel,
-  silverAlloy,
-  coldIron,
-  mithril,
-]
+export const metalsCollection: MaterialNode[] = allMaterials.filter(
+  m => m.identity.class === 'metal'
+)
 
 // Базовые металлы
-export const basicMetals = metalsCollection.filter(m => 
+export const basicMetals = metalsCollection.filter(m =>
   m.identity.origin === 'natural'
 )
 
 // Сплавы
-export const alloyMetals = metalsCollection.filter(m => 
+export const alloyMetals = metalsCollection.filter(m =>
   m.identity.origin === 'alloy'
 )
 

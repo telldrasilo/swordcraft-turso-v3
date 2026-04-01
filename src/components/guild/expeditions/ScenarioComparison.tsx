@@ -24,6 +24,8 @@ interface ScenarioComparisonProps {
   expedition: ExpeditionTemplate
   adventurer: AdventurerExtended
   weapon: CraftedWeaponV2
+  guildLevel: number
+  contractType?: 'exploration' | 'speed'
 }
 
 interface ScenarioData {
@@ -46,12 +48,14 @@ export function ScenarioComparison({
   expedition,
   adventurer,
   weapon,
+  guildLevel,
+  contractType = 'exploration',
 }: ScenarioComparisonProps) {
   // Рассчитываем результат экспедиции
   const calculation = calculateExpeditionResult(
     adventurer,
     expedition,
-    1, // guildLevel placeholder
+    guildLevel,
     weapon.stats.attack,
     weapon.currentDurability,
     weapon.type as any,
@@ -59,7 +63,8 @@ export function ScenarioComparison({
     weapon.qualityRank,
     weapon.epicMultiplier,
     weapon.combatMaterialId,
-    weapon.quality
+    weapon.quality,
+    contractType
   )
 
   // Для критического и провала используем множители
@@ -77,7 +82,7 @@ export function ScenarioComparison({
       bgColor: 'bg-yellow-900/20',
       borderColor: 'border-yellow-600/50',
       reward: {
-        gold: Math.round(expedition.reward.baseGold * 1.5), // +50% к награде
+        gold: Math.round(calculation.commission * 1.5),
         warSoul: Math.round(expedition.reward.baseWarSoul * 1.5),
         glory: 5,
       },
@@ -92,7 +97,7 @@ export function ScenarioComparison({
       bgColor: 'bg-green-900/20',
       borderColor: 'border-green-600/50',
       reward: {
-        gold: expedition.reward.baseGold,
+        gold: calculation.commission,
         warSoul: expedition.reward.baseWarSoul,
         glory: 2,
       },
@@ -107,7 +112,7 @@ export function ScenarioComparison({
       bgColor: 'bg-red-900/20',
       borderColor: 'border-red-600/50',
       reward: {
-        gold: Math.round(expedition.reward.baseGold * 0.1), // 10% компенсация
+        gold: Math.round(calculation.commission * 0.1),
         warSoul: 0,
         glory: 0,
       },

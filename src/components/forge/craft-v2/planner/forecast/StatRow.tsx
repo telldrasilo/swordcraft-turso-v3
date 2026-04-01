@@ -75,9 +75,16 @@ export function StatRow({ stat, range, icon, label }: StatRowProps) {
           {label}
         </span>
 
-        {/* Значения */}
-        <span className="ml-auto text-sm font-bold text-stone-100">
-          {formatValue(range.min)} - {formatValue(range.max)}
+        {/* Ожидаемо и диапазон */}
+        <span className="ml-auto text-right text-sm font-bold text-stone-100">
+          {range.current !== undefined && (
+            <span className="text-amber-200/95 mr-1.5">
+              ~{formatValue(range.current)}
+            </span>
+          )}
+          <span className="text-stone-300 font-semibold">
+            {formatValue(range.min)}–{formatValue(range.max)}
+          </span>
         </span>
       </div>
 

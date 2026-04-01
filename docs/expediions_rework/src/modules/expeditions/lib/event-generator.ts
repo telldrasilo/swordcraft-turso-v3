@@ -1,0 +1,319 @@
+/**
+ * Генератор событий для миссий
+ *
+ * Генерирует события при старте миссии с учётом:
+ * - Ресурсов локации (материалы подставляются динамически)
+ * - Распределения по редкости
+ * - Контракта (exploration/speed)
+ */
+
+import type { Location, LocationResource, Rarity } from '../types';
+import type { MissionTemplate, ContractType, MissionDifficulty } from '../missions/_mission-template';
+import type {
+  EventTemplate,
+  EventEffect,
+  GeneratedEvent,
+  ResolvedEffect,
+} from '../data/events/_event-template';
+import {
+  calculateEventCount,
+  distributeEventsByTime,
+  selectMaterialFromLocation,
+  EVENT_TYPE_CONFIG,
+} from '../data/events/_event-template';
+import { filterEventsByConditions, getEventsForLocation } from '../data/events';
+
+// ============================================================================
+// ГЕНЕРАЦИЯ СОБЫТИЙ ДЛЯ МИССИИ
+// ============================================================================
+
+export interface EventGenerationContext {
+  mission: MissionTemplate;
+  location: Location;
+  contractType: ContractType;
+  seed: number;
+  progress?: number;
+}
+
+/**
+ * Сгенерировать события для миссии
+ */
+export function generateEventsForMission(
+  context: EventGenerationContext
+): GeneratedEvent[] {
+  const { mission, location, contractType, seed } = context;
+
+  // 1. Определить количество событий
+  const eventCount = calculateEventCount(
+    mission.duration.base,
+    location.tier,
+    mission.difficulty,
+    mission.rarity,
+    contractType
+  );
+
+  // 2. Получить подходящие шаблоны
+  const availableTemplates = getAvailableEventTemplates(context);
+
+  if (availableTemplates.length === 0) {
+    return [];
+  }
+
+  // 3. Выбрать шаблоны с учётом весов и распределения типов
+  const selectedTemplates = selectEventTemplates(
+    availableTemplates,
+    eventCount,
+    seed
+  );
+
+  // 4. Распределить по времени
+  const triggerTimes = distributeEventsByTime(
+    eventCount,
+    mission.duration.base,
+    seed
+  );
+
+  // 5. Создать сгенерированные события
+  const events: GeneratedEvent[] = selectedTemplates.map((template, index) => ({
+    instanceId: `event_${mission.id}_${index + 1}`,
+    templateId: template.id,
+    triggeredAt: triggerTimes[index],
+    order: index + 1,
+    status: 'hidden' as const,
+  }));
+
+  return events;
+}
+
+// ============================================================================
+// ВЫБОР ШАБЛОНОВ
+// ============================================================================
+
+/**
+ * Получить доступные шаблоны событий для контекста
+ */
+function getAvailableEventTemplates(
+  context: EventGenerationContext
+): EventTemplate[] {
+  const { mission, location } = context;
+
+  // Получаем все события для локации
+  const allEvents = getEventsForLocation(location.id);
+
+  // Фильтруем по условиям
+  return filterEventsByConditions(allEvents, {
+    locationId: location.id,
+    locationType: location.type,
+    locationTags: location.tags,
+    locationTier: location.tier,
+    missionType: mission.type,
+    missionDifficulty: mission.difficulty,
+    progress: context.progress ?? 0,
+  });
+}
+
+/**
+ * Выбрать шаблоны событий с учётом весов и распределения типов
+ */
+function selectEventTemplates(
+  templates: EventTemplate[],
+  count: number,
+  seed: number
+): EventTemplate[] {
+  if (templates.length <= count) {
+    return templates;
+  }
+
+  // Сортируем по типам (чтобы было разнообразие)
+  const byType: Record<string, EventTemplate[]> = {};
+  for (const t of templates) {
+    if (!byType[t.type]) byType[t.type] = [];
+    byType[t.type].push(t);
+  }
+
+  // Определяем желаемое распределение типов
+  const typeDistribution = calculateTypeDistribution(count);
+
+  const selected: EventTemplate[] = [];
+
+  // Выбираем по одному из каждого типа
+  for (const [type, typeCount] of Object.entries(typeDistribution)) {
+    const typeTemplates = byType[type] || [];
+    for (let i = 0; i < typeCount && selected.length < count; i++) {
+      if (typeTemplates.length > 0) {
+        const index = Math.floor(seededRandom(seed + selected.length) * typeTemplates.length);
+        const template = typeTemplates.splice(index, 1)[0];
+        if (template) selected.push(template);
+      }
+    }
+  }
+
+  // Добираем случайные, если не хватило
+  const remaining = templates.filter(t => !selected.includes(t));
+  while (selected.length < count && remaining.length > 0) {
+    const index = Math.floor(seededRandom(seed + selected.length * 100) * remaining.length);
+    const template = remaining.splice(index, 1)[0];
+    if (template) selected.push(template);
+  }
+
+  return selected;
+}
+
+/**
+ * Рассчитать распределение событий по типам
+ */
+function calculateTypeDistribution(count: number): Record<string, number> {
+  const distribution: Record<string, number> = {
+    positive: 0,
+    negative: 0,
+    neutral: 0,
+    choice: 0,
+  };
+
+  // Пропорционально весам
+  const totalWeight = Object.values(EVENT_TYPE_CONFIG).reduce((s, c) => s + c.weight, 0);
+
+  let remaining = count;
+  for (const [type, config] of Object.entries(EVENT_TYPE_CONFIG)) {
+    const proportion = config.weight / totalWeight;
+    const typeCount = Math.round(count * proportion);
+
+    if (remaining > 0 && typeCount > 0) {
+      distribution[type] = Math.min(typeCount, remaining);
+      remaining -= distribution[type];
+    }
+  }
+
+  // Добираем до нужного количества
+  if (remaining > 0) {
+    distribution.positive += remaining;
+  }
+
+  return distribution;
+}
+
+// ============================================================================
+// РАЗРЕШЕНИЕ ЭФФЕКТОВ
+// ============================================================================
+
+/**
+ * Разрешить эффекты события (подставить материалы из локации)
+ */
+export function resolveEventEffects(
+  effects: EventEffect[],
+  location: Location,
+  seed: number
+): ResolvedEffect[] {
+  const resolved: ResolvedEffect[] = [];
+
+  for (const effect of effects) {
+    const resolvedEffect = resolveEffect(effect, location, seed + resolved.length);
+    if (resolvedEffect) {
+      resolved.push(resolvedEffect);
+    }
+  }
+
+  return resolved;
+}
+
+/**
+ * Разрешить один эффект
+ */
+function resolveEffect(
+  effect: EventEffect,
+  location: Location,
+  seed: number
+): ResolvedEffect | null {
+  switch (effect.type) {
+    case 'grant_location_material': {
+      // Динамически выбираем материал из ресурсов локации
+      const rarity = effect.materialRarity || 'common';
+      const selectedResource = selectMaterialFromLocation(
+        location.resources,
+        rarity,
+        seed
+      );
+
+      if (!selectedResource) return null;
+
+      const quantity = randomInRange(
+        effect.materialQuantity?.base ?? 1,
+        effect.materialQuantity?.variance ?? 0,
+        seed
+      );
+
+      return {
+        type: 'grant_material',
+        materialId: selectedResource.materialId,
+        quantity: Math.max(1, quantity),
+        description: effect.description,
+      };
+    }
+
+    case 'grant_resource': {
+      const quantity = randomInRange(
+        effect.quantity?.base ?? 1,
+        effect.quantity?.variance ?? 0,
+        seed
+      );
+
+      return {
+        type: 'grant_resource',
+        resourceId: effect.resourceId,
+        quantity: Math.max(1, quantity),
+        description: effect.description,
+      };
+    }
+
+    case 'damage_weapon':
+    case 'damage_adventurer':
+    case 'modify_success_chance':
+    case 'modify_gold_reward': {
+      return {
+        type: effect.type,
+        quantity: effect.modifier ?? 0,
+        description: effect.description,
+      };
+    }
+
+    case 'modify_duration': {
+      return {
+        type: 'modify_duration',
+        quantity: effect.modifier ?? 0,
+        description: effect.description,
+      };
+    }
+
+    case 'narrative_only': {
+      return {
+        type: 'narrative_only',
+        quantity: 0,
+        description: effect.description,
+      };
+    }
+
+    default:
+      return null;
+  }
+}
+
+// ============================================================================
+// УТИЛИТЫ
+// ============================================================================
+
+function seededRandom(seed: number): number {
+  const x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+}
+
+function randomInRange(base: number, variance: number, seed: number): number {
+  const random = seededRandom(seed);
+  const range = base * variance;
+  return Math.floor(base + (random - 0.5) * 2 * range);
+}
+
+// ============================================================================
+// ЭКСПОРТ
+// ============================================================================
+
+export { selectMaterialFromLocation } from '../data/events/_event-template';

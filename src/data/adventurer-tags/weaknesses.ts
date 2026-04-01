@@ -6,6 +6,7 @@
  */
 
 import type { WeaknessId } from '@/types/adventurer-extended'
+import type { ExpeditionDifficulty, ExpeditionType } from '@/data/expedition-templates'
 
 export interface WeaknessData {
   id: WeaknessId
@@ -23,8 +24,8 @@ export interface WeaknessData {
   }
   // Условия применения (опционально)
   conditions?: {
-    difficulty?: ('easy' | 'normal' | 'hard' | 'extreme' | 'legendary')[]
-    missionType?: ('hunt' | 'scout' | 'clear' | 'delivery' | 'magic')[]
+    difficulty?: ExpeditionDifficulty[]
+    missionType?: ExpeditionType[]
   }
 }
 
@@ -199,8 +200,8 @@ export function getWeaknessById(id: WeaknessId): WeaknessData | undefined {
 // Функция проверки, применяется ли слабость к данной миссии
 export function doesWeaknessApply(
   weakness: WeaknessData,
-  difficulty: 'easy' | 'normal' | 'hard' | 'extreme' | 'legendary',
-  missionType: 'hunt' | 'scout' | 'clear' | 'delivery' | 'magic'
+  difficulty: ExpeditionDifficulty,
+  missionType: ExpeditionType
 ): boolean {
   if (!weakness.conditions) return true // Применяется всегда
   

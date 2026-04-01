@@ -19,13 +19,12 @@ import {
   getQualityMultiplier, 
   getQualityColor,
   getQualityNameRu,
+  getQualityRank,
   QUALITY_GRADES_CONFIG 
 } from '@/types/craft-v2'
 import type {
   WeaponForecast,
-  StatRange,
   QualityScore,
-  QualityRank
 } from '@/types/forecast'
 import {
   BALANCE_MATERIAL_NEUTRAL,
@@ -50,6 +49,13 @@ import {
   WEIGHT_PER_UNIT_DENSITY,
   WEIGHT_ROUND_DECIMALS,
 } from './constants'
+import {
+  calculateAverageExpertise,
+  craftVarianceDownFactor,
+  craftVarianceUpFactor,
+  statRangeFromBase,
+  weightStatRangeFromBase,
+} from './craft-variance'
 import { applyPercentMultiplier, contributionFromMaterialPercent } from './formulas'
 
 /**
@@ -250,6 +256,25 @@ function calculateQuality(
 }
 
 /**
+ * Рассчитать цену продажи по списку материалов из результата крафта
+ */
+export function computeSellPriceForWeapon(
+  attack: number,
+  durability: number,
+  quality: number,
+  materialEntries: WeaponCalculationResult['materials'],
+  enchantSlots: number
+): number {
+  const materialData = materialEntries
+    .map(({ materialId, quantity }) => {
+      const material = getMaterialAsLegacy(materialId)
+      return material ? { material, quantity } : null
+    })
+    .filter((x): x is { material: Material; quantity: number } => x !== null)
+  return calculateSellPrice(attack, durability, quality, materialData, enchantSlots)
+}
+
+/**
  * Рассчитать цену продажи
  */
 function calculateSellPrice(
@@ -325,45 +350,25 @@ export function calculateForecast(
   blacksmithLevel: number,
   materialExpertise: Record<string, number>
 ): WeaponForecast {
-  // Рассчитываем базовые характеристики используя те же формулы, что и при крафте
   const baseResult = calculateWeapon(recipe, materials, techniques, blacksmithLevel)
-
-  // Рассчитываем среднюю экспертизу для определения разброса
   const avgExpertise = calculateAverageExpertise(materials, materialExpertise)
-  const varianceMultiplier = (100 - avgExpertise) / 100 * 0.3
+  const down = craftVarianceDownFactor(avgExpertise)
+  const up = craftVarianceUpFactor(avgExpertise)
 
-  // Рассчитываем диапазоны характеристик
-  const attack: StatRange = {
-    min: Math.max(0, Math.round(baseResult.stats.attack * (1 - varianceMultiplier))),
-    max: Math.round(baseResult.stats.attack * (1 + varianceMultiplier * 0.5)),
-    variance: varianceMultiplier
-  }
+  const attack = statRangeFromBase(baseResult.stats.attack, avgExpertise)
+  const durability = statRangeFromBase(baseResult.stats.durability, avgExpertise)
+  const weight = weightStatRangeFromBase(baseResult.stats.weight, avgExpertise)
+  const soulCapacity = statRangeFromBase(baseResult.stats.soulCapacity, avgExpertise)
 
-  const durability: StatRange = {
-    min: Math.max(0, Math.round(baseResult.stats.durability * (1 - varianceMultiplier))),
-    max: Math.round(baseResult.stats.maxDurability * (1 + varianceMultiplier * 0.5)),
-    variance: varianceMultiplier
-  }
+  const qMin = Math.max(0, Math.round(baseResult.quality * (1 - down)))
+  const qMax = Math.min(100, Math.round(baseResult.quality * (1 + up)))
 
-  const weight: StatRange = {
-    min: Math.max(0, Math.round(baseResult.stats.weight * (1 - varianceMultiplier * 0.5))),
-    max: Math.round(baseResult.stats.weight * (1 + varianceMultiplier * 0.3)),
-    variance: varianceMultiplier
-  }
-
-  const soulCapacity: StatRange = {
-    min: Math.max(0, Math.round(baseResult.stats.soulCapacity * (1 - varianceMultiplier))),
-    max: Math.round(baseResult.stats.soulCapacity * (1 + varianceMultiplier * 0.5)),
-    variance: varianceMultiplier
-  }
-
-  // Диапазон качества
   const quality: QualityScore = {
     value: baseResult.quality,
-    min: Math.max(0, Math.round(baseResult.quality * (1 - varianceMultiplier))),
-    max: Math.min(100, Math.round(baseResult.quality * (1 + varianceMultiplier * 0.5))),
-    rank: getQualityRankFromQuality(baseResult.quality),
-    progress: 0.5
+    min: Math.min(qMin, qMax),
+    max: Math.max(qMin, qMax),
+    rank: getQualityRank(baseResult.quality),
+    progress: 0.5,
   }
 
   const predictionAccuracy = 50 + avgExpertise * 0.5
@@ -378,32 +383,70 @@ export function calculateForecast(
   }
 }
 
-/**
- * Рассчитать среднюю экспертизу по материалам
- */
-function calculateAverageExpertise(
-  materials: MaterialAssignment,
-  materialExpertise: Record<string, number>
-): number {
-  const values = Object.values(materials).map(m => materialExpertise[m.materialId] || 0)
-  return values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0
-}
+export { calculateAverageExpertise } from './craft-variance'
 
 /**
- * Получить ранг качества по числовому значению
+ * Случайный итог крафта в пределах прогноза (используется при завершении процесса).
  */
-function getQualityRankFromQuality(quality: number): QualityRank {
-  if (quality >= 95) return 'S'
-  if (quality >= 85) return 'A'
-  if (quality >= 70) return 'B'
-  if (quality >= 55) return 'C'
-  if (quality >= 40) return 'D'
-  return 'F'
+export function rollWeaponOutcome(
+  base: WeaponCalculationResult,
+  forecast: WeaponForecast,
+  random: () => number = Math.random
+): WeaponCalculationResult {
+  const pickInt = (min: number, max: number): number => {
+    if (max <= min) return min
+    return Math.round(min + (max - min) * random())
+  }
+
+  const quality = pickInt(forecast.quality.min, forecast.quality.max)
+  const attack = pickInt(forecast.attack.min, forecast.attack.max)
+  const durability = pickInt(forecast.durability.min, forecast.durability.max)
+  const maxDurability = durability
+  const soulCapacity = pickInt(forecast.soulCapacity.min, forecast.soulCapacity.max)
+
+  const weight =
+    pickInt(
+      Math.round(forecast.weight.min * 10),
+      Math.round(forecast.weight.max * 10)
+    ) / 10
+
+  const qualityGrade = getQualityGrade(quality)
+  const qualityMultiplier = getQualityMultiplier(quality)
+  const qualityColor = getQualityColor(quality)
+  const qualityNameRu = getQualityNameRu(quality)
+
+  const sellPrice = computeSellPriceForWeapon(
+    attack,
+    durability,
+    quality,
+    base.materials,
+    base.stats.enchantSlots
+  )
+
+  return {
+    stats: {
+      ...base.stats,
+      attack,
+      durability,
+      maxDurability,
+      soulCapacity,
+      weight,
+      balance: base.stats.balance,
+    },
+    quality,
+    qualityGrade,
+    qualityMultiplier,
+    qualityColor,
+    qualityNameRu,
+    sellPrice,
+    materials: base.materials,
+  }
 }
 
 const calculatorDefaultExport = {
   calculateWeapon,
   getQualityInfo,
   calculateForecast,
+  rollWeaponOutcome,
 }
 export default calculatorDefaultExport

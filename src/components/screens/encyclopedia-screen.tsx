@@ -7,6 +7,7 @@
 import { useState, useMemo } from 'react'
 import { BookOpen, Search, Info, TestTube } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
+import { Switch } from '@/components/ui/switch'
 import {
   MaterialCard,
   SearchBar,
@@ -25,14 +26,16 @@ export function EncyclopediaScreen() {
   // Get knowledge from store
   const materialKnowledge = useGameStore(state => state.materialKnowledge)
   const setMaterialExpertise = useGameStore(state => state.setMaterialExpertise)
+  const showOnlyDiscovered = useGameStore(state => state.showOnlyDiscovered)
+  const toggleShowOnlyDiscovered = useGameStore(state => state.toggleShowOnlyDiscovered)
 
   // Filter materials
   const filteredMaterials = useMemo(() => {
     return allMaterials
       .filter((material: MaterialNode) => {
-        // Only show discovered materials
+        if (!showOnlyDiscovered) return true
         const knowledge = materialKnowledge[material.identity.id]
-        return knowledge && knowledge.expertise > 0
+        return knowledge !== undefined && knowledge.expertise > 0
       })
       .filter((material: MaterialNode) => {
         // Filter by category
@@ -60,7 +63,7 @@ export function EncyclopediaScreen() {
         if (rarityDiff !== 0) return rarityDiff
         return a.identity.name.localeCompare(b.identity.name, 'ru')
       })
-  }, [selectedCategory, searchQuery, materialKnowledge])
+  }, [selectedCategory, searchQuery, materialKnowledge, showOnlyDiscovered])
 
   // Test: toggle expertise between 100%, 10% and original values
   const testToggleExpertise = () => {
@@ -118,10 +121,20 @@ export function EncyclopediaScreen() {
       {/* Search and filters */}
       <div className="space-y-4">
         <SearchBar value={searchQuery} onChange={setSearchQuery} />
-        <CategoryTabs 
-          activeCategory={selectedCategory} 
-          onCategoryChange={setSelectedCategory} 
-        />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <CategoryTabs 
+            activeCategory={selectedCategory} 
+            onCategoryChange={setSelectedCategory} 
+          />
+          <label className="flex items-center gap-2 text-sm text-stone-400 cursor-pointer shrink-0">
+            <Switch
+              checked={showOnlyDiscovered}
+              onCheckedChange={() => toggleShowOnlyDiscovered()}
+              aria-label="Только открытые материалы"
+            />
+            <span>Только открытые</span>
+          </label>
+        </div>
       </div>
 
       {/* Material grid */}
@@ -133,7 +146,9 @@ export function EncyclopediaScreen() {
             <p className="text-stone-600 text-sm">
               {searchQuery
                 ? 'Попробуйте изменить поисковый запрос'
-                : 'Откройте новые материалы в кузнице'}
+                : showOnlyDiscovered
+                  ? 'Снимите фильтр «Только открытые», чтобы видеть весь каталог, или накапливайте экспертизу'
+                  : 'Ничего не подошло под категорию или поиск'}
             </p>
           </CardContent>
         </Card>
