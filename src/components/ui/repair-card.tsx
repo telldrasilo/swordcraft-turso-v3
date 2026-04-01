@@ -5,50 +5,36 @@
 
 'use client'
 
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { 
   Wrench, 
   Heart, 
-  Star, 
   Sparkles, 
   Coins, 
   Map, 
   Shield, 
-  Zap, 
   AlertTriangle,
-  Info,
-  Clock,
   CheckCircle,
-  X,
-  ArrowRight,
   Crown,
-  Flame,
-  Droplet
 } from 'lucide-react'
-import { useState, useMemo } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { useMemo } from 'react'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
 import { 
   Tooltip,
   TooltipTrigger,
   TooltipContent,
-  TooltipProvider
 } from '@/components/ui/tooltip'
-import { InfoTooltip, RichTooltip } from '@/components/ui/game-tooltip'
 import { useGameStore } from '@/store'
-import { qualityGrades, type QualityGrade } from '@/data/weapon-recipes'
+import { qualityGrades } from '@/lib/craft/weapon-display-meta'
+import type { QualityGrade } from '@/store/slices/craft-slice'
 import type { CraftedWeaponV2 } from '@/types/craft-v2'
 import { QUALITY_GRADE_V2_TO_LEGACY, TIER_NUMBER_TO_STRING } from '@/lib/store-utils/constants'
 import { 
   RepairOption,
   RepairType,
-  RepairResult,
   getSmithMastery,
-  SMITH_MASTERY_LEVELS,
   getRiskDescription,
-  type BlacksmithWorker,
 } from '@/data/repair-system'
 import { cn } from '@/lib/utils'
 
@@ -125,11 +111,6 @@ export function RepairCard({ weapon, onSelect, selectedOption }: RepairCardProps
     ? getSmithMastery(bestBlacksmith.level)
     : null
   
-  // Выбранная опция
-  const selectedOptionData = selectedOption 
-    ? repairOptions.find(o => o.type === selectedOption)
-    : null
-
   // Проверяем возможность ремонта
   const canRepair = (option: RepairOption): boolean => {
     // Проверяем золото

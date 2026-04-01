@@ -97,7 +97,7 @@ export const createPlayerSlice: StateCreator<
   [],
   [],
   PlayerSlice
-> = (set, get) => ({
+> = (set, _get) => ({
   // State
   player: initialPlayer,
   statistics: initialStatistics,

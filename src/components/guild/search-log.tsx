@@ -4,11 +4,10 @@
 
 'use client'
 
-import React, { useMemo, useCallback, useEffect, useRef, useState } from 'react'
+import React, { useMemo, useEffect, useRef, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import type { SearchState, SearchLogEntry } from '@/types/adventurer-extended'
 
@@ -172,7 +171,7 @@ export const SearchLog: React.FC<SearchLogProps> = ({
             </div>
           ) : (
             <div className="p-2 space-y-1">
-              {searchState.logs.map((entry, index) => (
+              {searchState.logs.map((entry) => (
                 <LogEntry 
                   key={entry.id}
                   entry={entry}

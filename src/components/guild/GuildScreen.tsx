@@ -7,7 +7,7 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Shield, Users, Trophy, Map, Scroll, Crown, TrendingUp } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { OrdersSectionContainer } from './containers/OrdersSectionContainer'
 import { ExpeditionsSectionContainer } from './containers/ExpeditionsSectionContainer'
@@ -15,7 +15,6 @@ import { GuildStatsSection } from './presentation/GuildStatsSection'
 import { ReputationNotificationContainer } from './ReputationNotification'
 import { useGameStore } from '@/store/game-store-composed'
 import {
-  getGuildReputationLevel,
   getReputationToNextLevel,
   getTotalReputationForLevel,
   getMaxActiveExpeditions,

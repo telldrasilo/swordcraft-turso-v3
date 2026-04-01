@@ -5,11 +5,9 @@
 
 import type { AdventurerExtended } from '@/types/adventurer-extended'
 import type { ExpeditionTemplate, ExpeditionDifficulty, ExpeditionType } from '@/data/expedition-templates'
-import { getPersonalityTraitById } from '@/data/adventurer-tags/personality-traits'
 import { getCombatStyleById } from '@/data/adventurer-tags/combat-styles'
 import { getStrengthById, doesStrengthApply } from '@/data/adventurer-tags/strengths'
 import { getWeaknessById, doesWeaknessApply } from '@/data/adventurer-tags/weaknesses'
-import { getSocialTagById } from '@/data/adventurer-tags/social-tags'
 
 // ================================
 // ТИПЫ
@@ -99,13 +97,17 @@ const adviceRules: AdviceRule[] = [
       return (bonus?.bonus ?? 0) > 10
     },
     advice: (ctx) => {
-      const style = getCombatStyleById(ctx.adventurer.combat.combatStyle)!
+      const style = getCombatStyleById(ctx.adventurer.combat.combatStyle)
+      if (!style) {
+        return { text: '', icon: '🎯', type: 'good' as const, detail: '' }
+      }
       const bonus = style.missionBonuses.find(b => b.missionType === ctx.expedition.type || b.missionType === 'any')
+      const bonusPct = bonus?.bonus ?? 0
       return {
         text: `${style.name} на ${getMissionTypeName(ctx.expedition.type)} — идеально!`,
         icon: '🎯',
         type: 'excellent',
-        detail: `Бонус +${bonus!.bonus}% к успеху за специализацию`
+        detail: `Бонус +${bonusPct}% к успеху за специализацию`
       }
     }
   },
@@ -119,13 +121,17 @@ const adviceRules: AdviceRule[] = [
       return (bonus?.bonus ?? 0) < 0
     },
     advice: (ctx) => {
-      const style = getCombatStyleById(ctx.adventurer.combat.combatStyle)!
+      const style = getCombatStyleById(ctx.adventurer.combat.combatStyle)
+      if (!style) {
+        return { text: '', icon: '⚠️', type: 'warning' as const, detail: '' }
+      }
       const bonus = style.missionBonuses.find(b => b.missionType === ctx.expedition.type)
+      const penalty = bonus?.bonus ?? 0
       return {
         text: `${style.name} на такой миссии — не идеально`,
         icon: '⚠️',
         type: 'risky',
-        detail: `Штраф ${bonus!.bonus}% к успеху. Лучше выбрать другого.`
+        detail: `Штраф ${penalty}% к успеху. Лучше выбрать другого.`
       }
     }
   },
@@ -214,10 +220,10 @@ const adviceRules: AdviceRule[] = [
     priority: 70,
     condition: (ctx) => {
       const advLevel = ctx.adventurer.combat.level
-      const [minLevel, maxLevel] = getDifficultyLevelRange(ctx.expedition.difficulty)
+      const [, maxLevel] = getDifficultyLevelRange(ctx.expedition.difficulty)
       return advLevel > maxLevel + 10
     },
-    advice: (ctx) => ({
+    advice: (_ctx) => ({
       text: 'Слишком опытный для такой миссии',
       icon: '😴',
       type: 'warning',
@@ -229,10 +235,10 @@ const adviceRules: AdviceRule[] = [
     priority: 70,
     condition: (ctx) => {
       const advLevel = ctx.adventurer.combat.level
-      const [minLevel, maxLevel] = getDifficultyLevelRange(ctx.expedition.difficulty)
+      const [minLevel] = getDifficultyLevelRange(ctx.expedition.difficulty)
       return advLevel < minLevel - 5
     },
-    advice: (ctx) => ({
+    advice: (_ctx) => ({
       text: 'Уровень слишком низкий!',
       icon: '💀',
       type: 'dangerous',

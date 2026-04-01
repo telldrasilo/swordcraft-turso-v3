@@ -15,7 +15,7 @@ import type {
   StageTypeDefinition
 } from '@/types/craft-v2'
 import { DEFAULT_GAME_CONFIG } from '@/types/craft-v2'
-import { getStageById, allStages } from '@/data/stages'
+import { getStageById } from '@/data/stages'
 import { getMaterialAsLegacy } from '@/data/materials'
 import { getRecipeById } from '@/data/recipes'
 import { getTechniqueById } from '@/data/techniques'
@@ -92,12 +92,12 @@ export function generateCraftStages(
 function applyMaterialMods(
   stages: WeaponRecipe['stages'],
   materials: MaterialAssignment,
-  context: GenerationContext
+  _context: GenerationContext
 ): WeaponRecipe['stages'] {
   const result = [...stages]
   
   // Для каждого материала проверяем processingProfile
-  for (const [partId, { materialId }] of Object.entries(materials)) {
+  for (const [, { materialId }] of Object.entries(materials)) {
     const material = getMaterialAsLegacy(materialId)
     if (!material?.processingProfile?.stages) continue
     
@@ -132,7 +132,7 @@ function applyMaterialMods(
 function applyTechniqueMods(
   stages: WeaponRecipe['stages'],
   techniques: Technique[],
-  context: GenerationContext
+  _context: GenerationContext
 ): WeaponRecipe['stages'] {
   const result = [...stages]
   
@@ -318,7 +318,7 @@ function calculateWeaponStats(
   recipe: WeaponRecipe,
   materials: MaterialAssignment,
   techniques: Technique[],
-  blacksmithLevel: number
+  _blacksmithLevel: number
 ): CraftPlan['estimatedStats'] {
   const base = recipe.baseStats
   
@@ -333,7 +333,7 @@ function calculateWeaponStats(
   let enchantPower = 1.0
   
   // Применяем бонусы от материалов
-  for (const [partId, { materialId }] of Object.entries(materials)) {
+  for (const [, { materialId }] of Object.entries(materials)) {
     const material = getMaterialAsLegacy(materialId)
     if (!material) continue
     
@@ -380,7 +380,7 @@ function calculateWeaponStats(
  */
 function estimateQuality(
   blacksmithLevel: number,
-  materials: MaterialAssignment,
+  _materials: MaterialAssignment,
   techniques: Technique[]
 ): CraftPlan['estimatedQuality'] {
   // Базовое качество от уровня кузнеца
@@ -437,8 +437,9 @@ export function createActiveCraft(
   }
 }
 
-export default {
+const processGeneratorDefaultExport = {
   generateCraftStages,
   createCraftPlan,
   createActiveCraft,
 }
+export default processGeneratorDefaultExport

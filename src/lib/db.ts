@@ -11,6 +11,7 @@
  * 3) POST/GET/INSERT/UPDATE/formatSaveData/createNewSave в src/app/api/save/route.ts
  * 4) saveRequestBodySchema (и при необходимости validateSaveData) в src/lib/save-payload-schema.ts
  * 5) Клиент: collectSaveData / applyLoadedData в src/hooks/use-cloud-save.ts и partialize в game-store-composed.ts
+ * 6) Нормализация крафта v2 в JSON: src/lib/save-craft-normalize.ts
  */
 
 import { createClient, type Client } from '@libsql/client'
@@ -69,7 +70,7 @@ function createDbClient(): Client | null {
     return null
   }
 
-  console.log('[DB] Connecting to Turso:', url.substring(0, 30) + '...')
+  console.warn('[DB] Connecting to Turso:', url.substring(0, 30) + '...')
 
   return createClient({
     url,
@@ -81,7 +82,7 @@ async function initializeTables(db: Client): Promise<void> {
   if (globalForDb.tablesInitialized) return
 
   try {
-    console.log('[DB] Creating tables if not exist...')
+    console.warn('[DB] Creating tables if not exist...')
 
     const statements = CREATE_TABLES_SQL.split(';').filter(s => s.trim())
 
@@ -95,7 +96,7 @@ async function initializeTables(db: Client): Promise<void> {
     await ensureGameSavesColumns(db)
 
     globalForDb.tablesInitialized = true
-    console.log('[DB] Tables initialized successfully')
+    console.warn('[DB] Tables initialized successfully')
   } catch (error) {
     console.error('[DB] Failed to initialize tables:', error)
     throw error
@@ -114,6 +115,12 @@ async function ensureGameSavesColumns(db: Client): Promise<void> {
   if (!names.has('materialKnowledge')) {
     await db.execute({
       sql: "ALTER TABLE game_saves ADD COLUMN materialKnowledge TEXT DEFAULT '{}'",
+      args: [],
+    })
+  }
+  if (!names.has('craftV2Persisted')) {
+    await db.execute({
+      sql: "ALTER TABLE game_saves ADD COLUMN craftV2Persisted TEXT DEFAULT '{}'",
       args: [],
     })
   }

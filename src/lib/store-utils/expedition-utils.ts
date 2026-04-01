@@ -5,7 +5,8 @@
  */
 
 import { ActiveExpedition, RecoveryQuest, GuildState } from '@/types/guild'
-import { AdventurerExtended } from '@/types/adventurer-extended'
+import { AdventurerExtended, type WeaponType } from '@/types/adventurer-extended'
+import type { CraftedWeaponV2 } from '@/types/craft-v2'
 import { MissionResultForStats, KnownAdventurer } from '@/types/known-adventurer'
 import { updateKnownAdventurer } from '@/lib/known-adventurers-manager'
 import {
@@ -160,7 +161,7 @@ export function updateKnownAdventurersAfterMission(
     success: result.success,
     gold: result.commission,
     warSoul: result.warSoul,
-    weaponType: weaponType as any,
+    weaponType: weaponType as WeaponType | undefined,
   }
 
   return updateKnownAdventurer(knownAdventurers, extendedAdventurer, missionResult)
@@ -172,12 +173,12 @@ export function updateKnownAdventurersAfterMission(
 export function createRecoveryQuest(
   expedition: ActiveExpedition,
   template: ExpeditionTemplate,
-  weapon: WeaponForExpedition
+  weapon: CraftedWeaponV2
 ): RecoveryQuest {
   return {
     id: generateId(),
     lostWeaponId: weapon.id,
-    lostWeaponData: weapon as any,
+    lostWeaponData: weapon,
     originalExpeditionId: expedition.expeditionId,
     originalExpeditionName: expedition.expeditionName,
     cost: Math.floor(template.cost.deposit * 0.5),

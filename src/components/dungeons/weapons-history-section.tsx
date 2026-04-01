@@ -10,7 +10,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { useGameStore } from '@/store'
-import { qualityGrades, weaponTypeStats, type QualityGrade } from '@/data/weapon-recipes'
+import { qualityGrades, weaponTypeStats } from '@/lib/craft/weapon-display-meta'
+import type { QualityGrade } from '@/store/slices/craft-slice'
 import { QUALITY_GRADE_V2_TO_LEGACY } from '@/lib/store-utils/constants'
 
 export function WeaponsHistorySection() {

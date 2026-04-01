@@ -50,7 +50,9 @@ class ModifierRegistry {
    * Получить всех провайдеров в порядке приоритета
    */
   getProviders(): ModifierProvider[] {
-    return this.providerOrder.map(name => this.providers.get(name)!).filter(Boolean)
+    return this.providerOrder
+      .map(name => this.providers.get(name))
+      .filter((p): p is ModifierProvider => p != null)
   }
   
   /**
@@ -143,10 +145,12 @@ class ModifierRegistry {
       
       // Группировка по источнику
       const sourceKey = `${modifier.source.type}:${modifier.source.id}`
-      if (!bySource.has(sourceKey)) {
-        bySource.set(sourceKey, [])
+      let sourceList = bySource.get(sourceKey)
+      if (!sourceList) {
+        sourceList = []
+        bySource.set(sourceKey, sourceList)
       }
-      bySource.get(sourceKey)!.push(applied)
+      sourceList.push(applied)
     }
     
     return {

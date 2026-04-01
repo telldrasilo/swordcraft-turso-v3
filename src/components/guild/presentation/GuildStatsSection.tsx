@@ -10,7 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { useGameStore } from '@/store/game-store-composed'
 import {
-  getGuildReputationLevel,
   getReputationToNextLevel,
   getTotalReputationForLevel,
   getMaxActiveExpeditions,

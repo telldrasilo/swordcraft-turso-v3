@@ -63,7 +63,7 @@ import { applyPercentMultiplier } from './formulas'
 // ================================
 
 export function calculateWeaponForecast(input: ForecastInput): WeaponForecast {
-  const { recipe, materials, techniques, blacksmithLevel, materialExpertise } = input
+  const { materials, materialExpertise } = input
 
   // 1. Расчёт средней экспертизы
   const avgExpertise = calculateAverageExpertise(materials, materialExpertise)
@@ -160,7 +160,7 @@ function calculateQuality(input: ForecastInput, avgExpertise: number): QualitySc
 function calculateAttack(
   input: ForecastInput,
   avgExpertise: number,
-  predictionAccuracy: number
+  _predictionAccuracy: number
 ): StatRange {
   const { recipe, materials, techniques } = input
 
@@ -200,7 +200,7 @@ function calculateAttack(
 function calculateDurability(
   input: ForecastInput,
   avgExpertise: number,
-  predictionAccuracy: number
+  _predictionAccuracy: number
 ): StatRange {
   const { recipe, materials, techniques } = input
 
@@ -238,7 +238,7 @@ function calculateDurability(
 function calculateWeight(
   input: ForecastInput,
   avgExpertise: number,
-  predictionAccuracy: number
+  _predictionAccuracy: number
 ): StatRange {
   const { recipe, materials, techniques } = input
 
@@ -279,7 +279,7 @@ function calculateWeight(
 function calculateSoulCapacity(
   input: ForecastInput,
   avgExpertise: number,
-  predictionAccuracy: number
+  _predictionAccuracy: number
 ): StatRange {
   const { recipe, materials, techniques } = input
 
@@ -390,7 +390,7 @@ export function calculateStatBreakdown(
   input: ForecastInput,
   stat: 'attack' | 'durability' | 'weight' | 'soulCapacity'
 ): StatBreakdown {
-  const { recipe, materials, techniques, blacksmithLevel, materialExpertise } = input
+  const { blacksmithLevel, materialExpertise, materials } = input
 
   const avgExpertise = calculateAverageExpertise(materials, materialExpertise)
   const predictionAccuracy =
@@ -530,8 +530,8 @@ function calculateTechniqueContribution(
 }
 
 function calculateMasteryContribution(
-  input: ForecastInput,
-  stat: 'attack' | 'durability' | 'weight' | 'soulCapacity',
+  _input: ForecastInput,
+  _stat: 'attack' | 'durability' | 'weight' | 'soulCapacity',
   blacksmithLevel: number
 ): ContributionBreakdown {
   const value = blacksmithLevel * FORECAST_BREAKDOWN_MASTERY_PER_LEVEL
@@ -550,8 +550,8 @@ function calculateMasteryContribution(
 }
 
 function calculateExpertiseContribution(
-  input: ForecastInput,
-  stat: 'attack' | 'durability' | 'weight' | 'soulCapacity',
+  _input: ForecastInput,
+  _stat: 'attack' | 'durability' | 'weight' | 'soulCapacity',
   avgExpertise: number
 ): ContributionBreakdown {
   const value = avgExpertise * FORECAST_BREAKDOWN_EXPERTISE_PER_POINT

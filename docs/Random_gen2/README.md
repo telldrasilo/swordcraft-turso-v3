@@ -29,3 +29,5 @@
 **Расположение:** итоговый автономный пакет лежит в каталоге `docs/Random_gen2/` (per плану миграции).
 
 Provenance (при составлении): репозиторий SwordCraft swordcraft-turso-v3, снимок логики по состоянию исходников на момент генерации документа.
+
+**Сохранения в хосте:** по умолчанию **без облака** — только Zustand persist и локальный бэкап; Turso и `/api/save` после `NEXT_PUBLIC_CLOUD_SAVE_ENABLED=true`. См. `src/lib/cloud-save-feature.ts` и `docs/01_ARCHITECTURE.md`.

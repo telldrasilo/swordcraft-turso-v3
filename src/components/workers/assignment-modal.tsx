@@ -12,7 +12,7 @@ import { useGameStore, type ProductionBuilding, type Worker } from '@/store'
 import { getWorkerClassInfo, getBuildingInfo } from '@/data/game-tooltips'
 import { BALANCE } from '@/hooks/use-game-loop'
 import { cn } from '@/lib/utils'
-import { StaminaIcon, buildingIcons } from './workers-utils'
+import { StaminaIcon } from './workers-utils'
 
 // Карта иконок для зданий (локальная)
 const buildingIconMap: Record<string, typeof BedDouble> = {

@@ -123,14 +123,19 @@ npm run dev
 - Guild reputation and glory
 - Statistics tracking
 
-## Cloud Saves
+## Saves (local + optional cloud)
 
-The game supports cloud saves through Turso database. Saves are automatically:
-- Saved every 60 seconds
-- Saved when closing the browser
-- Synced across devices
+**By default**, progress is stored in the browser via **Zustand persist** (`localStorage`, key `swordcraft-store-v2`). The `use-cloud-save` hook also writes a local backup (`swordcraft-offline-backup`) and can autosave on an interval.
 
-Currently uses demo mode without authentication. Authentication will be added in future updates.
+**Cloud sync (Turso)** is **opt-in**. Set in `.env`:
+
+```env
+NEXT_PUBLIC_CLOUD_SAVE_ENABLED=true
+```
+
+and configure `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` (see `.env.example`). When cloud is off, `/api/save` returns `503` with `cloudSaveDisabled`; the client does not call it. When on: periodic server saves (~60s), beacon on tab close, load on startup — see `src/lib/cloud-save-feature.ts` for a schema checklist when adding new persisted fields.
+
+Authentication policy for production saves is documented in `src/lib/save-auth.ts` (NextAuth / demo provider).
 
 ## Development Notes
 
@@ -139,12 +144,11 @@ Currently uses demo mode without authentication. Authentication will be added in
 - ESLint with Next.js rules configured
 - Prettier for consistent code formatting
 - Type checking enforced before builds
-- **Tests:** Vitest; test files `src/**/*.test.ts`. Run `npm run test` before pushing; CI runs `npm run test` then `npm run build`.
+- **Tests:** Vitest; test files `src/**/*.test.ts`. Run `npm run test` before pushing; CI runs `npm run test`, `npm run test:coverage` (thresholds on `src/lib/**`), then `npm run build`.
 - Conventions and CI details for agents: see **«Тесты и проверка качества»** in [AGENTS.md](AGENTS.md).
 
 ### Known Issues
-- Some TypeScript errors exist due to recent strict mode enablement
-- ESLint needs to be run with `--fix` to auto-fix many issues
+- Residual ESLint warnings (`any`, non-null assertions, etc.); CI does not enforce `--max-warnings 0`
 - Guild state uses temporary structure (AdditionalState.guild) instead of dedicated slice
 
 ### Future Improvements

@@ -21,25 +21,20 @@ import {
   generateRarity,
   generateLevel,
   getRarityConfig,
-  RARITY_CONFIG,
 } from '@/data/adventurer-rarity'
 
 // Импорт тэгов
 import {
   generatePersonalityTraits,
-  getPersonalityTraitById,
-  personalityTraits,
 } from '@/data/adventurer-tags/personality-traits'
 import {
   generateMotivations,
 } from '@/data/adventurer-tags/motivations'
 import {
   generateSocialTag,
-  getSocialTagById,
 } from '@/data/adventurer-tags/social-tags'
 import {
   getRandomCombatStyle,
-  getCombatStyleById,
 } from '@/data/adventurer-tags/combat-styles'
 import {
   generateStrengths,
@@ -54,6 +49,8 @@ import {
 import {
   generateTraits,
   calculateTraitsEffect,
+  type AdventurerTrait as DataAdventurerTrait,
+  type TraitEffectType,
 } from '@/data/adventurer-traits'
 
 // Импорт существующей системы бонусов
@@ -172,7 +169,7 @@ function generateIdentity(): AdventurerIdentity {
 // Генерация боевых характеристик
 function generateCombatStats(
   rarity: Rarity,
-  guildLevel: number
+  _guildLevel: number
 ): CombatStats {
   const config = getRarityConfig(rarity)
   const level = generateLevel(rarity)
@@ -240,7 +237,7 @@ function generatePersonality(): Personality {
 // Генерация требований к оружию
 function generateWeaponRequirements(
   combat: CombatStats,
-  guildLevel: number
+  _guildLevel: number
 ): WeaponRequirement {
   const baseAttack = 5 + combat.level * 2 + Math.floor(Math.random() * 5)
   
@@ -288,27 +285,6 @@ function formatStrengthEffects(effects: {
   return parts.join(', ') || 'Нет эффекта'
 }
 
-/**
- * Форматирование эффектов слабости в строку
- */
-function formatWeaknessEffects(effects: {
-  successPenalty: number
-  goldPenalty: number
-  warSoulPenalty: number
-  weaponLossIncrease: number
-  weaponWearIncrease: number
-  refuseChanceBonus: number
-}): string {
-  const parts: string[] = []
-  if (effects.successPenalty !== 0) parts.push(`Успех: ${effects.successPenalty}%`)
-  if (effects.goldPenalty !== 0) parts.push(`Золото: -${effects.goldPenalty}%`)
-  if (effects.warSoulPenalty !== 0) parts.push(`Души: -${effects.warSoulPenalty}%`)
-  if (effects.weaponLossIncrease !== 0) parts.push(`Потеря оружия: +${effects.weaponLossIncrease}%`)
-  if (effects.weaponWearIncrease !== 0) parts.push(`Износ оружия: +${effects.weaponWearIncrease}%`)
-  if (effects.refuseChanceBonus !== 0) parts.push(`Отказ: +${effects.refuseChanceBonus}%`)
-  return parts.join(', ') || 'Нет эффекта'
-}
-
 // ================================
 // ОСНОВНЫЕ ФУНКЦИИ
 // ================================
@@ -334,32 +310,34 @@ export function generateExtendedAdventurer(guildLevel: number = 1): AdventurerEx
   
   // Генерация сильных сторон
   const strengthIds = generateStrengths(config.maxStrengths)
-  const strengths = strengthIds.map(id => {
-    const data = getStrengthById(id)!
-    return {
+  const strengths = strengthIds.flatMap((id) => {
+    const data = getStrengthById(id)
+    if (!data) return []
+    return [{
       id,
       name: data.name,
       description: data.description,
       effect: formatStrengthEffects(data.effects),
-    }
+    }]
   })
   
   // Генерация слабостей
   const weaknessIds = generateWeaknesses(rarity)
-  const weaknesses = weaknessIds.map(id => {
-    const data = getWeaknessById(id)!
+  const weaknesses = weaknessIds.flatMap((id) => {
+    const data = getWeaknessById(id)
+    if (!data) return []
     // Собираем все условия в один массив
     const appliesTo: string[] = []
     if (data.conditions?.difficulty) appliesTo.push(...data.conditions.difficulty)
     if (data.conditions?.missionType) appliesTo.push(...data.conditions.missionType)
     
-    return {
+    return [{
       id,
       name: data.name,
       description: data.description,
       penalty: Math.abs(data.effects.successPenalty), // Положительное число для UI
       appliesTo: appliesTo.length > 0 ? appliesTo : undefined,
-    }
+    }]
   })
   
   return {
@@ -522,19 +500,25 @@ export function getAdventurerRarityText(rarity: Rarity): { text: string; color: 
 /**
  * Расчёт бонусов искателя для экспедиции
  */
+function toDataTraitForEffects(t: AdventurerTrait): DataAdventurerTrait {
+  const entries = Object.entries(t.effects)
+  const first = entries[0]
+  const effectType = (first?.[0] ?? 'success_rate') as TraitEffectType
+  const effectValue = first?.[1] ?? 0
+  return {
+    id: t.id,
+    name: t.name,
+    icon: t.icon,
+    description: t.description,
+    effect: { type: effectType, value: effectValue },
+    rarity: 'common',
+  }
+}
+
 export function calculateAdventurerBonuses(adventurer: AdventurerExtended | AdventurerLegacy) {
   if ('identity' in adventurer) {
     // Расширенный формат
-    const traitEffects = calculateTraitsEffect(
-      adventurer.traits.map(t => ({
-        ...t,
-        effect: { 
-          type: Object.keys(t.effects)[0] as any, 
-          value: Object.values(t.effects)[0] 
-        },
-        rarity: 'common' as const,
-      }))
-    )
+    const traitEffects = calculateTraitsEffect(adventurer.traits.map(toDataTraitForEffects))
     const uniqueEffects = calculateBonusEffects(resolveUniqueBonusesForEffects(adventurer.uniqueBonuses))
     
     return {
@@ -551,16 +535,7 @@ export function calculateAdventurerBonuses(adventurer: AdventurerExtended | Adve
   }
   
   // Старый формат
-  const traitEffects = calculateTraitsEffect(
-    adventurer.traits.map(t => ({
-      ...t,
-      effect: { 
-        type: Object.keys(t.effects)[0] as any, 
-        value: Object.values(t.effects)[0] 
-      },
-      rarity: 'common' as const,
-    }))
-  )
+  const traitEffects = calculateTraitsEffect(adventurer.traits.map(toDataTraitForEffects))
   const uniqueEffects = calculateBonusEffects(resolveUniqueBonusesForEffects(adventurer.uniqueBonuses))
   
   return {

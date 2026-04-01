@@ -94,8 +94,8 @@ export interface AdventureEvent {
 // ЧАСТИ СОБЫТИЙ (Конструктор)
 // ================================
 
-// Враги
-const enemies = {
+// Враги (справочник для будущих событий)
+export const adventureEventEnemies = {
   // Обычные
   goblin: { name: 'Гоблин', power: 1, icon: '👺' },
   wolf: { name: 'Волк', power: 2, icon: '🐺' },

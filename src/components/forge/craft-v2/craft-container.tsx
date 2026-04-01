@@ -200,7 +200,7 @@ export function CraftContainerV2({
         const advanceResult = takeAdvance(activeOrder.id, advanceAmount)
 
         if (advanceResult.success && advanceResult.taken > 0) {
-          console.log(`Взят аванс: ${advanceResult.taken} золота`)
+          console.warn(`Взят аванс: ${advanceResult.taken} золота`)
         }
       }
     }
@@ -229,7 +229,7 @@ export function CraftContainerV2({
           checkResult.materialsToBuy.forEach(mat => {
             addResource(mat.resourceKey, mat.quantity)
           })
-          console.log(`Куплено материалов на ${totalCost} золота`)
+          console.warn(`Куплено материалов на ${totalCost} золота`)
         } else {
           console.warn(`Недостаточно золота для закупки: нужно ${totalCost}, есть ${currentGold}`)
         }
@@ -261,7 +261,7 @@ export function CraftContainerV2({
       // Запускаем крафт
       startCraft()
     }, 100)
-  }, [setRecipe, setMaterial, setTechniques, calculatePreview, startCraft, spendResources, spendResource, addResource, gold, inventory, setShouldPurchaseMaterials, activeOrder, takeAdvance])
+  }, [setRecipe, setMaterial, setTechniques, calculatePreview, startCraft, spendResources, spendResource, addResource, inventory, setShouldPurchaseMaterials, activeOrder, takeAdvance])
   
   // Обработчик получения оружия
   const handleCollectWeapon = useCallback(() => {
@@ -319,7 +319,7 @@ export function CraftContainerV2({
       addResource(mat.resourceKey, mat.quantity)
     })
     
-    console.log(`Куплено материалов на ${totalCost} золота`)
+    console.warn(`Куплено материалов на ${totalCost} золота`)
   }, [gold, spendResource, addResource])
   
   // Рендер по состоянию

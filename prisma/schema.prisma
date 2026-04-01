@@ -55,6 +55,9 @@ model GameSave {
   // === ЗНАНИЯ МАТЕРИАЛОВ (энциклопедия / крафт) ===
   materialKnowledge String @default("{}")
 
+  // === КРАФТ V2 (план, этапы, превью) — синхрон с Turso ALTER craftV2Persisted ===
+  craftV2Persisted String @default("{}")
+
   // === МЕТАДАННЫЕ ===
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

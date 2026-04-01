@@ -6,44 +6,25 @@
 
 'use client'
 
-import { motion, AnimatePresence } from 'framer-motion'
+import { AnimatePresence } from 'framer-motion'
 import {
   Sword,
-  Shield,
-  Users,
-  Star,
-  Trophy,
   Scroll,
-  Coins,
-  CheckCircle,
   RefreshCw,
-  Map,
   Compass,
-  Package,
   Skull,
-  Sparkles,
   Timer,
   Zap,
   Send,
-  Undo2,
-  Crown
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
-import {
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-  TooltipProvider
-} from '@/components/ui/game-tooltip'
-import { cn } from '@/lib/utils'
+import { TooltipProvider } from '@/components/ui/game-tooltip'
 import { useGameStore } from '@/store'
-import { useState, useEffect, useMemo } from 'react'
-import { Adventurer, ActiveExpedition, RecoveryQuest, GUILD_LEVELS, getMaxActiveExpeditions } from '@/types/guild'
-import { ExpeditionTemplate, expeditionTemplates, difficultyInfo, typeInfo } from '@/data/expedition-templates'
-import { getAdventurerFullName } from '@/lib/adventurer-generator'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { Adventurer, getMaxActiveExpeditions } from '@/types/guild'
+import { ExpeditionTemplate, expeditionTemplates } from '@/data/expedition-templates'
 import type { CraftedWeaponV2 } from '@/types/craft-v2'
 
 // Импорт вынесенных компонентов
@@ -58,117 +39,14 @@ import { ScenarioComparison } from './expeditions/ScenarioComparison'
 
 // Автосохранение
 import { debouncedSaveDraft, clearDraft, loadDraft, DraftStatus, getDraftStatus } from '@/lib/expedition-draft'
-import { useCallback } from 'react'
 
 // Импорт конвертеров и типов
 import type { AdventurerExtended } from '@/types/adventurer-extended'
 import { convertToLegacy, convertToExtended, mapExpeditionForRecruitment, mapWeaponForRecruitment } from '@/lib/adventurer-converter'
 import type { ContractTier, ContractedAdventurer } from '@/types/contract'
-import { getMaxContracts } from '@/lib/contract-manager'
-
 // Импорт системы модификаторов
 import { calculateExpeditionResult, type ExpeditionCalculation } from '@/lib/expedition-calculator-v2'
 import { FullModifierBreakdown } from '@/components/ui/modifier-breakdown'
-
-// Иконки экспедиций
-const expeditionIcons: Record<string, React.ReactNode> = {
-  hunt: <Sword className="w-5 h-5" />,
-  scout: <Compass className="w-5 h-5" />,
-  clear: <Shield className="w-5 h-5" />,
-  delivery: <Package className="w-5 h-5" />,
-  magic: <Sparkles className="w-5 h-5" />,
-}
-
-// Простой компонент для tooltip с children
-function InfoTooltip({
-  title,
-  content,
-  side = 'top',
-  children
-}: {
-  title?: string
-  content: React.ReactNode
-  side?: 'top' | 'right' | 'bottom' | 'left'
-  children: React.ReactNode
-}) {
-  return (
-    <Tooltip delayDuration={200}>
-      <TooltipTrigger asChild>
-        <div className="cursor-help">
-          {children}
-        </div>
-      </TooltipTrigger>
-      <TooltipContent side={side} className="max-w-sm z-50">
-        {title && (
-          <p className="font-semibold text-amber-400 mb-1">{title}</p>
-        )}
-        <div className="text-stone-300 text-xs leading-relaxed">
-          {content}
-        </div>
-      </TooltipContent>
-    </Tooltip>
-  )
-}
-
-// Карточка искателя
-function AdventurerCardItem({
-  adventurer,
-  isSelected,
-  canSelect,
-  onSelect
-}: {
-  adventurer: Adventurer
-  isSelected: boolean
-  canSelect: boolean
-  onSelect: () => void
-}) {
-  const fullName = getAdventurerFullName(adventurer)
-  const minAttack = adventurer.requirements?.minAttack ?? 0
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-    >
-      <Card
-        className={cn(
-          "card-medieval cursor-pointer transition-all",
-          isSelected && "border-amber-500 bg-amber-900/20",
-          !canSelect && "opacity-50"
-        )}
-        onClick={canSelect ? onSelect : undefined}
-      >
-        <CardContent className="p-3">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-stone-700 to-stone-800 flex items-center justify-center text-2xl">
-              👤
-            </div>
-            <div className="flex-1 min-w-0">
-              <h4 className="font-semibold text-stone-200 text-sm truncate">{fullName}</h4>
-              <div className="flex items-center gap-2 mt-1">
-                <Badge className="text-xs bg-purple-900/50 text-purple-300">
-                  +{adventurer.skill}% души
-                </Badge>
-                {adventurer.traits && adventurer.traits.length > 0 && (
-                  <Badge className="text-xs bg-amber-900/50 text-amber-300">
-                    {adventurer.traits.length} черт
-                  </Badge>
-                )}
-              </div>
-              <p className="text-xs text-stone-500 mt-1">
-                Требует атаку: {minAttack}+
-              </p>
-            </div>
-            {isSelected && (
-              <CheckCircle className="w-5 h-5 text-amber-400" />
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    </motion.div>
-  )
-}
 
 // ExpeditionCard теперь импортируется как ExpeditionSelectionCard
 
@@ -180,14 +58,12 @@ export function ExpeditionsSection() {
   const player = useGameStore((state) => state.player)
   const weaponInventory = useGameStore((state) => state.weaponInventory)
   const initializeAdventurers = useGameStore((state) => state.initializeAdventurers)
-  const refreshAdventurers = useGameStore((state) => state.refreshAdventurers)
   const startExpeditionFull = useGameStore((state) => state.startExpeditionFull)
   const addResource = useGameStore((state) => state.addResource)
 
   const [selectedExpedition, setSelectedExpedition] = useState<ExpeditionTemplate | null>(null)
   const [selectedWeapon, setSelectedWeapon] = useState<CraftedWeaponV2 | null>(null)
   const [selectedAdventurer, setSelectedAdventurer] = useState<Adventurer | null>(null)
-  const [timeUntilRefresh, setTimeUntilRefresh] = useState<number>(0)
 
   // Расширенный искатель (из RecruitmentInterface)
   const [selectedExtendedAdventurer, setSelectedExtendedAdventurer] = useState<AdventurerExtended | null>(null)
@@ -199,7 +75,10 @@ export function ExpeditionsSection() {
   const [currentExpeditions, setCurrentExpeditions] = useState<ExpeditionTemplate[]>([])
   
   // Контрактные искатели из расширенного состояния гильдии
-  const contractedAdventurers = (guild as any).contractedAdventurers || []
+  const contractedAdventurers =
+    ('contractedAdventurers' in guild
+      ? (guild as { contractedAdventurers?: ContractedAdventurer[] }).contractedAdventurers
+      : undefined) ?? []
   
   // Подсчёт миссий для каждого искателя из истории
   const getAdventurerStats = (adventurerId: string) => {
@@ -223,23 +102,23 @@ export function ExpeditionsSection() {
   const handleOfferContract = (adventurer: Adventurer, tier: ContractTier) => {
     // Эта функция должна вызывать action из store
     // Пока что просто выводим в консоль
-    console.log('Offer contract:', { adventurer: adventurer.name, tier })
+    console.warn('Offer contract:', { adventurer: adventurer.name, tier })
     // В реальной реализации здесь будет вызов store action
   }
 
   // Получение случайных экспедиций
-  const getRandomExpeditions = (count: number = 3): ExpeditionTemplate[] => {
+  const getRandomExpeditions = useCallback((count: number = 3): ExpeditionTemplate[] => {
     const available = expeditionTemplates.filter(e => e.minGuildLevel <= guild.level)
     const shuffled = [...available].sort(() => Math.random() - 0.5)
     return shuffled.slice(0, Math.min(count, shuffled.length))
-  }
+  }, [guild.level])
 
   // Инициализация случайных экспедиций
   useEffect(() => {
     if (currentExpeditions.length === 0) {
       queueMicrotask(() => setCurrentExpeditions(getRandomExpeditions(3)))
     }
-  }, [guild.level])
+  }, [guild.level, currentExpeditions.length, getRandomExpeditions])
 
   // Восстановление черновика при загрузке
   useEffect(() => {
@@ -287,26 +166,6 @@ export function ExpeditionsSection() {
     initializeAdventurers()
   }, [initializeAdventurers])
 
-  // Таймер до обновления искателей
-  useEffect(() => {
-    const updateTime = () => {
-      const remaining = Math.max(0, guild.adventurerRefreshAt - Date.now())
-      setTimeUntilRefresh(remaining)
-    }
-
-    updateTime()
-    const interval = setInterval(updateTime, 1000)
-    return () => clearInterval(interval)
-  }, [guild.adventurerRefreshAt])
-
-  const formatTime = (ms: number) => {
-    const minutes = Math.floor(ms / 60000)
-    const seconds = Math.floor((ms % 60000) / 1000)
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`
-  }
-
-  const canRefresh = timeUntilRefresh === 0
-
   // Проверка возможности выбрать экспедицию
   const canSelectExpedition = (expedition: ExpeditionTemplate): { can: boolean; reason: string } => {
     const totalCost = expedition.cost.supplies + expedition.cost.deposit
@@ -330,26 +189,6 @@ export function ExpeditionsSection() {
     return { can: true, reason: '' }
   }
 
-  // Проверка возможности выбрать искателя (v2)
-  const canSelectAdventurer = (adventurer: Adventurer): { can: boolean; reason: string } => {
-    if (!selectedWeapon) {
-      return { can: false, reason: 'Сначала выберите оружие' }
-    }
-    const minAttack = adventurer.requirements?.minAttack ?? 0
-    if (selectedWeapon.stats.attack < minAttack) {
-      return { can: false, reason: `Искатель требует атаку ${minAttack}+` }
-    }
-    return { can: true, reason: '' }
-  }
-
-  // Проверка возможности начать экспедицию
-  const canStartExpedition = (): { can: boolean; reason: string } => {
-    if (!selectedExpedition) return { can: false, reason: 'Выберите экспедицию' }
-    if (!selectedWeapon) return { can: false, reason: 'Выберите оружие' }
-    if (!selectedAdventurer) return { can: false, reason: 'Выберите искателя' }
-    return { can: true, reason: '' }
-  }
-
   // Доступное оружие (фильтруем по прочности, использованию в экспедиции и требованиям атаки)
   const availableWeapons = weaponInventory.weapons.filter(w => {
     // Базовые проверки (v2)
@@ -363,11 +202,6 @@ export function ExpeditionsSection() {
 
     return true
   })
-
-  // Доступные искатели
-  const availableAdventurers = guild.adventurers.filter(a =>
-    !guild.activeExpeditions.some(e => e.adventurerId === a.id)
-  )
 
   // Запуск экспедиции (v2 - используем startExpeditionFull)
   const handleStartExpedition = () => {
@@ -413,7 +247,7 @@ export function ExpeditionsSection() {
       guild.level,
       selectedWeapon.stats.attack,
       selectedWeapon.currentDurability,
-      selectedWeapon.type as any,
+      selectedWeapon.type,
       selectedWeapon.id,
       // Новые параметры для системы модификаторов
       selectedWeapon.qualityRank,

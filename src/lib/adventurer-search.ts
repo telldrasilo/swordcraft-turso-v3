@@ -8,7 +8,6 @@ import {
   SearchState,
   SearchLogEntry,
   SearchEvent,
-  Gender,
 } from '@/types/adventurer-extended'
 import { generateExtendedAdventurer, getAdventurerFullName } from './adventurer-generator-extended'
 import { generateMessage } from '@/data/adventurer-phrases'
@@ -214,8 +213,8 @@ export function generateSearchEvents(
  * Создание начального состояния поиска
  */
 export function createSearchState(
-  expedition: ExpeditionInfo,
-  guildLevel: number
+  _expedition: ExpeditionInfo,
+  _guildLevel: number
 ): SearchState {
   const duration = SEARCH_DURATION_MIN + Math.random() * (SEARCH_DURATION_MAX - SEARCH_DURATION_MIN)
   

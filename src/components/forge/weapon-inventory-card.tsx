@@ -6,23 +6,18 @@
 
 import { motion } from 'framer-motion'
 import {
-  Sword, Heart, Star, Coins, Trash2, Map as MapIcon, Crown, Sparkles, Zap,
-  Package, Wrench, Hammer
+  Sword, Heart, Star, Coins, Map as MapIcon, Crown, Sparkles,
+  Package, Hammer
 } from 'lucide-react'
-import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
 } from '@/components/ui/tooltip'
 import { useGameStore } from '@/store'
-import { 
-  weaponRecipes, 
-  weaponTypeStats, 
-} from '@/data/weapon-recipes'
+import { weaponTypeStats } from '@/lib/craft/weapon-display-meta'
 import type { CraftedWeaponV2 } from '@/types/craft-v2'
 import { getQualityColor, getQualityNameRu } from '@/types/craft-v2'
 import { cn } from '@/lib/utils'
@@ -30,9 +25,6 @@ import { WeaponIcon, qualityColors } from './forge-utils'
 import {
   getWarSoulTier,
   getProgressToNextTier,
-  getWarSoulTierIcon,
-  getWarSoulTierColor,
-  getWarSoulTierBgColor,
 } from '@/lib/war-soul-utils'
 
 interface WeaponInventoryCardProps {
@@ -40,14 +32,8 @@ interface WeaponInventoryCardProps {
 }
 
 export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
-  const sellWeapon = useGameStore((state) => state.sellWeapon)
   const isWeaponInExpedition = useGameStore((state) => state.isWeaponInExpedition)
-  const [isSelling, setIsSelling] = useState(false)
-  const [showConfirm, setShowConfirm] = useState(false)
-  
-  // Для будущей возможности разблокирования (когда будет реализована система разблокировок)
-  const [showLocked, setShowLocked] = useState(false)
-  
+
   const qualityGrade = weapon.qualityGrade
   const qualityColor = getQualityColor(weapon.quality)
   const qualityNameRu = getQualityNameRu(weapon.quality)
@@ -68,8 +54,7 @@ export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
     'text-rose-400': 'bg-rose-600',
   }[qualityInfo.color] || 'bg-gray-600'
   const typeStats = (weaponTypeStats as Record<string, (typeof weaponTypeStats)['sword']>)[weapon.type]
-  const recipe = weaponRecipes.find(r => r.id === weapon.recipeId)
-  
+
   // Проверяем, в экспедиции ли оружие
   const inExpedition = isWeaponInExpedition(weapon.id)
   
@@ -89,28 +74,10 @@ export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
       bg: 'bg-stone-900/80',
       border: 'border-stone-600',
     }
-  const tierNames: Record<string, string> = {
-    common: 'Обычное', uncommon: 'Необычное', rare: 'Редкое',
-    epic: 'Эпическое', legendary: 'Легендарное', mythic: 'Мифическое'
-  }
-  
   // Тир Души Войны
   const warSoulTier = weapon.warSoul > 0 || (weapon.maxWarSoul ?? 0) > 0 
     ? getWarSoulTier(weapon.warSoul, weapon.maxWarSoul ?? 100)
     : null
-  
-  const warSoulProgress = warSoulTier 
-    ? getProgressToNextTier(weapon.warSoul, weapon.maxWarSoul ?? 100)
-    : 0
-  
-  const handleSell = () => {
-    setIsSelling(true)
-    setTimeout(() => {
-      sellWeapon(weapon.id)
-      setIsSelling(false)
-      setShowConfirm(false)
-    }, 500)
-  }
   
   return (
     <motion.div

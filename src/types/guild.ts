@@ -2,7 +2,6 @@
  * Типы данных для системы гильдии и экспедиций
  */
 
-import type { CraftedWeapon } from './craft'
 import type { AdventurerExtended } from './adventurer-extended'
 import type { KnownAdventurer } from './known-adventurer'
 import type { CraftedWeaponV2 } from './craft-v2'

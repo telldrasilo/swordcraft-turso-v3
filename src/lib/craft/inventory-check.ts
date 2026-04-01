@@ -8,7 +8,7 @@
  * - Детализацию по частям оружия
  */
 
-import type { Material, MaterialAssignment, WeaponRecipe as V2WeaponRecipe } from '@/types/craft-v2'
+import type { MaterialAssignment, WeaponRecipe as V2WeaponRecipe } from '@/types/craft-v2'
 import type { WeaponRecipe as LegacyWeaponRecipe } from '@/data/weapon-recipes'
 import type { Resources, ResourceKey } from '@/store/slices/resources-slice'
 
@@ -19,7 +19,7 @@ function isV2WeaponRecipe(recipe: RecipeForCraftingCost): recipe is V2WeaponReci
   return 'parts' in recipe && Array.isArray((recipe as V2WeaponRecipe).parts)
 }
 import { getMaterialAsLegacy } from '@/data/materials'
-import { canBuyMaterial, getMaterialPrice, getMaterialShopInfo } from '@/data/material-shop'
+import { canBuyMaterial, getMaterialShopInfo } from '@/data/material-shop'
 
 // ================================
 // МАППИНГ МАТЕРИАЛОВ НА РЕСУРСЫ
@@ -276,7 +276,7 @@ export function checkInventoryForCraft(
   const totalRequirements = calculateCraftRequirements(recipe, materialSelections)
   
   // Формируем список требований
-  for (const [resourceKey, { amount, sources }] of totalRequirements) {
+  for (const [resourceKey, { amount }] of totalRequirements) {
     const available = inventory[resourceKey] || 0
     const sufficient = available >= amount
     

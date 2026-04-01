@@ -29,7 +29,7 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
 import { useIsMobile } from '@/hooks/use-mobile'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect } from 'react'
 
 // Навигационные элементы
 const navItems: { id: GameScreen; label: string; icon: typeof Flame }[] = [
@@ -368,6 +368,10 @@ const screens: Record<GameScreen, typeof ForgeScreen> = {
   encyclopedia: EncyclopediaScreen,
 }
 
+function resolveScreen(key: GameScreen): GameScreen {
+  return key in screens ? key : 'forge'
+}
+
 export function GameLayout() {
   // Запуск игрового цикла
   useGameLoop()
@@ -379,16 +383,22 @@ export function GameLayout() {
     lastSavedAt,
     error: saveError,
     save: saveGame,
-    load: loadGame,
   } = useCloudSave({
     autoSaveInterval: 60000, // каждую минуту
     enableAutoSave: true,
   })
   
   const currentScreen = useGameStore((state) => state.currentScreen)
+  const setCurrentScreen = useGameStore((state) => state.setCurrentScreen)
   const isMobile = useIsMobile()
-  
-  const CurrentScreen = screens[currentScreen]
+  const safeScreen = resolveScreen(currentScreen)
+  const CurrentScreen = screens[safeScreen]
+
+  useEffect(() => {
+    if (currentScreen !== safeScreen) {
+      setCurrentScreen(safeScreen)
+    }
+  }, [currentScreen, safeScreen, setCurrentScreen])
   
   // Экран загрузки
   if (isLoadingSave) {
@@ -419,7 +429,7 @@ export function GameLayout() {
         )}>
           <AnimatePresence mode="wait">
             <motion.div
-              key={currentScreen}
+              key={safeScreen}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}

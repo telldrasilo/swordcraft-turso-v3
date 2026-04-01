@@ -4,7 +4,7 @@
 
 import type { MaterialNode } from '@/types/materials/material-core'
 import type { WeaponRecipe } from '@/types/craft-v2'
-import type { Resources, ResourceKey } from '@/store/slices/resources-slice'
+import type { Resources } from '@/store/slices/resources-slice'
 import type { MaterialKnowledge } from '@/types/materials/knowledge'
 import { getResourceKeyForMaterial } from './inventory-check'
 import { getMaterialRarity, type MaterialRarity } from '@/types/materials/material-core'
@@ -100,7 +100,7 @@ export function smartSortMaterials(
  * Чем выше оценка, тем выше материал в списке
  */
 function calculateMaterialScore(material: MaterialNode, context: SortContext): number {
-  const { inventory, knowledge, recipe, partId, blacksmithLevel, dominantProperty } = context
+  const { inventory, knowledge, recipe, partId, blacksmithLevel: _blacksmithLevel, dominantProperty } = context
   
   // 1. Доступность (вес 40%) - 40 баллов максимум
   const availabilityScore = calculateAvailabilityScore(material, inventory)
@@ -144,7 +144,7 @@ function calculateAvailabilityScore(
  */
 function calculateQualityScore(
   material: MaterialNode,
-  recipe: WeaponRecipe,
+  _recipe: WeaponRecipe,
   partId: string,
   dominantProperty?: string
 ): number {
@@ -276,9 +276,10 @@ export function getMaterialQuantity(
   return inventory[resourceKey] || 0
 }
 
-export default {
+const materialSortingDefaultExport = {
   filterDiscoveredMaterials,
   smartSortMaterials,
   isMaterialAvailable,
   getMaterialQuantity,
 }
+export default materialSortingDefaultExport

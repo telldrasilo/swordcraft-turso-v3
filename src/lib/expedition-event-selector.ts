@@ -11,7 +11,6 @@ import type {
   GeneratedEventsResult,
   EventReward,
 } from '@/types/expedition-events'
-import type { ExpeditionTags } from '@/types/expedition-tags'
 import type { ExpeditionTemplate } from '@/data/expedition-templates'
 import { ALL_EXPEDITION_EVENTS } from '@/data/expedition-events'
 import { DEFAULT_EVENT_CONFIG } from '@/types/expedition-events'
@@ -78,37 +77,42 @@ function matchesExpedition(
 
   // Проверка локаций (если у экспедиции есть теги)
   if (conditions.locations && conditions.locations.length > 0) {
-    if (!expedition.tags?.locations.some(loc => conditions.locations!.includes(loc))) {
+    const locList = conditions.locations
+    if (!expedition.tags?.locations.some(loc => locList.includes(loc))) {
       return false
     }
   }
 
   // Проверка врагов
   if (conditions.enemies && conditions.enemies.length > 0) {
-    if (!expedition.tags?.enemies.some(enemy => conditions.enemies!.includes(enemy))) {
+    const enemyList = conditions.enemies
+    if (!expedition.tags?.enemies.some(enemy => enemyList.includes(enemy))) {
       return false
     }
   }
 
   // Проверка погоды
   if (conditions.weather && conditions.weather.length > 0) {
+    const weatherList = conditions.weather
     if (!expedition.tags?.weather) return false
-    if (!expedition.tags?.weather.some(w => conditions.weather!.includes(w))) {
+    if (!expedition.tags.weather.some(w => weatherList.includes(w))) {
       return false
     }
   }
 
   // Проверка особых тэгов
   if (conditions.special && conditions.special.length > 0) {
+    const specialList = conditions.special
     if (!expedition.tags?.special) return false
-    if (!expedition.tags?.special.some(s => conditions.special!.includes(s))) {
+    if (!expedition.tags.special.some(s => specialList.includes(s))) {
       return false
     }
   }
 
   // Проверка тем
   if (conditions.themes && conditions.themes.length > 0) {
-    if (!expedition.tags?.themes.some(theme => conditions.themes!.includes(theme))) {
+    const themeList = conditions.themes
+    if (!expedition.tags?.themes.some(theme => themeList.includes(theme))) {
       return false
     }
   }
@@ -196,7 +200,7 @@ function splitIntoIntervals(
  * @param event - событие для которого генерируются награды
  * @returns массив наград (пока пустой)
  */
-function generateEventRewards(event: ExpeditionEvent): EventReward[] {
+function generateEventRewards(_event: ExpeditionEvent): EventReward[] {
   // TODO: Реализовать систему генерации наград
   // Сейчас возвращаем пустой массив - награды не генерируются
   return []
@@ -229,25 +233,6 @@ function generateEventRewards(event: ExpeditionEvent): EventReward[] {
 
   return rewards
   */
-}
-
-/**
- * Вероятность награды на основе типа события (%)
- * ПРИМЕЧАНИЕ: Заглушка для будущего функционала
- */
-function getRewardChanceByEventType(eventType: string): number {
-  const chances: Record<string, number> = {
-    combat: 30,      // Бой - шанс найти добычу
-    discovery: 50,    // Открытие - высокая вероятность награды
-    social: 20,       // Встреча - низкая вероятность
-    travel: 10,       // Путь - очень низкая
-    danger: 25,       // Угроза - средняя
-    rest: 5,          // Отдых - почти нет наград
-    mystery: 40,      // Тайна - высокая
-    weather: 15,      // Погода - низкая
-    treasure: 100,     // Сокровище - всегда награда
-  }
-  return chances[eventType] || 20
 }
 
 // ================================

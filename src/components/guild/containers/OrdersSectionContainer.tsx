@@ -5,7 +5,7 @@
 
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useGameStore } from '@/store'
 import { OrdersSection } from '../presentation/OrdersSection'
 import { AlertTriangle } from 'lucide-react'
@@ -34,7 +34,7 @@ export function OrdersSectionContainer() {
   // Эффект: генерация новых заказов
   useEffect(() => {
     const availableOrdersCount = orders.filter((o) => o.status === 'available').length
-    console.log('[OrdersSection] Available orders:', availableOrdersCount, 'Total orders:', orders.length, 'Unlocked recipes:', unlockedRecipes.weaponRecipes)
+    console.warn('[OrdersSection] Available orders:', availableOrdersCount, 'Total orders:', orders.length, 'Unlocked recipes:', unlockedRecipes.weaponRecipes)
     
     if (availableOrdersCount < 3) {
       // Создаём контекст для генерации
@@ -47,15 +47,15 @@ export function OrdersSectionContainer() {
       }
 
       const numOrders = 3 - availableOrdersCount
-      console.log('[OrdersSection] Generating', numOrders, 'orders')
+      console.warn('[OrdersSection] Generating', numOrders, 'orders')
 
       for (let i = 0; i < numOrders; i++) {
-        console.log('[OrdersSection] Generating order', i + 1, 'of', numOrders)
+        console.warn('[OrdersSection] Generating order', i + 1, 'of', numOrders)
         const result = generateOrder(generationContext)
-        console.log('[OrdersSection] Order generation result:', result ? 'success' : 'failed')
+        console.warn('[OrdersSection] Order generation result:', result ? 'success' : 'failed')
       }
     }
-  }, [player.level, player.fame, orders.length, generateOrder, resources, unlockedRecipes])
+  }, [player.level, player.fame, orders, generateOrder, resources, unlockedRecipes])
 
   // Вычисленные значения
   const availableOrders = orders.filter((o) => o.status === 'available')

@@ -13,7 +13,9 @@ describe('filterDiscoveredMaterials', () => {
   it('keeps only materials with positive expertise', () => {
     const iron = getMaterialById('iron')
     const oak = getMaterialById('oak')
-    expect(iron && oak).toBeTruthy()
+    expect(iron).toBeTruthy()
+    expect(oak).toBeTruthy()
+    if (!iron || !oak) throw new Error('fixture: iron / oak')
     const knowledge: Record<string, MaterialKnowledge> = {
       iron: {
         materialId: 'iron',
@@ -32,7 +34,7 @@ describe('filterDiscoveredMaterials', () => {
         totalResearchTime: 0,
       },
     }
-    const filtered = filterDiscoveredMaterials([iron!, oak!], knowledge)
+    const filtered = filterDiscoveredMaterials([iron, oak], knowledge)
     expect(filtered.map(m => m.identity.id)).toEqual(['iron'])
   })
 })
@@ -41,6 +43,7 @@ describe('isMaterialAvailable / getMaterialQuantity', () => {
   it('uses inventory mapping for material id', () => {
     const iron = getMaterialById('iron')
     expect(iron).toBeDefined()
+    if (!iron) throw new Error('fixture: iron')
     const inv = {
       gold: 0,
       soulEssence: 0,
@@ -65,8 +68,8 @@ describe('isMaterialAvailable / getMaterialQuantity', () => {
       stoneBlocks: 0,
       leather: 0,
     }
-    expect(isMaterialAvailable(iron!, inv)).toBe(true)
-    expect(getMaterialQuantity(iron!, inv)).toBe(4)
+    expect(isMaterialAvailable(iron, inv)).toBe(true)
+    expect(getMaterialQuantity(iron, inv)).toBe(4)
   })
 })
 
@@ -75,7 +78,10 @@ describe('smartSortMaterials', () => {
     const recipe = getRecipeById('basic_sword')
     const iron = getMaterialById('iron')
     const oak = getMaterialById('oak')
-    expect(recipe && iron && oak).toBeTruthy()
+    expect(recipe).toBeTruthy()
+    expect(iron).toBeTruthy()
+    expect(oak).toBeTruthy()
+    if (!recipe || !iron || !oak) throw new Error('fixture: basic_sword / iron / oak')
     const knowledge: Record<string, MaterialKnowledge> = {
       iron: {
         materialId: 'iron',
@@ -132,13 +138,13 @@ describe('smartSortMaterials', () => {
 
     }
 
-    const sorted = smartSortMaterials([oak!, iron!], {
+    const sorted = smartSortMaterials([oak, iron], {
 
       inventory: inv,
 
       knowledge,
 
-      recipe: recipe!,
+      recipe,
 
       partId: 'blade',
 

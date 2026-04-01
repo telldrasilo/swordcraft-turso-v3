@@ -1,6 +1,6 @@
 'use client'
 
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { type StatRange } from '@/types/forecast'
 import { cn } from '@/lib/utils'
 
@@ -40,13 +40,6 @@ const STAT_CONFIG = {
     borderColor: 'border-purple-900/30',
     gradient: 'from-purple-500/60 to-purple-400/40'
   }
-} as const
-
-const STAT_LABELS = {
-  attack: 'Атака',
-  durability: 'Прочность',
-  weight: 'Вес',
-  soulCapacity: 'Душа Войны'
 } as const
 
 export function StatRow({ stat, range, icon, label }: StatRowProps) {

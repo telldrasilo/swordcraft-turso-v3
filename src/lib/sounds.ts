@@ -23,10 +23,19 @@ let audioContext: AudioContext | null = null
 
 // Инициализация контекста
 function getAudioContext(): AudioContext {
-  if (!audioContext) {
-    audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+  if (audioContext) {
+    return audioContext
   }
-  return audioContext
+  const globalWithWebkit = globalThis as typeof globalThis & {
+    webkitAudioContext?: typeof AudioContext
+  }
+  const Ctor = globalThis.AudioContext ?? globalWithWebkit.webkitAudioContext
+  if (!Ctor) {
+    throw new Error('Web Audio API not supported')
+  }
+  const ctx = new Ctor()
+  audioContext = ctx
+  return ctx
 }
 
 // Создание осциллятора с огибающей
@@ -54,7 +63,7 @@ function createTone(
     
     oscillator.start(ctx.currentTime)
     oscillator.stop(ctx.currentTime + duration)
-  } catch (e) {
+  } catch {
     // Игнорируем ошибки аудио
   }
 }
@@ -210,7 +219,7 @@ export function getSoundSettings(): SoundSettings {
     if (saved) {
       return JSON.parse(saved)
     }
-  } catch (e) {
+  } catch {
     // Игнорируем ошибки
   }
   return { enabled: true, volume: 0.5 }
@@ -219,7 +228,7 @@ export function getSoundSettings(): SoundSettings {
 export function saveSoundSettings(settings: SoundSettings): void {
   try {
     localStorage.setItem(SOUND_SETTINGS_KEY, JSON.stringify(settings))
-  } catch (e) {
+  } catch {
     // Игнорируем ошибки
   }
 }

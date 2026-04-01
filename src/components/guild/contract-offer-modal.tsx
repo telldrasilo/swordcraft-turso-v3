@@ -6,7 +6,6 @@
 'use client'
 
 import React, { useMemo, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
 import {
   Dialog,
   DialogContent,
@@ -34,11 +33,9 @@ import {
   Sparkles,
   Send,
   Shield,
-  Zap,
-  Award
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { ContractTier, ContractTerms, ContractRequirements } from '@/types/contract'
+import type { ContractTier } from '@/types/contract'
 import { CONTRACT_TERMS, CONTRACT_REQUIREMENTS } from '@/types/contract'
 import {
   getContractTierName,
@@ -161,7 +158,6 @@ export const ContractOfferModal: React.FC<ContractOfferModalProps> = ({
                 const available = tierAvailability[tier].available
                 const reason = tierAvailability[tier].reason
                 const isSelected = selectedTier === tier
-                const terms = CONTRACT_TERMS[tier]
                 const reqs = CONTRACT_REQUIREMENTS[tier]
                 
                 return (

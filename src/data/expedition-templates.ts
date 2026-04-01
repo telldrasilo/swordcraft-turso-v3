@@ -2,7 +2,6 @@
  * Шаблоны экспедиций для гильдии
  */
 
-import { CraftingCost } from './weapon-recipes'
 import type { ExpeditionTags } from '@/types/expedition-tags'
 
 // ================================
@@ -602,7 +601,7 @@ export function calculateWeaponLossChance(
 
 // Расчёт случайных бонусов
 export function rollBonusRewards(
-  template: ExpeditionTemplate
+  _template: ExpeditionTemplate
 ): { type: string; amount: number }[] {
   const bonuses: { type: string; amount: number }[] = []
 

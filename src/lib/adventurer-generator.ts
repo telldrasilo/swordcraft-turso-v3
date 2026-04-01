@@ -10,7 +10,7 @@ import {
   generateTraits,
   calculateTraitsEffect,
 } from '@/data/adventurer-traits'
-import { WeaponType } from '@/data/weapon-recipes'
+import type { WeaponType } from '@/store/slices/craft-slice'
 import {
   UniqueBonus,
   generateUniqueBonuses,

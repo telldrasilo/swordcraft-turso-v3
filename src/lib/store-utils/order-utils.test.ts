@@ -13,7 +13,9 @@ import {
   isOrderExpired,
 } from './order-utils'
 
-const ironSwordRecipe = weaponRecipes.find(r => r.id === 'iron_sword')!
+const ironSwordRecipeRaw = weaponRecipes.find(r => r.id === 'iron_sword')
+if (!ironSwordRecipeRaw) throw new Error('fixture: iron_sword recipe')
+const ironSwordRecipe = ironSwordRecipeRaw
 
 describe('calculateGoldReward', () => {
   it('uses numeric material cost when provided', () => {

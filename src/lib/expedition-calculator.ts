@@ -5,12 +5,12 @@
  * ВАЖНО: Все эффекты берутся из реальных данных тегов
  */
 
-import type { AdventurerExtended, Strength, Weakness } from '@/types/adventurer-extended'
+import type { AdventurerExtended } from '@/types/adventurer-extended'
 import type { ExpeditionTemplate, ExpeditionDifficulty, ExpeditionType } from '@/data/expedition-templates'
 import { difficultyInfo } from '@/data/expedition-templates'
 import { getPersonalityTraitById } from '@/data/adventurer-tags/personality-traits'
-import { getStrengthById, doesStrengthApply, type StrengthData } from '@/data/adventurer-tags/strengths'
-import { getWeaknessById, doesWeaknessApply, type WeaknessData } from '@/data/adventurer-tags/weaknesses'
+import { getStrengthById, doesStrengthApply } from '@/data/adventurer-tags/strengths'
+import { getWeaknessById, doesWeaknessApply } from '@/data/adventurer-tags/weaknesses'
 import { getSocialTagById } from '@/data/adventurer-tags/social-tags'
 import { getCombatStyleById, getMissionBonus } from '@/data/adventurer-tags/combat-styles'
 
@@ -84,7 +84,7 @@ export function calculateExpeditionResult(
   expedition: ExpeditionTemplate,
   guildLevel: number,
   weaponAttack: number,
-  weaponQuality: number = 50
+  _weaponQuality: number = 50
 ): ExpeditionCalculation {
   const successModifiers: ModifierDetail[] = []
   const goldModifiers: ModifierDetail[] = []

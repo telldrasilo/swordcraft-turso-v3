@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useCallback, useMemo } from 'react'
-import { useGameStore, Worker, ProductionBuilding, workerClassData, WorkerClass } from '@/store'
-import { refiningRecipes } from '@/data/refining-recipes'
+import { useGameStore, Worker, ProductionBuilding, WorkerClass } from '@/store'
 
 // Частота обновления игры (в мс)
 const TICK_RATE = 100 // 10 тиков в секунду для плавности
@@ -216,7 +215,7 @@ export function useGameLoop() {
       const clampedOfflineMs = Math.min(offlineMs, maxOfflineMs)
       
       if (clampedOfflineMs > 60000) { // Больше минуты
-        console.log(`Calculating offline progress: ${Math.round(clampedOfflineMs / 60000)} minutes`)
+        console.warn(`Calculating offline progress: ${Math.round(clampedOfflineMs / 60000)} minutes`)
         gameTick(clampedOfflineMs)
       }
     }

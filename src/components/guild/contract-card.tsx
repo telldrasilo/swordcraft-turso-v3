@@ -19,25 +19,17 @@ import {
 import { motion } from 'framer-motion'
 import { 
   Heart, 
-  Sword, 
   Coins, 
   Sparkles, 
   Star, 
-  TrendingUp,
-  TrendingDown,
   Clock,
-  Target,
-  Shield,
   Crown,
-  AlertTriangle,
-  CheckCircle,
   XCircle,
   Send
 } from 'lucide-react'
 import type { ContractedAdventurer } from '@/types/contract'
 import { getRarityConfig, getRarityStars } from '@/data/adventurer-rarity'
 import { 
-  getLoyaltyLevel, 
   getLoyaltyStatus, 
   getContractorSuccessRate,
   getContractTierName,

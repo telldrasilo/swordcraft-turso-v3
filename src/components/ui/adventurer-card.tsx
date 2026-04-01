@@ -7,17 +7,17 @@
 
 import { motion } from 'framer-motion'
 import {
-  Sword, Heart, Star, Sparkles, Coins, Clock, Shield,
-  Zap, Package, Target, Droplet, TrendingUp, AlertTriangle,
-  CheckCircle, Timer, Gift, Dice5, Info
+  Sword, Heart, Star, Sparkles, Clock, Shield,
+  Package, Target, Droplet, TrendingUp, AlertTriangle,
+  Gift, Dice5, Info
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
 import { AdventurerTrait } from '@/data/adventurer-traits'
-import type { WeaponType } from '@/data/weapon-recipes'
-import { UniqueBonus, getBonusBgColor, calculateBonusEffects } from '@/data/unique-bonuses'
+import type { WeaponType } from '@/store/slices/craft-slice'
+import { UniqueBonus, getBonusBgColor } from '@/data/unique-bonuses'
 import { InfoTooltip } from '@/components/ui/game-tooltip'
 import {
   getAdventurerFullName,
@@ -64,18 +64,6 @@ interface AdventurerCardProps {
 // ================================
 // ВСПОМОГАТЕЛЬНЫЕ КОМПОНЕНТЫ
 // ================================
-
-// Иконки для бонусов
-const bonusIcons: Record<string, React.ReactNode> = {
-  resource_gatherer: <Package className="w-4 h-4" />,
-  speedster: <Zap className="w-4 h-4" />,
-  careful: <Shield className="w-4 h-4" />,
-  merchant: <Coins className="w-4 h-4" />,
-  soul_seeker: <Sparkles className="w-4 h-4" />,
-  lucky: <Dice5 className="w-4 h-4" />,
-  precise: <Target className="w-4 h-4" />,
-  mage: <Droplet className="w-4 h-4" />,
-}
 
 // Иконки для черт характера
 const traitEffectIcons: Record<string, React.ReactNode> = {

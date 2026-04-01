@@ -8,7 +8,7 @@
 
 1. `domain contract` - что такое зачарования, какие у них сущности, правила и инварианты.
 2. `state contract` - какие поля store и какие runtime-структуры система читает и изменяет.
-3. `persistence contract` - как состояние зачарований проходит через local persist, cloud save и базу данных.
+3. `persistence contract` - как состояние зачарований проходит через local persist, хук сохранений (бэкап + опциональное облако) и при флаге `NEXT_PUBLIC_CLOUD_SAVE_ENABLED` — Turso.
 4. `integration contract` - в какие файлы и системные швы новая реализация должна вернуться при обратной интеграции.
 
 ## Как пользоваться пакетом
@@ -30,7 +30,7 @@
 
 - совпадает ли доменная модель с `src/data/enchantments.ts`;
 - совпадает ли shape состояния с `src/store/game-store-composed.ts`;
-- совпадает ли структура сохранений с `src/hooks/use-cloud-save.ts`, `src/app/api/save/route.ts` и `src/lib/db.ts`.
+- совпадает ли структура сохранений с `src/hooks/use-cloud-save.ts`, при необходимости облака — с `src/app/api/save/route.ts` и `src/lib/db.ts`, и с политикой флага в `src/lib/cloud-save-feature.ts`.
 
 ## Что входит в пакет
 
@@ -50,6 +50,7 @@
 - `src/types/craft-v2.ts`
 - `src/store/game-store-composed.ts`
 - `src/store/slices/craft-slice.ts`
+- `src/lib/cloud-save-feature.ts`
 - `src/hooks/use-cloud-save.ts`
 - `src/app/api/save/route.ts`
 - `src/lib/db.ts`

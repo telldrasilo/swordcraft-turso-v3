@@ -7,7 +7,6 @@
 import {
   WarSoulTierInfo,
   WarSoulBonus,
-  WAR_SOUL_TIERS,
   getWarSoulTier,
   getWarSoulTierName,
   getWarSoulTierIcon,
@@ -168,8 +167,9 @@ const tierCache = new Map<number, WarSoulTierInfo>()
 export function getWarSoulTierCached(warSoul: number, maxWarSoul: number): WarSoulTierInfo {
   const cacheKey = warSoul
   
-  if (tierCache.has(cacheKey)) {
-    return tierCache.get(cacheKey)!
+  const cached = tierCache.get(cacheKey)
+  if (cached !== undefined) {
+    return cached
   }
   
   const tier = getWarSoulTier(warSoul, maxWarSoul)

@@ -107,7 +107,7 @@
 Смысл:
 
 - список id чар, которые игрок уже открыл;
-- должен сохраняться и локально, и в cloud save.
+- должен сохраняться в **persist** и в payload хука `use-cloud-save` (`collectSaveData` / `applyLoadedData`); попадание в Turso — только при **`NEXT_PUBLIC_CLOUD_SAVE_ENABLED=true`**.
 
 ### Cross-slice actions
 

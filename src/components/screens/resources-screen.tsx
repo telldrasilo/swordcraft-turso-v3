@@ -15,7 +15,6 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { 
   useGameStore,
-  type ProductionBuilding,
   type Resources,
 } from '@/store'
 import { useProductionRates } from '@/hooks/use-game-loop'
@@ -24,10 +23,6 @@ import {
   InfoTooltip 
 } from '@/components/ui/game-tooltip'
 import { 
-  getResourceInfo,
-  getBuildingInfo 
-} from '@/data/game-tooltips'
-import { 
   refiningRecipes,
   refinedResourcesInfo,
   type RefiningRecipe
@@ -35,7 +30,6 @@ import {
 import { cn } from '@/lib/utils'
 import { 
   ResourceIcon, 
-  resourceIcons, 
   rarityColors,
   getResourceIconInfo 
 } from '@/components/ui/resource-icon'

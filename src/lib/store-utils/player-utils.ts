@@ -78,7 +78,7 @@ export function addExperience(
   currentExp: number,
   currentLevel: number,
   currentExpToNext: number,
-  currentFame: number,
+  _currentFame: number,
   expToAdd: number
 ): LevelUpResult {
   let newExp = currentExp + expToAdd

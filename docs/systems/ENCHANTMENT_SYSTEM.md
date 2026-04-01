@@ -30,6 +30,7 @@
 - `src/types/craft-v2.ts`
 - `src/store/slices/craft-slice.ts`
 - `src/store/game-store-composed.ts`
+- `src/lib/cloud-save-feature.ts` (флаг `NEXT_PUBLIC_CLOUD_SAVE_ENABLED`)
 - `src/hooks/use-cloud-save.ts`
 - `src/app/api/save/route.ts`
 
@@ -62,10 +63,9 @@
 
 через:
 
-- Zustand persist
-- `use-cloud-save.ts`
-- `/api/save`
-- Turso `game_saves`
+- Zustand persist (всегда)
+- `use-cloud-save.ts` (бэкап + сбор payload; сеть при включённом флаге)
+- при **`NEXT_PUBLIC_CLOUD_SAVE_ENABLED=true`**: `/api/save` и Turso `game_saves`
 
 ## Текущие ограничения
 

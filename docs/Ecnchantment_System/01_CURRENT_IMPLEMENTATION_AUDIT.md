@@ -12,7 +12,8 @@
 - `src/types/shared/enchantment.ts` - общий тип `WeaponEnchantment`.
 - `src/store/slices/craft-slice.ts` - фактическое состояние `unlockedEnchantments` и action `unlockEnchantment`.
 - `src/store/game-store-composed.ts` - реальные cross-slice действия `sacrificeWeaponForEssence`, `unlockEnchantmentWithCost`, `enchantWeapon`, `removeEnchantment`.
-- `src/hooks/use-cloud-save.ts`, `src/app/api/save/route.ts`, `src/lib/db.ts` - сохранение и загрузка.
+- `src/lib/cloud-save-feature.ts` — фича-флаг облака (`NEXT_PUBLIC_CLOUD_SAVE_ENABLED`).
+- `src/hooks/use-cloud-save.ts`, `src/app/api/save/route.ts`, `src/lib/db.ts` — бэкап/сбор данных; облачная загрузка и POST/GET к API только при включённом флаге (см. `docs/01_ARCHITECTURE.md`, `.env.example`).
 
 ## Главные расхождения между кодом и старой документацией
 
@@ -175,7 +176,7 @@
 4. Позволяет накладывать до двух чар.
 5. Не даёт применить две чары одной школы.
 6. Инкрементирует `statistics.weaponsSacrificed` и `statistics.enchantmentsApplied`.
-7. Сохраняет `unlockedEnchantments` и `weaponInventory` через persist и cloud save.
+7. Сохраняет `unlockedEnchantments` и `weaponInventory` через persist и payload хука сохранений; в Turso — при включённом `NEXT_PUBLIC_CLOUD_SAVE_ENABLED`.
 
 ## Что обязательно исправить на уровне документации
 

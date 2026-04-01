@@ -2,9 +2,13 @@
 
 ## Обзор
 
-Проект использует **Zustand 5.0.6** для state management с паттерном **Composed Store**. Все слайсы (slices) объединены в одном файле `src/store/game-store-composed.ts` (~1400 строк); часть cross-slice логики (ремонт оружия) вынесена в `src/store/cross-slice/`.
+Проект использует **Zustand 5.0.6** для state management с паттерном **Composed Store**. Все слайсы (slices) объединены в одном файле `src/store/game-store-composed.ts` (~1400 строк); cross-slice логика вынесена в `src/store/cross-slice/` (ремонт, экспедиции, **заказы**).
 
-**Сборка в коде:** в `game-store-composed.ts` — `create<GameStore>()(persist((set, get) => ({ ... }), …))`: подмешиваются вызовы `create*Slice` из `slices/`, дополнительное состояние (`guild`, `craftV2Persisted`, туториал и т.д.) и блок cross-slice действий. Ремонт подключается через `buildRepairCrossSlice` (`src/store/cross-slice/repair-cross-slice.ts`). Крафт v2 — §5 ниже.
+**Сборка в коде:** в `game-store-composed.ts` — `create<GameStore>()(persist((set, get) => ({ ... }), …))`: подмешиваются вызовы `create*Slice` из `slices/`, дополнительное состояние (`guild`, `craftV2Persisted`, туториал и т.д.) и блок cross-slice действий. Ремонт — `buildRepairCrossSlice`; экспедиции — `buildGuildExpeditionCrossSlice`; награды и проводки заказа (в т.ч. `completeOrder` с двумя аргументами) — `buildOrderCrossSlice`. Крафт v2 — §5 ниже.
+
+#### P2-Store-02 (спайк): типизация `create` без `as any`
+
+Цель исследования — собрать слайсы через общий тип `GameStore`, объявленный до тел слайсов, чтобы убрать `set as any` / `get as any` при `createPlayerSlice(set, get, ...)`. На практике Zustand ожидает `StateCreator<GameStore, ...>` для каждого слайса; потребуется либо **карусельная** ссылка (`GameStore` = пересечение интерфейсов слайсов + `satisfies`), либо **генерик-обёртка** над фабриками слайсов. Рекомендация: не блокировать фичи ради полной типизации; выносить cross-slice в модули (как заказы) снижает давление на один файл. Полная миграция — отдельная задача после стабилизации контрактов сейва и крафта.
 
 ---
 
@@ -769,10 +773,11 @@ persist(
 **Сохраняет:** Всё состояние кроме функций
 **Не сохраняет:** Actions, селекторы
 
-### Cloud Storage (Turso/libSQL)
-- **Автосохранение:** Периодически через `use-cloud-save.ts` (по умолчанию каждые **60 секунд**; в `GameLayout` передаётся `autoSaveInterval: 60000`)
-- **Загрузка:** При запуске через API `/api/save`
-- **Идентификатор:** `x-player-id` header
+### Cloud Storage (Turso/libSQL) — опционально
+- **Флаг:** `NEXT_PUBLIC_CLOUD_SAVE_ENABLED=true` — см. [`src/lib/cloud-save-feature.ts`](../src/lib/cloud-save-feature.ts) и [`.env.example`](../.env.example). Без флага облако выключено: только **persist** + локальный бэкап в `use-cloud-save.ts`, без запросов к `/api/save`.
+- **При включённом флаге — автосохранение:** периодически через `use-cloud-save.ts` (по умолчанию каждые **60 секунд**; в `GameLayout` — `autoSaveInterval: 60000`).
+- **Загрузка:** при включённом облаке — при старте через `GET /api/save`; при выключенном — данные только из persist (`swordcraft-store-v2`).
+- **Идентификатор:** заголовок `x-player-id` (режим без жёсткой сессии); иначе — см. `save-auth.ts`.
 
 ---
 

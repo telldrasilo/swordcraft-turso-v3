@@ -3,14 +3,13 @@
  * Интегрирует новую расширяемую архитектуру с существующим store
  */
 
-import { useMemo, useCallback } from 'react'
+import { useMemo } from 'react'
 import { useGameStore } from '@/store'
 import type { AdventurerExtended } from '@/types/adventurer-extended'
 import type { ExpeditionTemplate } from '@/data/expedition-templates'
-import type { CraftedWeapon } from '@/data/weapon-recipes'
+import type { CraftedWeaponV2 } from '@/types/craft-v2'
 import { 
   calculateExpeditionResult as calculateWithModifiers,
-  type ExpeditionCalculation,
   type ModifierDetail
 } from '@/lib/expedition-calculator-v2'
 
@@ -56,8 +55,7 @@ export interface ExpeditionPrediction {
 /**
  * Извлечь тип оружия из crafted weapon
  */
-function getWeaponType(weapon: CraftedWeapon): string {
-  // Тип оружия хранится в weapon.type
+function getWeaponType(weapon: CraftedWeaponV2): string {
   return weapon.type || 'sword'
 }
 
@@ -67,7 +65,7 @@ function getWeaponType(weapon: CraftedWeapon): string {
 export function useExpeditionPrediction(
   adventurer: AdventurerExtended | null | undefined,
   expedition: ExpeditionTemplate | null | undefined,
-  weapon: CraftedWeapon | null | undefined
+  weapon: CraftedWeaponV2 | null | undefined
 ): ExpeditionPrediction | null {
   const guildLevel = useGameStore((state) => state.guild.level)
   
@@ -80,7 +78,7 @@ export function useExpeditionPrediction(
       adventurer,
       expedition,
       guildLevel,
-      weapon.attack,
+      weapon.stats.attack,
       weapon.quality,
       weaponType,
       weapon.id
@@ -112,7 +110,7 @@ export function useExpeditionPrediction(
 export function calculateExpeditionWithModifiers(
   adventurer: AdventurerExtended,
   expedition: ExpeditionTemplate,
-  weapon: CraftedWeapon,
+  weapon: CraftedWeaponV2,
   guildLevel: number
 ): {
   success: boolean
@@ -131,7 +129,7 @@ export function calculateExpeditionWithModifiers(
     adventurer,
     expedition,
     guildLevel,
-    weapon.attack,
+    weapon.stats.attack,
     weapon.quality,
     weaponType,
     weapon.id

@@ -71,7 +71,8 @@ mindmap
 |---------|---------|
 | [docs/03_STATE_MANAGEMENT.md](03_STATE_MANAGEMENT.md) | Zustand store, слайсы, actions, selectors |
 | [docs/04_TYPES_SYSTEM.md](04_TYPES_SYSTEM.md) | Все интерфейсы, enum'ы, константы |
-| [docs/PROJECT_AUDIT.md](PROJECT_AUDIT.md) | Актуальные риски и техдолг (живой аудит) |
+| [docs/PROJECT_AUDIT.md](PROJECT_AUDIT.md) | Актуальные риски и техдолг (живой аудит); журнал закрытых пунктов и **P1** |
+| [docs/P2_ARCHITECTURE_INVENTORY.md](P2_ARCHITECTURE_INVENTORY.md) | **P2:** инвентаризация (крафт v1/v2, store, корень репо, examples) и бэклог задач |
 
 ### Игровые системы
 | Файл | Описание |
@@ -115,6 +116,10 @@ mindmap
 - [src/lib/expedition-calculator-v2.ts](../src/lib/expedition-calculator-v2.ts) - Расчёт экспедиций
 - [src/lib/modifier-system/](../src/lib/modifier-system/) - Система модификаторов v2
 - [src/lib/adventurer-generator-extended.ts](../src/lib/adventurer-generator-extended.ts) - Генерация искателей
+
+### Сохранения (локально и облако)
+- [src/lib/cloud-save-feature.ts](../src/lib/cloud-save-feature.ts) — фича-флаг `NEXT_PUBLIC_CLOUD_SAVE_ENABLED` и чеклист расширения схемы
+- [src/hooks/use-cloud-save.ts](../src/hooks/use-cloud-save.ts) — бэкап + опциональная синхронизация с `/api/save`
 
 ### Статические данные
 - [src/data/](../src/data/) - Все игровые данные (материалы, рецепты, искатели...)

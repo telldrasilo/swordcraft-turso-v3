@@ -129,6 +129,8 @@ Interface WeaponInventory:
 - enchantments: WeaponEnchantment[]
 - createdAt: number
 
+**Статус (P2-Craft-05):** `src/types/craft.ts` описывает **историческую** модель «плоского» оружия и `CraftedWeapon` с полями `attack`/`durability` на верхнем уровне. **Канон рантайма** — `CraftedWeaponV2`, `WeaponRecipe`, `ActiveCraftV2` в [`src/types/craft-v2.ts`](../src/types/craft-v2.ts): характеристики в `stats`, прочность в `currentDurability`, материалы по частям, `hiddenTags` для заказов. Инвентарь и экран кузницы используют **V2** (`craft-slice` → `WeaponInventory.weapons: CraftedWeaponV2[]`). Тип `CraftedWeapon` из `craft.ts` остаётся для обратной совместимости в реэкспорте [`src/store/game-store-composed.ts`](../src/store/game-store-composed.ts) (`src/store/index.ts`); новый код должен импортировать **`CraftedWeaponV2`**. Активный крафт v2 хранится в **`craftV2Persisted`** (и в облачной колонке / Zod-сейве как `ActiveCraftV2 | null`); legacy `ActiveCraft` из [`craft-slice`](../src/store/slices/craft-slice.ts) **не** входит в `CraftState` — только константа `initialActiveCraft` для разбора старых JSON при необходимости (`save-craft-normalize`).
+
 ---
 
 ### 5. Заказы (Orders) — src/types/orders.ts

@@ -9,13 +9,12 @@
 
 import React, { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
 import {
   Sword, Shield, Star, Zap, Package, CheckCircle2,
-  Sparkles, Crown, Coins, Heart, Timer
+  Sparkles, Coins, Heart, Timer
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 

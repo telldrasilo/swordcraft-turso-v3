@@ -18,6 +18,7 @@ const eslintConfig = [
   {
     ignores: [
       "node_modules/**",
+      "coverage/**",
       ".next/**",
       "out/**",
       "build/**",
@@ -60,6 +61,28 @@ const eslintConfig = [
       "no-unreachable": "error",
       "no-empty": ["warn", { allowEmptyCatch: false }],
       "no-fallthrough": ["warn", { commentPattern: ".*[Ff]alls?[ -]?through.*" }],
+    },
+  },
+  // Строже по неиспользуемым символам в store (типы уже чистятся через TS noUnused*)
+  {
+    files: ["src/store/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+        },
+      ],
+    },
+  },
+  // Домен src/lib: основной покрываемый тестами слой — warn→error по ключевым правилам P1
+  {
+    files: ["src/lib/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-non-null-assertion": "error",
+      "@typescript-eslint/no-explicit-any": "error",
+      "import/no-anonymous-default-export": "error",
     },
   },
 ];

@@ -11,6 +11,15 @@ import {
 const goblinHunt = expeditionTemplates.find((t) => t.id === 'goblin_hunt')
 const wolfPack = expeditionTemplates.find((t) => t.id === 'wolf_pack')
 
+function requireTemplate(
+  t: (typeof expeditionTemplates)[number] | undefined,
+  id: string
+): NonNullable<typeof t> {
+  expect(t).toBeDefined()
+  if (!t) throw new Error(`fixture: ${id}`)
+  return t
+}
+
 function testAdventurer(combatLevel: number): AdventurerExtended {
   return {
     id: 'test_adv',
@@ -48,9 +57,9 @@ function testAdventurer(combatLevel: number): AdventurerExtended {
 
 describe('calculateExpeditionResult', () => {
   it('has numeric invariants and optimal levelMatch for easy mission', () => {
-    expect(goblinHunt).toBeDefined()
+    const tpl = requireTemplate(goblinHunt, 'goblin_hunt')
     const adv = testAdventurer(5)
-    const r = calculateExpeditionResult(adv, goblinHunt!, 3, 12)
+    const r = calculateExpeditionResult(adv, tpl, 3, 12)
 
     expect(r.successChance).toBeGreaterThanOrEqual(5)
     expect(r.successChance).toBeLessThanOrEqual(95)
@@ -66,14 +75,14 @@ describe('calculateExpeditionResult', () => {
   })
 
   it('commission increases (or stays equal) with higher guild level for same gold path', () => {
-    expect(goblinHunt).toBeDefined()
+    const tpl = requireTemplate(goblinHunt, 'goblin_hunt')
     const adv = testAdventurer(5)
-    const low = calculateExpeditionResult(adv, goblinHunt!, 1, 12)
-    const high = calculateExpeditionResult(adv, goblinHunt!, 9, 12)
+    const low = calculateExpeditionResult(adv, tpl, 1, 12)
+    const high = calculateExpeditionResult(adv, tpl, 9, 12)
 
     // Same inputs → same finalGold path; commission % rises 15% → 30% capped
     expect(high.commission).toBeGreaterThanOrEqual(low.commission)
-    const gold = goblinHunt!.reward.baseGold
+    const gold = tpl.reward.baseGold
     const expectedLow = Math.floor(gold * 0.15)
     const expectedHigh = Math.floor(gold * 0.3)
     expect(low.commission).toBe(expectedLow)
@@ -81,26 +90,26 @@ describe('calculateExpeditionResult', () => {
   })
 
   it('levelMatch dangerous when adventurer far below mission tier', () => {
-    expect(wolfPack).toBeDefined()
+    const tpl = requireTemplate(wolfPack, 'wolf_pack')
     // normal: levelRange [8, 20] → dangerous if level < 8 - 5 = 3
     const adv = testAdventurer(2)
-    const r = calculateExpeditionResult(adv, wolfPack!, 1, 15)
+    const r = calculateExpeditionResult(adv, tpl, 1, 15)
 
     expect(r.levelMatch.match).toBe('dangerous')
   })
 
   it('levelMatch overlevel when adventurer far above easy mission band', () => {
-    expect(goblinHunt).toBeDefined()
+    const tpl = requireTemplate(goblinHunt, 'goblin_hunt')
     const adv = testAdventurer(22)
-    const r = calculateExpeditionResult(adv, goblinHunt!, 1, 12)
+    const r = calculateExpeditionResult(adv, tpl, 1, 12)
 
     expect(r.levelMatch.match).toBe('overlevel')
   })
 
   it('lower weapon durability does not break invariants', () => {
-    expect(goblinHunt).toBeDefined()
+    const tpl = requireTemplate(goblinHunt, 'goblin_hunt')
     const adv = testAdventurer(5)
-    const r = calculateExpeditionResult(adv, goblinHunt!, 3, 12, 15)
+    const r = calculateExpeditionResult(adv, tpl, 3, 12, 15)
     expect(r.successChance).toBeGreaterThanOrEqual(5)
     expect(r.successChance).toBeLessThanOrEqual(95)
     expect(r.commission).toBeGreaterThanOrEqual(0)

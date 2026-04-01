@@ -1,7 +1,7 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, ChevronLeft, ChevronRight, SkipForward, HelpCircle } from 'lucide-react'
+import { X, ChevronLeft, ChevronRight, HelpCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { useGameStore } from '@/store'
@@ -353,8 +353,7 @@ export function TutorialOverlay() {
 // Кнопка помощи для повторного запуска туториала
 export function TutorialHelpButton() {
   const tutorial = useGameStore((state) => state.tutorial)
-  const skipTutorial = useGameStore((state) => state.skipTutorial)
-  
+
   const handleRestartTutorial = () => {
     // Сбрасываем туториал для повторного прохождения
     // Для этого нужно очистить localStorage и перезагрузить

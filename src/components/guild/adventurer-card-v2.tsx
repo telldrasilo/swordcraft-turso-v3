@@ -16,16 +16,13 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { motion } from 'framer-motion'
-import { Clock, Zap, Shield, TrendingUp, CheckCircle, Swords, Sparkles } from 'lucide-react'
+import { Clock, Shield, TrendingUp, Swords } from 'lucide-react'
 import type { AdventurerExtended } from '@/types/adventurer-extended'
 import { getRarityConfig, getRarityStars } from '@/data/adventurer-rarity'
-import { getPersonalityTraitById } from '@/data/adventurer-tags/personality-traits'
 import { getStrengthById, doesStrengthApply } from '@/data/adventurer-tags/strengths'
-import { getWeaknessById, doesWeaknessApply } from '@/data/adventurer-tags/weaknesses'
 import { getCombatStyleById } from '@/data/adventurer-tags/combat-styles'
 import { 
   calculateExpeditionResult as calculateExpeditionResultV2,
-  formatModifierValue,
   type ExpeditionCalculation
 } from '@/lib/expedition-calculator-v2'
 import { generateAdvice, type Advice } from '@/lib/adventurer-advice'
@@ -56,7 +53,7 @@ interface AdventurerCardV2Props {
 // ================================
 
 const generateSuccessFactors = (
-  calc: ExpeditionCalculation,
+  _calc: ExpeditionCalculation,
   adventurer: AdventurerExtended,
   expedition: { difficulty: string, type: string, minGuildLevel: number }
 ): { blockType: 'ideal' | 'balanced' | 'risky', factors: SuccessFactor[] } => {
@@ -141,7 +138,7 @@ export const AdventurerCardV2: React.FC<AdventurerCardV2Props> = ({
   weaponAttack,
   weaponQuality = 50,
   onSelect,
-  onDetails,
+  onDetails: _onDetails,
   selected = false,
 }) => {
   // Редкость искателя
@@ -188,12 +185,6 @@ export const AdventurerCardV2: React.FC<AdventurerCardV2Props> = ({
     const nickname = adventurer.identity.nickname
     return nickname ? `${name} "${nickname}"` : name
   }, [adventurer.identity])
-  
-  // Характер
-  const primaryTrait = useMemo(() => 
-    getPersonalityTraitById(adventurer.personality.primaryTrait),
-    [adventurer.personality.primaryTrait]
-  )
   
   // Стиль боя
   const combatStyle = useMemo(() =>

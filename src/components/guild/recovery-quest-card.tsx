@@ -7,7 +7,6 @@
 
 import { motion } from 'framer-motion'
 import { 
-  Clock, 
   CheckCircle, 
   Coins,
   Skull,

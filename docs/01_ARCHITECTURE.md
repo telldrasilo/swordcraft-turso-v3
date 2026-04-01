@@ -172,7 +172,7 @@ sequenceDiagram
     Store->>Store: Сохраняет результат
     
     Note over UI: Таймер отсчёта
-    Note over Store: Облачное сохранение по интервалу (по умолчанию раз в минуту)
+    Note over Store: Облачное сохранение по интервалу (если NEXT_PUBLIC_CLOUD_SAVE_ENABLED=true)
 ```
 
 ---
@@ -185,6 +185,8 @@ GET /api → { message: "Hello, world!" }
 ```
 
 ### `/api/save` — Управление сохранениями
+
+**Включение облака:** только при `NEXT_PUBLIC_CLOUD_SAVE_ENABLED=true` (см. [`src/lib/cloud-save-feature.ts`](../src/lib/cloud-save-feature.ts), [`.env.example`](../.env.example)). Иначе маршрут отвечает **503** с `cloudSaveDisabled: true`; клиент [`use-cloud-save.ts`](../src/hooks/use-cloud-save.ts) не вызывает API и опирается на Zustand `persist` + локальный ключ `swordcraft-offline-backup`.
 
 #### GET /api/save — Загрузка сохранения
 ```typescript
@@ -281,10 +283,11 @@ x-player-id: string
 - **Storage:** `localStorage`
 - **Метод:** `partialize` — сохраняет только состояние, не функции
 
-### Cloud Storage (Turso/libSQL)
-- **Автосохранение:** Периодически через `use-cloud-save.ts` (по умолчанию каждые **60 секунд**, `autoSaveInterval`; в `GameLayout` задано 60 000 ms)
-- **Загрузка:** При запуске приложения через API `/api/save`
-- **Идентификатор:** `x-player-id` header
+### Cloud Storage (Turso/libSQL) — опционально
+- **Флаг:** `NEXT_PUBLIC_CLOUD_SAVE_ENABLED=true` после настройки `TURSO_*` (и при необходимости NextAuth). Чеклист расширения полей сейва — в JSDoc [`cloud-save-feature.ts`](../src/lib/cloud-save-feature.ts).
+- **Автосохранение:** при включённом флаге — периодически через `use-cloud-save.ts` (по умолчанию каждые **60 секунд**; в `GameLayout` — 60 000 ms). При выключенном флаге тот же хук пишет только локальный бэкап и не дергает сеть.
+- **Загрузка при включённом облаке:** при старте через `GET /api/save`. При выключенном — экран загрузки не блокируется облаком; состояние из **Zustand persist** (`swordcraft-store-v2`).
+- **Идентификатор (dev / без жёсткой сессии):** заголовок `x-player-id`. При `ENFORCE_SAVE_AUTH` / production — `playerId` из NextAuth (см. [`save-auth.ts`](../src/lib/save-auth.ts)).
 
 ---
 

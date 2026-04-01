@@ -411,6 +411,14 @@ import { GameLayout } from "@/components/layout/game-layout"
 | `war-soul-utils.ts` | Утилиты системы War Soul. |
 | `db.ts` | Подключение к Turso/libSQL. |
 
+#### Сохранения и контракт API
+
+| Файл | Описание |
+|-------|-----------|
+| `cloud-save-feature.ts` | Фича-флаг `NEXT_PUBLIC_CLOUD_SAVE_ENABLED`; JSDoc-чеклист при новых персистящихся полях (persist + облако). |
+| `save-auth.ts` | Политика NextAuth / `x-player-id` для `/api/save`. |
+| `save-payload-schema.ts` | Zod-схема и лимиты тела `POST /api/save`. |
+
 #### Локализация
 
 | Файл | Описание |
@@ -499,7 +507,7 @@ import { GameLayout } from "@/components/layout/game-layout"
 
 | Файл | Описание |
 |-------|-----------|
-| `use-cloud-save.ts` | Автосохранение в Turso/libSQL (по умолчанию раз в **60 секунд**; задаётся `autoSaveInterval`, в `GameLayout` — 60 000 ms). |
+| `use-cloud-save.ts` | Слой сохранений: локальный бэкап + при **`NEXT_PUBLIC_CLOUD_SAVE_ENABLED=true`** синхронизация с Turso через `/api/save` (интервал по умолчанию **60 с**; в `GameLayout` — 60 000 ms). |
 | `use-craft-v2.ts` | Hooks для крафта v2. |
 | `use-game-loop.ts` | Игровой цикл. |
 | `use-mobile.ts` | Определение мобильного устройства. |

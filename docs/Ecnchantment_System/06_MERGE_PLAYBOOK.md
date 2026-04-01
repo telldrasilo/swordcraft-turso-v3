@@ -64,13 +64,14 @@
 Проверить и обновить:
 
 - `src/store/game-store-composed.ts` -> `partialize`, `merge`, `resetGame`
+- `src/lib/cloud-save-feature.ts` — убедиться, что новые поля отражены в JSDoc-чеклисте при необходимости
 - `src/hooks/use-cloud-save.ts` -> `collectSaveData`, `applyLoadedData`
-- `src/app/api/save/route.ts` -> `validateSaveData`, `formatSaveData`, SQL `INSERT`, SQL `UPDATE`
-- `src/lib/db.ts` -> schema или migration strategy
+- `src/app/api/save/route.ts` -> `validateSaveData`, `formatSaveData`, SQL `INSERT`, SQL `UPDATE` (актуально при **`NEXT_PUBLIC_CLOUD_SAVE_ENABLED=true`**)
+- `src/lib/db.ts` -> schema или migration strategy (то же условие)
 
 Правило:
 
-- если новый код меняет shape save-данных, все четыре точки должны быть обновлены в одном PR.
+- если новый код меняет shape save-данных, цепочка **persist → hook → (при облаке) API и БД** должна быть обновлена согласованно (в одном PR по возможности).
 
 ## Шаг 5. Решить вопрос с saveVersion
 
@@ -157,7 +158,7 @@
 6. Наложить чару на оружие.
 7. Проверить, что в inventory у оружия появился `enchantments[]`.
 8. Перезагрузить приложение и убедиться, что чарование сохранилось.
-9. Проверить cloud save round-trip.
+9. При **`NEXT_PUBLIC_CLOUD_SAVE_ENABLED=true`** и настроенном Turso — проверить cloud save round-trip (save → load → save); иначе достаточно persist + перезагрузка + при необходимости сверка `swordcraft-offline-backup`.
 10. Попробовать жертвоприношение и проверить рост статистики.
 
 ## Особые риски текущего проекта

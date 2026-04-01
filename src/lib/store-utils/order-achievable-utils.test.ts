@@ -12,7 +12,9 @@ import {
   generateMaterialAdvance,
 } from './order-achievable-utils'
 
-const ironSword = weaponRecipes.find(r => r.id === 'iron_sword')!
+const ironSwordRaw = weaponRecipes.find(r => r.id === 'iron_sword')
+if (!ironSwordRaw) throw new Error('fixture: iron_sword recipe')
+const ironSword = ironSwordRaw
 
 const baseOrder = (): NPCOrder => ({
   id: 'ord1',
@@ -71,7 +73,8 @@ describe('generateMaterialAdvance', () => {
   it('caps advance at half of original reward', () => {
     const adv = generateMaterialAdvance(ironSword, 100)
     expect(adv).not.toBeNull()
-    expect(adv!.totalCost).toBeLessThanOrEqual(50)
+    if (!adv) throw new Error('expected advance')
+    expect(adv.totalCost).toBeLessThanOrEqual(50)
   })
 })
 

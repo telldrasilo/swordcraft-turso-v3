@@ -9,7 +9,7 @@
  * - Utils: Чистые функции для расчётов
  */
 
-import { create, type StateCreator } from 'zustand'
+import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 
 // ================================
@@ -31,7 +31,7 @@ import { initialBuildings, workerClassData } from './slices/workers-slice'
 import { createCraftSlice } from './slices/craft-slice'
 import type { CraftSlice, ActiveCraft, ActiveRefining, WeaponInventory, UnlockedRecipes, RecipeSource, WeaponType, WeaponTier, WeaponMaterial, QualityGrade } from './slices/craft-slice'
 import type { CraftedWeaponV2, ActiveCraftV2, CraftPlan } from '@/types/craft-v2'
-import { initialActiveCraft, initialActiveRefining, initialWeaponInventory, initialUnlockedRecipes } from './slices/craft-slice'
+import { initialActiveRefining, initialWeaponInventory, initialUnlockedRecipes } from './slices/craft-slice'
 
 import { createEncyclopediaSlice } from './slices/encyclopedia-slice'
 import type { EncyclopediaSlice } from './slices/encyclopedia-slice'
@@ -43,13 +43,11 @@ import type { EncyclopediaSlice } from './slices/encyclopedia-slice'
 import type { RefiningRecipe } from '@/data/refining-recipes'
 import { refiningRecipes } from '@/data/refining-recipes'
 import {
-  type Enchantment,
-  canAffordEnchantment,
   areEnchantmentsCompatible,
   getEnchantment,
   MAX_ENCHANTMENTS_PER_WEAPON,
 } from '@/data/enchantments'
-import { expeditionTemplates, type ExpeditionTemplate } from '@/data/expedition-templates'
+import type { ExpeditionTemplate } from '@/data/expedition-templates'
 import type { RepairOption, RepairType, ExecuteRepairResult } from '@/data/repair-system'
 
 // ================================
@@ -57,34 +55,17 @@ import type { RepairOption, RepairType, ExecuteRepairResult } from '@/data/repai
 // ================================
 
 import { generateId } from '@/lib/store-utils/generators'
-import { RESOURCE_SELL_PRICES, PLAYER_TITLES, TIER_NUMBER_TO_STRING } from '@/lib/store-utils/constants'
-import { getTitleByLevel, addExperience as addExperienceUtil } from '@/lib/store-utils/player-utils'
+import { TIER_NUMBER_TO_STRING } from '@/lib/store-utils/constants'
 import {
   calculateHireCost,
   getFireRefund,
-  calculateAverageQuality,
-  WORKER_CLASS_DATA,
 } from '@/lib/store-utils/worker-utils'
-import {
-  getQualityGrade as getQualityGradeUtil,
-  calculateCraftQuality as calculateCraftQualityUtil,
-  calculateAttack as calculateAttackUtil,
-  calculateSellPrice as calculateSellPriceUtil,
-} from '@/lib/store-utils/craft-utils'
 import {
   calculateSacrificeValue as calculateSacrificeValueUtil,
 } from '@/lib/store-utils/enchantment-utils'
 import { buildRepairCrossSlice } from '@/store/cross-slice/repair-cross-slice'
 import { buildGuildExpeditionCrossSlice } from '@/store/cross-slice/guild-expedition-cross-slice'
-import {
-  calculateExpeditionOutcome,
-  updateKnownAdventurersAfterMission,
-  createRecoveryQuest,
-  createHistoryEntry,
-  updateGuildStats,
-  calculateExpeditionPreview,
-  type WeaponForExpedition,
-} from '@/lib/store-utils/expedition-utils'
+import { buildOrderCrossSlice } from '@/store/cross-slice/order-cross-slice'
 
 // ================================
 // ADDITIONAL TYPE IMPORTS
@@ -95,19 +76,14 @@ import {
   type GuildState,
   type Adventurer,
   type ActiveExpedition,
-  type RecoveryQuest,
   getGuildReputationLevel,
-  calculateReputationGain,
   GUILD_LEVELS,
 } from '@/types/guild'
 import type { AdventurerExtended } from '@/types/adventurer-extended'
-import type { KnownAdventurer, MissionResultForStats } from '@/types/known-adventurer'
-import { KNOWN_ADVENTURERS_CONFIG } from '@/types/known-adventurer'
+import type { KnownAdventurer } from '@/types/known-adventurer'
 import {
-  updateKnownAdventurer,
   getKnownAdventurerInfo,
   getMetInfoText,
-  getContractAvailabilityText,
 } from '@/lib/known-adventurers-manager'
 import {
   calculateExpeditionResult as calculateExpeditionResultV2,
@@ -115,9 +91,7 @@ import {
 } from '@/lib/expedition-calculator-v2'
 import {
   generateAdventurerPool,
-  isAdventurerExpired,
   ADVENTURER_LIFETIME,
-  getAdventurerFullName,
 } from '@/lib/adventurer-generator'
 import type { ExpeditionResult } from './slices/guild-slice'
 
@@ -129,10 +103,8 @@ import { createOrdersSlice } from './slices/orders-slice'
 import type { OrdersSlice, NPCOrder } from './slices/orders-slice'
 import { initialOrdersState } from './slices/orders-slice'
 import { type OrderGenerationContext } from '@/lib/store-utils/order-achievable-utils'
-import { calculateGoldReward } from '@/lib/store-utils/order-utils'
 
-import { createTutorialSlice } from './slices/tutorial-slice'
-import type { TutorialSlice, TutorialState, TutorialActions } from './slices/tutorial-slice'
+import type { TutorialState, TutorialActions } from './slices/tutorial-slice'
 import { initialTutorialState } from './slices/tutorial-slice'
 
 // ================================
@@ -590,94 +562,7 @@ export const useGameStore = create<GameStore>()(
 
       // Orders slice methods are available directly from createOrdersSlice
       // No delegation needed to avoid infinite recursion
-      takeAdvance: (orderId, amount) => {
-        const state = get()
-        const order = state.orders.find(o => o.id === orderId)
-        if (!order) return { success: false, taken: 0 }
-
-        const result = ordersSlice.takeAdvance(orderId, amount)
-        if (result.success) {
-          state.addResource('gold', result.taken)
-        }
-        return result
-      },
-
-      completeOrder: (orderId, weaponId) => {
-        const state = get()
-        const weapon = state.weaponInventory.weapons.find(w => w.id === weaponId)
-        if (!weapon) return false
-
-        // Получаем заказ для расчёта репутации
-        const order = state.orders.find(o => o.id === orderId)
-        if (!order) return false
-
-        // Рассчитываем награду динамически на основе качества оружия
-        const baseReward = calculateGoldReward(
-          weapon.quality,
-          order.weaponType,
-          order.material,
-          state.player.level,
-          order.materialCost || 0
-        )
-
-        // Если был аванс материалов, вычитаем его из награды
-        const advanceTaken = order.advanceTaken || 0
-        const materialAdvanceCost = order.materialAdvance?.totalCost || 0
-        const totalAdvance = advanceTaken + materialAdvanceCost
-        const finalGoldReward = Math.max(1, baseReward - totalAdvance)
-
-        const result = ordersSlice.completeOrder(orderId, weaponId, {
-          quality: weapon.quality,
-          attack: weapon.stats.attack,
-          type: weapon.type,
-          recipeId: weapon.recipeId,
-          hiddenTags: weapon.hiddenTags, // Добавляем hiddenTags для проверки заказа
-        })
-        if (!result.success) return false
-
-        // Перезаписываем награду динамически рассчитанным значением
-        result.rewards.gold = finalGoldReward
-
-        // Награды за заказ (уже рассчитаны с учётом аванса)
-        state.addResource('gold', result.rewards.gold)
-        state.addFame(result.rewards.fame)
-
-        // Начисляем репутацию за выполнение заказа
-        const reputationGain = calculateReputationGain('craft', result.rewards.gold, state.player.level)
-        state.addReputation(reputationGain)
-
-        // Бонусные предметы заказа
-        if (result.rewards.bonusItems) {
-          for (const bonus of result.rewards.bonusItems) {
-            if (bonus.resource in state.resources) {
-              state.addResource(bonus.resource as ResourceKey, bonus.amount)
-            }
-          }
-        }
-
-        // Сдача заказа расходует выбранное оружие
-        state.removeWeapon(weaponId)
-
-        // Обновляем статистику
-        state.updateStatistics({
-          ordersCompleted: state.statistics.ordersCompleted + 1,
-          totalGoldEarned: state.statistics.totalGoldEarned + finalGoldReward,
-        })
-
-        return true
-      },
-
-      expireOrder: (orderId) => {
-        set((state) => ({
-          orders: state.orders.map(o =>
-            o.id === orderId && o.status === 'available'
-              ? { ...o, status: 'expired' as const }
-              : o
-          ),
-          activeOrderId:
-            state.activeOrderId === orderId ? null : state.activeOrderId,
-        }))
-      },
+      ...buildOrderCrossSlice(set as never, get as never, ordersSlice),
 
       // Enchantments (simple)
       enchantWeapon: (weaponId, enchantmentId) => {
@@ -1041,7 +926,6 @@ export const useGameStore = create<GameStore>()(
           orders: initialOrdersState.orders,
           tutorial: initialTutorialState,
           statistics: initialStatistics,
-          activeCraft: initialActiveCraft,
           activeRefining: initialActiveRefining,
           craftV2Persisted: initialCraftV2Persisted,
         }
@@ -1102,6 +986,10 @@ export const useGameStore = create<GameStore>()(
         ...initialStatistics,
         ...((persisted.statistics as Partial<GameStatistics> | undefined) ?? {}),
       }
+      // P2-Craft-04: убрано поле slice activeCraft; старые persist-файлы могли содержать ключ
+      if ('activeCraft' in (merged as Record<string, unknown>)) {
+        delete (merged as Record<string, unknown>)['activeCraft']
+      }
       return merged
     },
   }
@@ -1140,7 +1028,6 @@ export {
   initialResources,
   initialBuildings,
   workerClassData,
-  initialActiveCraft,
   initialActiveRefining,
   initialWeaponInventory,
   initialUnlockedRecipes,

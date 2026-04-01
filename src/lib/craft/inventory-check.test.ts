@@ -95,7 +95,8 @@ describe('calculateCraftRequirements (V2)', () => {
   it('aggregates iron and wood from real recipe parts', () => {
     const recipe = getRecipeById('basic_sword')
     expect(recipe).toBeDefined()
-    const map = calculateCraftRequirements(recipe!, basicSwordSelections())
+    if (!recipe) throw new Error('fixture: basic_sword')
+    const map = calculateCraftRequirements(recipe, basicSwordSelections())
     expect(map.get('iron')?.amount).toBe(5)
     expect(map.get('wood')?.amount).toBe(1)
   })
@@ -103,7 +104,8 @@ describe('calculateCraftRequirements (V2)', () => {
   it('expands steel alloy into raw iron and coal', () => {
     const recipe = getRecipeById('basic_sword')
     expect(recipe).toBeDefined()
-    const map = calculateCraftRequirements(recipe!, {
+    if (!recipe) throw new Error('fixture: basic_sword')
+    const map = calculateCraftRequirements(recipe, {
       blade: { materialId: 'steel', quantity: 3 },
     })
     expect(map.get('iron')?.amount).toBe(6)
@@ -115,8 +117,9 @@ describe('checkInventoryForCraft', () => {
   it('returns canCraft when resources and forge coal are sufficient', () => {
     const recipe = getRecipeById('basic_sword')
     expect(recipe).toBeDefined()
+    if (!recipe) throw new Error('fixture: basic_sword')
     const inv = { ...emptyInventory(), iron: 20, wood: 10, coal: 5 }
-    const r = checkInventoryForCraft(recipe!, basicSwordSelections(), inv)
+    const r = checkInventoryForCraft(recipe, basicSwordSelections(), inv)
     expect(r.canCraft).toBe(true)
     expect(r.missing.length).toBe(0)
     expect(r.fuelRequired?.sufficient).toBe(true)
@@ -125,8 +128,9 @@ describe('checkInventoryForCraft', () => {
   it('sets canCraft false when materials are missing', () => {
     const recipe = getRecipeById('basic_sword')
     expect(recipe).toBeDefined()
+    if (!recipe) throw new Error('fixture: basic_sword')
     const inv = { ...emptyInventory(), iron: 1, wood: 0, coal: 5 }
-    const r = checkInventoryForCraft(recipe!, basicSwordSelections(), inv)
+    const r = checkInventoryForCraft(recipe, basicSwordSelections(), inv)
     expect(r.canCraft).toBe(false)
     expect(r.missing.length).toBeGreaterThan(0)
     expect(r.requirements.some(q => q.resourceKey === 'iron')).toBe(true)
@@ -135,8 +139,9 @@ describe('checkInventoryForCraft', () => {
   it('fails when forge coal is below base quantity', () => {
     const recipe = getRecipeById('basic_sword')
     expect(recipe).toBeDefined()
+    if (!recipe) throw new Error('fixture: basic_sword')
     const inv = { ...emptyInventory(), iron: 50, wood: 10, coal: 1 }
-    const r = checkInventoryForCraft(recipe!, basicSwordSelections(), inv)
+    const r = checkInventoryForCraft(recipe, basicSwordSelections(), inv)
     expect(r.canCraft).toBe(false)
     expect(r.fuelRequired?.sufficient).toBe(false)
   })
@@ -144,7 +149,8 @@ describe('checkInventoryForCraft', () => {
   it('fills breakdownByPart for each selected part', () => {
     const recipe = getRecipeById('basic_sword')
     expect(recipe).toBeDefined()
-    const r = checkInventoryForCraft(recipe!, basicSwordSelections(), emptyInventory())
+    if (!recipe) throw new Error('fixture: basic_sword')
+    const r = checkInventoryForCraft(recipe, basicSwordSelections(), emptyInventory())
     expect(r.breakdownByPart.length).toBe(4)
     const blade = r.breakdownByPart.find(b => b.partId === 'blade')
     expect(blade?.materialId).toBe('iron')
@@ -155,7 +161,8 @@ describe('getCraftingCost (V2 + selections)', () => {
   it('sums requirements from materialSelections and adds forge coal', () => {
     const recipe = getRecipeById('basic_sword')
     expect(recipe).toBeDefined()
-    expect(getCraftingCost(recipe!, basicSwordSelections())).toEqual({
+    if (!recipe) throw new Error('fixture: basic_sword')
+    expect(getCraftingCost(recipe, basicSwordSelections())).toEqual({
       iron: 5,
       wood: 1,
       coal: 3,

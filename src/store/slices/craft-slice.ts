@@ -83,7 +83,6 @@ export interface RecipeSource {
 
 /** Состояние крафта */
 export interface CraftState {
-  activeCraft: ActiveCraft
   activeRefining: ActiveRefining
   weaponInventory: WeaponInventory
   unlockedRecipes: UnlockedRecipes
@@ -166,7 +165,6 @@ export const createCraftSlice: StateCreator<
   CraftSlice
 > = (set, get) => ({
   // State
-  activeCraft: initialActiveCraft,
   activeRefining: initialActiveRefining,
   weaponInventory: initialWeaponInventory,
   unlockedRecipes: initialUnlockedRecipes,

@@ -6,10 +6,10 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { 
-  Sword, Heart, Star, Sparkles, Coins, Map, Shield, 
-  Zap, Flame, Wind, Droplet, Sun, Moon, Skull, 
-  Leaf, Diamond, Crown, Target, Gauge, Lock
+import {
+  Sword, Heart, Star, Sparkles, Coins, Map, Shield,
+  Flame, Wind, Droplet, Sun, Moon,
+  Diamond, Crown, Target,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -17,17 +17,17 @@ import { Button } from '@/components/ui/button'
 import { InfoTooltip } from '@/components/ui/game-tooltip'
 import { cn } from '@/lib/utils'
 import { useMemo } from 'react'
+import type { CraftedWeaponV2 } from '@/types/craft-v2'
 import {
-  CraftedWeapon,
   qualityGrades,
   weaponTypeStats,
   getQualityGrade,
-} from '@/data/weapon-recipes'
+} from '@/lib/craft/weapon-display-meta'
+import { TIER_NUMBER_TO_STRING } from '@/lib/store-utils/constants'
 import { weaponRecipes } from '@/data/weapon-recipes'
-import { 
+import {
   getWarSoulTier,
   getProgressToNextTier,
-  formatWarSoulTier,
 } from '@/lib/war-soul-utils'
 
 // ================================
@@ -224,12 +224,7 @@ export const propertyConfig = {
 // ФУНКЦИИ ПРЕОБРАЗОВАНИЯ
 // ================================
 
-/** Оружие для UI-карточки: legacy CraftedWeapon + опциональные поля v2 */
-export type WeaponCardWeapon = CraftedWeapon & {
-  maxWarSoul?: number
-  currentDurability?: number
-  materialsUsed?: Array<{ partName: string; materialName: string }>
-}
+export type WeaponCardWeapon = CraftedWeaponV2
 
 function resolveQualityGradeConfig(weapon: WeaponCardWeapon) {
   const fromNumeric = getQualityGrade(weapon.quality)
@@ -245,12 +240,13 @@ function resolveQualityGradeConfig(weapon: WeaponCardWeapon) {
 export function extractWeaponProperties(weapon: WeaponCardWeapon): WeaponProperty[] {
   const properties: WeaponProperty[] = []
   const config = propertyConfig
+  const attack = weapon.stats.attack
 
   // Атака
   properties.push({
     id: 'attack',
     name: 'Атака',
-    value: weapon.attack,
+    value: attack,
     icon: config.attack.icon,
     color: config.attack.color,
     bgColor: config.attack.bgColor,
@@ -260,15 +256,16 @@ export function extractWeaponProperties(weapon: WeaponCardWeapon): WeaponPropert
     priority: 1,
   })
 
-  // Прочность (v2: currentDurability; v1: durability)
-  const durability = weapon.currentDurability ?? weapon.durability ?? 100
+  const maxDur = weapon.stats.maxDurability || 1
+  const curDur = weapon.currentDurability ?? maxDur
+  const durabilityPct = Math.round((curDur / maxDur) * 100)
   properties.push({
     id: 'durability',
     name: 'Прочность',
-    value: durability,
+    value: durabilityPct,
     maxValue: 100,
     icon: config.durability.icon,
-    color: durability > 50 ? 'text-green-400' : durability > 25 ? 'text-yellow-400' : 'text-red-400',
+    color: durabilityPct > 50 ? 'text-green-400' : durabilityPct > 25 ? 'text-yellow-400' : 'text-red-400',
     bgColor: 'bg-stone-800/80',
     tooltip: `${config.durability.tooltipTitle}: ${config.durability.tooltipDesc}`,
     displayType: 'percent',
@@ -313,11 +310,11 @@ export function extractWeaponProperties(weapon: WeaponCardWeapon): WeaponPropert
   }
 
   // Эпический множитель (если > 1)
-  if ((weapon.epicMultiplier ?? 1) > 1) {
+  if (weapon.epicMultiplier > 1) {
     properties.push({
       id: 'epicMultiplier',
       name: 'Эпичность',
-      value: weapon.epicMultiplier ?? 1,
+      value: weapon.epicMultiplier,
       icon: config.epicMultiplier.icon,
       color: config.epicMultiplier.color,
       bgColor: config.epicMultiplier.bgColor,
@@ -329,11 +326,11 @@ export function extractWeaponProperties(weapon: WeaponCardWeapon): WeaponPropert
   }
 
   // Количество экспедиций (если > 0)
-  if ((weapon.adventureCount ?? 0) > 0) {
+  if (weapon.adventureCount > 0) {
     properties.push({
       id: 'adventureCount',
       name: 'Вылазок',
-      value: weapon.adventureCount ?? 0,
+      value: weapon.adventureCount,
       icon: config.adventureCount.icon,
       color: config.adventureCount.color,
       bgColor: config.adventureCount.bgColor,
@@ -533,12 +530,16 @@ export function WeaponCard({
   isExpedition = false
 }: WeaponCardProps) {
   const qualityInfo = resolveQualityGradeConfig(weapon)
-  const typeStats = weaponTypeStats[weapon.type]
-  const recipe = weaponRecipes.find(r => r.id === weapon.recipeId)
+  const typeStats = weaponTypeStats[weapon.type as keyof typeof weaponTypeStats]
+  const legacyRecipe = weaponRecipes.find((r) => r.id === weapon.recipeId)
   const properties = extractWeaponProperties(weapon)
-  
-  const tier = recipe?.tier || 'common'
-  const tierColor = qualityColors[tier]
+
+  const tier =
+    (legacyRecipe?.tier as string | undefined) ??
+    TIER_NUMBER_TO_STRING[weapon.tier] ??
+    'common'
+  const tierColor = qualityColors[tier] ?? qualityColors['common']
+  const materialLabel = legacyRecipe?.material ?? weapon.combatMaterialId
 
   // Мемоизация расчёта тира Души Войны для оптимизации
   const warSoulTier = useMemo(() => {
@@ -591,13 +592,13 @@ export function WeaponCard({
               
               {/* Название и тип */}
               <div>
-                <h4 className="font-semibold text-stone-200">{weapon.name}</h4>
+                <h4 className="font-semibold text-stone-200">{weapon.fullName}</h4>
                 <div className="flex items-center gap-2 mt-0.5">
                   <span className="text-xs text-stone-500">{typeStats?.name}</span>
-                  {recipe?.material && (
+                  {materialLabel && (
                     <>
                       <span className="text-stone-600">•</span>
-                      <span className="text-xs text-stone-500">{recipe.material}</span>
+                      <span className="text-xs text-stone-500">{materialLabel}</span>
                     </>
                   )}
                 </div>
@@ -648,20 +649,20 @@ export function WeaponCard({
           )}
 
           {/* Материалы */}
-          {weapon.materialsUsed && weapon.materialsUsed.length > 0 && (
+          {weapon.materials.length > 0 && (
             <div className="mb-3 pt-2 border-t border-stone-700/50">
               <div className="text-xs text-stone-500 mb-1.5 uppercase tracking-wide flex items-center gap-1">
                 <Diamond className="w-3 h-3" />
                 Материалы
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {weapon.materialsUsed.map((mat, idx) => (
+                {weapon.materials.map((mat, idx) => (
                   <Badge 
                     key={idx}
                     variant="outline" 
                     className="text-xs bg-stone-800/60 border-stone-600/50"
                   >
-                    <span className="text-stone-400 mr-1">{mat.partName}:</span>
+                    <span className="text-stone-400 mr-1">{mat.partId}:</span>
                     <span className="text-amber-400">{mat.materialName}</span>
                   </Badge>
                 ))}
@@ -737,11 +738,15 @@ interface WeaponMiniCardProps {
 
 export function WeaponMiniCard({ weapon, selected, onSelect, disabled }: WeaponMiniCardProps) {
   const qualityInfo = resolveQualityGradeConfig(weapon)
-  const typeStats = weaponTypeStats[weapon.type]
-  const recipe = weaponRecipes.find(r => r.id === weapon.recipeId)
-  const tier = recipe?.tier || 'common'
-  const tierColor = qualityColors[tier]
-  const durability = weapon.currentDurability ?? weapon.durability ?? 100
+  const legacyRecipe = weaponRecipes.find((r) => r.id === weapon.recipeId)
+  const tier =
+    (legacyRecipe?.tier as string | undefined) ??
+    TIER_NUMBER_TO_STRING[weapon.tier] ??
+    'common'
+  const tierColor = qualityColors[tier] ?? qualityColors['common']
+  const maxDur = weapon.stats.maxDurability || 1
+  const curDur = weapon.currentDurability ?? maxDur
+  const durabilityPct = Math.round((curDur / maxDur) * 100)
   
   // Мемоизация расчёта тира Души Войны
   const warSoulTier = useMemo(() => {
@@ -777,7 +782,7 @@ export function WeaponMiniCard({ weapon, selected, onSelect, disabled }: WeaponM
           {/* Информация */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <h5 className="font-medium text-stone-200 truncate">{weapon.name}</h5>
+              <h5 className="font-medium text-stone-200 truncate">{weapon.fullName}</h5>
               {/* Бейдж тира Души Войны в компактном виде */}
               {warSoulTier && (
                 <span 
@@ -796,16 +801,16 @@ export function WeaponMiniCard({ weapon, selected, onSelect, disabled }: WeaponM
               {/* Атака */}
               <span className="flex items-center gap-1 text-red-400">
                 <Sword className="w-3 h-3" />
-                {weapon.attack}
+                {weapon.stats.attack}
               </span>
               
               {/* Прочность */}
               <span className={cn(
                 'flex items-center gap-1',
-                durability > 50 ? 'text-green-400' : durability > 25 ? 'text-yellow-400' : 'text-red-400'
+                durabilityPct > 50 ? 'text-green-400' : durabilityPct > 25 ? 'text-yellow-400' : 'text-red-400'
               )}>
                 <Heart className="w-3 h-3" />
-                {durability}%
+                {durabilityPct}%
               </span>
               
               {/* Качество */}

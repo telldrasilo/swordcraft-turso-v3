@@ -17,9 +17,27 @@ import {
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth-config'
 import { isSaveAuthEnforced } from '@/lib/save-auth'
+import { isCloudSaveEnabled } from '@/lib/cloud-save-feature'
+import {
+  defaultCraftV2Persisted,
+  mergeCraftV2PersistedFromSave,
+  normalizeActiveCraftColumn,
+} from '@/lib/save-craft-normalize'
 
 // Демо-игрок для разработки (если не ENFORCE_SAVE_AUTH и не production)
 const DEMO_PLAYER_ID = 'demo-player'
+
+function cloudSaveDisabledResponse() {
+  return NextResponse.json(
+    {
+      success: false,
+      error:
+        'Cloud save is disabled (set NEXT_PUBLIC_CLOUD_SAVE_ENABLED=true after configuring Turso)',
+      cloudSaveDisabled: true,
+    },
+    { status: 503 }
+  )
+}
 
 async function resolvePlayerId(request: NextRequest): Promise<string> {
   if (isSaveAuthEnforced()) {
@@ -36,6 +54,7 @@ async function resolvePlayerId(request: NextRequest): Promise<string> {
 // GET - Загрузка сохранения
 // ================================
 export async function GET(request: NextRequest) {
+  if (!isCloudSaveEnabled()) return cloudSaveDisabledResponse()
   try {
     const db = await initDb()
 
@@ -72,7 +91,7 @@ export async function GET(request: NextRequest) {
           { status: 500 }
         )
       }
-      console.log('[Save API] Created new save for:', playerId)
+      console.warn('[Save API] Created new save for:', playerId)
       return NextResponse.json({
         success: true,
         data: formatSaveData(newSave as Record<string, unknown>),
@@ -80,7 +99,7 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    console.log('[Save API] Loaded save for:', playerId)
+    console.warn('[Save API] Loaded save for:', playerId)
     return NextResponse.json({
       success: true,
       data: formatSaveData(result.rows[0] as Record<string, unknown>),
@@ -101,6 +120,7 @@ export async function GET(request: NextRequest) {
 // POST - Сохранение игры
 // ================================
 export async function POST(request: NextRequest) {
+  if (!isCloudSaveEnabled()) return cloudSaveDisabledResponse()
   try {
     const db = await initDb()
 
@@ -180,7 +200,8 @@ export async function POST(request: NextRequest) {
           maxWorkers = ?, activeCraft = ?, activeRefining = ?,
           weaponInventory = ?, unlockedRecipes = ?, recipeSources = ?,
           unlockedEnchantments = ?, guild = ?, knownAdventurers = ?,
-          orders = ?, tutorial = ?, materialKnowledge = ?, playTime = ?, saveVersion = ?, updatedAt = ?
+          orders = ?, tutorial = ?, materialKnowledge = ?, craftV2Persisted = ?,
+          playTime = ?, saveVersion = ?, updatedAt = ?
         WHERE playerId = ?`,
         args: [
           validatedData.player.level,
@@ -202,6 +223,7 @@ export async function POST(request: NextRequest) {
           JSON.stringify(validatedData.orders),
           JSON.stringify(validatedData.tutorial),
           JSON.stringify(validatedData.materialKnowledge),
+          JSON.stringify(validatedData.craftV2Persisted),
           validatedData.playTime,
           validatedData.saveVersion,
           now,
@@ -216,8 +238,9 @@ export async function POST(request: NextRequest) {
           resources, statistics, workers, buildings, maxWorkers,
           activeCraft, activeRefining, weaponInventory, unlockedRecipes,
           recipeSources, unlockedEnchantments, guild, knownAdventurers,
-          orders, tutorial, materialKnowledge, playTime, saveVersion, updatedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          orders, tutorial, materialKnowledge, craftV2Persisted, playTime, saveVersion, updatedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     
         args: [
           randomUUID(),
           playerId,
@@ -240,6 +263,7 @@ export async function POST(request: NextRequest) {
           JSON.stringify(validatedData.orders),
           JSON.stringify(validatedData.tutorial),
           JSON.stringify(validatedData.materialKnowledge),
+          JSON.stringify(validatedData.craftV2Persisted),
           validatedData.playTime,
           validatedData.saveVersion,
           now,
@@ -247,7 +271,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    console.log(`[Save API] Saved for player ${playerId}`)
+    console.warn(`[Save API] Saved for player ${playerId}`)
 
     return NextResponse.json({
       success: true,
@@ -268,6 +292,7 @@ export async function POST(request: NextRequest) {
 // DELETE - Удаление сохранения (сброс)
 // ================================
 export async function DELETE(request: NextRequest) {
+  if (!isCloudSaveEnabled()) return cloudSaveDisabledResponse()
   try {
     const db = await initDb()
 
@@ -308,7 +333,7 @@ export async function DELETE(request: NextRequest) {
       args: [playerId],
     })
 
-    console.log(`[Save API] Deleted save for player ${playerId}`)
+    console.warn(`[Save API] Deleted save for player ${playerId}`)
 
     return NextResponse.json({ success: true })
   } catch (error) {
@@ -352,6 +377,7 @@ function formatSaveData(row: Record<string, unknown>) {
     orders: safeJsonParse(row['orders'] as string, {}),
     tutorial: safeJsonParse(row['tutorial'] as string, { isActive: true, currentStep: 0 }),
     materialKnowledge: safeJsonParse(row['materialKnowledge'] as string, {}),
+    craftV2Persisted: safeJsonParse(row['craftV2Persisted'] as string, defaultCraftV2Persisted),
     playTime: row['playTime'],
     saveVersion: row['saveVersion'],
     createdAt: row['createdAt'],
@@ -427,8 +453,8 @@ async function createNewSave(db: ReturnType<typeof getDb>, playerId: string) {
       resources, statistics, workers, buildings, maxWorkers,
       activeCraft, activeRefining, weaponInventory, unlockedRecipes,
       recipeSources, unlockedEnchantments, guild, knownAdventurers,
-      orders, tutorial, materialKnowledge, playTime, saveVersion, updatedAt
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      orders, tutorial, materialKnowledge, craftV2Persisted, playTime, saveVersion, updatedAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       id,
       playerId,
@@ -445,6 +471,7 @@ async function createNewSave(db: ReturnType<typeof getDb>, playerId: string) {
       '{}',
       '{"isActive":true,"currentStep":0}',
       '{}',
+      JSON.stringify(defaultCraftV2Persisted),
       0, 2, now,
     ],
   })
@@ -461,6 +488,12 @@ async function createNewSave(db: ReturnType<typeof getDb>, playerId: string) {
 function validateSaveData(data: Record<string, unknown>) {
   const player = data['player'] as Record<string, unknown> | undefined
 
+  const craftV2Persisted = mergeCraftV2PersistedFromSave(
+    data['craftV2Persisted'],
+    data['activeCraft']
+  )
+  const activeCraftNormalized = normalizeActiveCraftColumn(data['activeCraft'], craftV2Persisted)
+
   return {
     player: {
       level: Math.max(1, Number(player?.['level']) || 1),
@@ -472,7 +505,8 @@ function validateSaveData(data: Record<string, unknown>) {
     workers: (data['workers'] as unknown[]) || [],
     buildings: (data['buildings'] as unknown[]) || [],
     maxWorkers: Math.max(1, Number(data['maxWorkers']) || 3),
-    activeCraft: (data['activeCraft'] as Record<string, unknown>) || {},
+    activeCraft: activeCraftNormalized,
+    craftV2Persisted,
     activeRefining: (data['activeRefining'] as Record<string, unknown>) || {},
     weaponInventory: (data['weaponInventory'] as Record<string, unknown>) || { weapons: [] },
     unlockedRecipes: (data['unlockedRecipes'] as Record<string, unknown>) || { weaponRecipes: [], refiningRecipes: [] },

@@ -5,9 +5,7 @@
 
 import type { 
   ContractTier, 
-  ContractTerms, 
   ContractedAdventurer, 
-  ContractRequirements,
   LoyaltyLevel,
   LoyaltyChangeEvent,
   LoyaltyBonuses

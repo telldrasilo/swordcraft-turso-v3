@@ -371,7 +371,7 @@ export function checkModifierConditions(
  */
 export function calculateModifierValue(
   modifier: Modifier,
-  context: ModifierContext
+  _context: ModifierContext
 ): number {
   let value = modifier.value
   

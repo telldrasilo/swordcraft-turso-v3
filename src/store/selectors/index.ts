@@ -103,7 +103,8 @@ export const selectWorkersQuality = createSelector(
 // ================================
 
 export const selectWeaponInventory = (state: GameStore) => state.weaponInventory
-export const selectActiveCraft = (state: GameStore) => state.activeCraft
+/** Активный крафт v2 (канон); legacy-поле slice удалено — см. craftV2Persisted. */
+export const selectActiveCraft = (state: GameStore) => state.craftV2Persisted.activeCraft
 export const selectActiveRefining = (state: GameStore) => state.activeRefining
 export const selectUnlockedRecipes = (state: GameStore) => state.unlockedRecipes
 
@@ -243,5 +244,5 @@ export const selectTutorialCurrentStep = createSelector(
 export function createMemoizedSelector<T, R>(
   selectorFn: (state: T) => R
 ): (state: T) => R {
-  return selectorFn as any
+  return selectorFn
 }

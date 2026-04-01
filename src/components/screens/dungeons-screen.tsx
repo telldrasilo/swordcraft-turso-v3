@@ -5,9 +5,9 @@
 
 'use client'
 
-import { motion, AnimatePresence } from 'framer-motion'
+import { AnimatePresence } from 'framer-motion'
 import { 
-  Map, Droplet, Zap, Sparkles
+  Map, Droplet, Zap
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { useState, useEffect, useMemo, useCallback } from 'react'
@@ -18,7 +18,6 @@ import {
   type Adventure
 } from '@/data/adventures'
 import {
-  adventureEvents,
   selectRandomEvent,
   type AdventureEvent,
   type EventChoice
@@ -30,6 +29,7 @@ import {
 } from '@/components/ui/game-tooltip'
 import { cn } from '@/lib/utils'
 import { calculateWarSoulReward, calculateTierBonuses } from '@/lib/war-soul-utils'
+import type { ResourceKey } from '@/types/resources'
 
 // Импорт вынесенных компонентов
 import {
@@ -73,7 +73,7 @@ export function DungeonsScreen() {
     if (reward.bonusItems) {
       reward.bonusItems.forEach(item => {
         if (Math.random() < item.chance) {
-          addResource(item.resource as any, item.amount)
+          addResource(item.resource as ResourceKey, item.amount)
         }
       })
     }

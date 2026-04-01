@@ -7,7 +7,7 @@
 
 import React from 'react'
 import { motion } from 'framer-motion'
-import { CheckCircle, Star } from 'lucide-react'
+import { CheckCircle } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import type { CraftedWeaponV2 } from '@/types/craft-v2'

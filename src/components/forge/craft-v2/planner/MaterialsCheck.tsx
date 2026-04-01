@@ -6,10 +6,9 @@
 'use client'
 
 import React from 'react'
-import { Package, Info, ShoppingBag } from 'lucide-react'
+import { Package, Info } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { Resources } from '@/store/slices/resources-slice'
 import type { WeaponRecipe } from '@/types/craft-v2'
@@ -40,7 +39,7 @@ export function MaterialsCheck({
   selectedMaterials,
   recipe,
   gold,
-  onBuyMaterials,
+  onBuyMaterials: _onBuyMaterials,
   shouldPurchaseMaterials = false,
   onTogglePurchaseMaterials,
   activeOrderId = null,

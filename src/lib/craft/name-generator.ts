@@ -10,7 +10,6 @@ import type {
   Material, 
   WeaponRecipe, 
   DominantPropertyType,
-  QualityGrade,
   QualityRank 
 } from '@/types/craft-v2'
 import { 
@@ -123,8 +122,9 @@ export function getSuffixDescription(type: DominantPropertyType): string {
   return descriptions[type] || ''
 }
 
-export default {
+const nameGeneratorDefaultExport = {
   generateWeaponName,
   getSuffixLevel,
   getSuffixDescription,
 }
+export default nameGeneratorDefaultExport

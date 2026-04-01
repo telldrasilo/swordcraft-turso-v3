@@ -3,7 +3,7 @@
  * Чистые функции для логики рабочих: найм, увольнение, опыт, уровни
  */
 
-import { generateId, generateWorkerName, generateStatBonus, randomInt } from './generators'
+import { generateId, generateWorkerName, generateStatBonus } from './generators'
 import {
   MAX_WORKER_LEVEL,
   BASE_WORKER_EXP_TO_LEVEL,

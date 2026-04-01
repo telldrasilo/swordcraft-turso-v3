@@ -401,8 +401,9 @@ function getQualityRankFromQuality(quality: number): QualityRank {
   return 'F'
 }
 
-export default {
+const calculatorDefaultExport = {
   calculateWeapon,
   getQualityInfo,
   calculateForecast,
 }
+export default calculatorDefaultExport

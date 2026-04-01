@@ -19,8 +19,9 @@ describe('getQualityInfo', () => {
 
   it('exposes next threshold above current quality when not max', () => {
     const q = getQualityInfo(40)
-    expect(q.nextThreshold).not.toBeNull()
-    expect(q.nextThreshold!).toBeGreaterThan(40)
+    const next = q.nextThreshold
+    expect(next).not.toBeNull()
+    expect(next).toBeGreaterThan(40)
   })
 })
 
@@ -28,13 +29,14 @@ describe('calculateWeapon', () => {
   it('computes stable stats for basic_sword + iron/oak (matches refactor baseline)', () => {
     const recipe = getRecipeById('basic_sword')
     expect(recipe).toBeDefined()
+    if (!recipe) throw new Error('fixture: basic_sword')
     const materials: MaterialAssignment = {
       blade: { materialId: 'iron', quantity: 3 },
       guard: { materialId: 'iron', quantity: 1 },
       grip: { materialId: 'oak', quantity: 1 },
       pommel: { materialId: 'iron', quantity: 1 },
     }
-    const r = calculateWeapon(recipe!, materials, [], 10)
+    const r = calculateWeapon(recipe, materials, [], 10)
     expect(r.stats.attack).toBe(39)
     expect(r.stats.durability).toBe(58)
     expect(r.stats.balance).toBe(66)

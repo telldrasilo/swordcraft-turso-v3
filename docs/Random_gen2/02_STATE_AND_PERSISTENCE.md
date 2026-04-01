@@ -24,9 +24,11 @@
 - `partialize` включает `guild: state.guild` без подрезки полей экспедиции.  
 - `merge` при загрузке: `merged.guild = { ...currentState.guild, ...(persisted.guild ?? {}) }` — сохранённые активные экспедиции перекрывают дефолты.
 
-## Облако (Turso / API save)
+## Облако (Turso / API save) — опционально
 
-В `src/app/api/save/route.ts` поле `guild` сериализуется как `JSON.stringify(validatedData.guild)` в колонку БД и обратно `safeJsonParse`. Схема на уровне приложения — тот же объект, что в Zustand.
+Синхронизация с БД выполняется **только** при **`NEXT_PUBLIC_CLOUD_SAVE_ENABLED=true`** (см. `src/lib/cloud-save-feature.ts`, `.env.example`). Пока флаг выключен, состояние гильдии живёт в persist и локальном бэкапе хука `use-cloud-save`; клиент не вызывает `/api/save`.
+
+При включённом флаге: в `src/app/api/save/route.ts` поле `guild` сериализуется как `JSON.stringify(validatedData.guild)` в колонку БД и обратно `safeJsonParse`. Схема на уровне приложения — тот же объект, что в Zustand.
 
 Рекомендуемая **версия модуля экспедиций** для миграций (vNext): завести опциональное поле верхнего уровня в `guild`, например `expeditionModuleVersion: number`, или в каждом `ActiveExpedition` — `schemaVersion`; при загрузке старых сейвов мигрировать формат `events` и наград.
 

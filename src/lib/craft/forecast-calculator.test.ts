@@ -29,10 +29,12 @@ function partFromMaterial(node: MaterialNode, quantity: number, partWeight: numb
 function baseInput(): ForecastInput {
   const recipe = getRecipeById('basic_sword')
   const iron = getMaterialById('iron')
-  expect(recipe && iron).toBeDefined()
+  expect(recipe).toBeDefined()
+  expect(iron).toBeDefined()
+  if (!recipe || !iron) throw new Error('fixture: basic_sword / iron')
   return {
-    recipe: { baseStats: recipe!.baseStats },
-    materials: [partFromMaterial(iron!, 3, 0.4)],
+    recipe: { baseStats: recipe.baseStats },
+    materials: [partFromMaterial(iron, 3, 0.4)],
     techniques: [],
     blacksmithLevel: 5,
     materialExpertise: { iron: 50 },

@@ -1,12 +1,19 @@
 /**
  * Хук для синхронизации игры с сервером
- * Автоматическое сохранение и загрузка с поддержкой офлайн-режима
+ * Автоматическое сохранение и загрузка с поддержкой офлайн-режима.
+ *
+ * Облако включается только при `NEXT_PUBLIC_CLOUD_SAVE_ENABLED=true` (см. `cloud-save-feature.ts`).
  */
 
 import { useEffect, useCallback, useRef, useState } from 'react'
 import { signIn, getSession } from 'next-auth/react'
 import { useGameStore } from '@/store'
 import { isSaveAuthEnforcedClient } from '@/lib/save-auth'
+import { isCloudSaveEnabled } from '@/lib/cloud-save-feature'
+import {
+  mergeCraftV2PersistedFromSave,
+  normalizeActiveCraftColumn,
+} from '@/lib/save-craft-normalize'
 
 interface UseCloudSaveOptions {
   autoSaveInterval?: number
@@ -88,9 +95,11 @@ function buildSaveFetchHeaders(
 export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult {
   const { autoSaveInterval = 60000, enableAutoSave = true, playerId = 'demo-player' } = options
   const enforceAuth = isSaveAuthEnforcedClient()
+  const cloudEnabled = isCloudSaveEnabled()
+  const needsAuthBootstrap = enforceAuth && cloudEnabled
 
-  const [authReady, setAuthReady] = useState(!enforceAuth)
-  const [isLoading, setIsLoading] = useState(true)
+  const [authReady, setAuthReady] = useState(!needsAuthBootstrap)
+  const [isLoading, setIsLoading] = useState(cloudEnabled)
   const [isSaving, setIsSaving] = useState(false)
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -111,38 +120,52 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
   }, [])
 
   useEffect(() => {
-    if (!enforceAuth) return
+    if (!needsAuthBootstrap) return
     let cancelled = false
-    let settled = false
-    const finish = () => {
-      if (cancelled || settled) return
-      settled = true
-      setAuthReady(true)
-    }
-    const timeoutId = window.setTimeout(() => {
-      console.warn('[CloudSave] Auth bootstrap timeout — продолжаем загрузку сохранения')
-      finish()
-    }, AUTH_BOOTSTRAP_TIMEOUT_MS)
-
-    void (async () => {
+    const run = async () => {
       try {
-        const existing = await getSession()
-        if (!cancelled && !existing) {
-          await signIn('demo', { redirect: false })
-        }
+        await Promise.race([
+          (async () => {
+            const existing = await getSession()
+            if (!cancelled && !existing) {
+              await signIn('demo', { redirect: false })
+            }
+          })(),
+          new Promise<never>((_, reject) => {
+            window.setTimeout(() => reject(new Error('auth-bootstrap-timeout')), AUTH_BOOTSTRAP_TIMEOUT_MS)
+          }),
+        ])
       } catch (e) {
-        console.error('[CloudSave] Session bootstrap failed:', e)
+        if (e instanceof Error && e.message === 'auth-bootstrap-timeout') {
+          console.warn('[CloudSave] Auth bootstrap timeout — продолжаем загрузку сохранения')
+        } else {
+          console.error('[CloudSave] Session bootstrap failed:', e)
+        }
       } finally {
-        window.clearTimeout(timeoutId)
-        if (!cancelled) finish()
+        if (!cancelled) {
+          setAuthReady(true)
+        }
       }
-    })()
-
+    }
+    void run()
     return () => {
       cancelled = true
-      window.clearTimeout(timeoutId)
     }
-  }, [enforceAuth])
+  }, [needsAuthBootstrap])
+
+  /** Страховка: если load/auth зависли, не блокируем UI бесконечно */
+  useEffect(() => {
+    if (!cloudEnabled) return
+    const id = window.setTimeout(() => {
+      setIsLoading((wasLoading) => {
+        if (wasLoading) {
+          console.warn('[CloudSave] Loading failsafe: снимаем блокировку UI (проверьте сеть / NextAuth / Turso)')
+        }
+        return false
+      })
+    }, Math.max(LOAD_FETCH_TIMEOUT_MS + AUTH_BOOTSTRAP_TIMEOUT_MS + 3000, 25_000))
+    return () => window.clearTimeout(id)
+  }, [cloudEnabled])
 
   // Сбор данных для сохранения
   const collectSaveData = useCallback(() => {
@@ -160,7 +183,7 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
       workers: state.workers || [],
       buildings: state.buildings || [],
       maxWorkers: state.maxWorkers || 3,
-      activeCraft: state.activeCraft || {},
+      activeCraft: normalizeActiveCraftColumn(null, state.craftV2Persisted),
       activeRefining: state.activeRefining || {},
       weaponInventory: state.weaponInventory || { weapons: [] },
       unlockedRecipes: state.unlockedRecipes || { weaponRecipes: [], refiningRecipes: [] },
@@ -221,7 +244,6 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
       workers: data.workers || [],
       buildings: data.buildings || [],
       maxWorkers: data.maxWorkers || 3,
-      activeCraft: data.activeCraft || {},
       activeRefining: data.activeRefining || {},
       weaponInventory: data.weaponInventory || { weapons: [] },
       unlockedRecipes: data.unlockedRecipes || { weaponRecipes: [], refiningRecipes: [] },
@@ -235,7 +257,10 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
         data.materialKnowledge && typeof data.materialKnowledge === 'object'
           ? data.materialKnowledge
           : {},
-      craftV2Persisted: data.craftV2Persisted || null,
+      craftV2Persisted: mergeCraftV2PersistedFromSave(
+        data.craftV2Persisted,
+        data.activeCraft
+      ),
     })
   }, [])
 
@@ -251,6 +276,12 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
     // Всегда сохраняем в localStorage как бэкап
     saveToLocalStorage(saveData)
 
+    if (!cloudEnabled) {
+      setLastSavedAt(new Date())
+      setIsSaving(false)
+      return true
+    }
+
     // Если онлайн - сохраняем на сервер
     if (isOnline) {
       try {
@@ -265,7 +296,7 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
 
         if (result.success) {
           setLastSavedAt(new Date())
-          console.log('[CloudSave] Saved to server successfully')
+          console.warn('[CloudSave] Saved to server successfully')
           return true
         } else {
           setError(result.error || 'Save failed')
@@ -280,15 +311,21 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
       }
     } else {
       // Офлайн - сохранено только в localStorage
-      console.log('[CloudSave] Offline - saved to localStorage')
+      console.warn('[CloudSave] Offline - saved to localStorage')
       setLastSavedAt(new Date())
       setIsSaving(false)
       return true
     }
-  }, [collectSaveData, enforceAuth, isOnline, isSaving, playerId, saveToLocalStorage])
+  }, [cloudEnabled, collectSaveData, enforceAuth, isOnline, isSaving, playerId, saveToLocalStorage])
 
   // Загрузка
   const load = useCallback(async (): Promise<boolean> => {
+    if (!cloudEnabled) {
+      setError(null)
+      setIsLoading(false)
+      return false
+    }
+
     setIsLoading(true)
     setError(null)
 
@@ -341,14 +378,14 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
         if (!loadedData || localBackup.timestamp > (loadedData.timestamp || 0)) {
           loadedData = localBackup
           source = 'local'
-          console.log('[CloudSave] Using newer local backup')
+          console.warn('[CloudSave] Using newer local backup')
         }
       }
 
       // Применяем данные
       if (loadedData) {
         applyLoadedData(loadedData)
-        console.log(`[CloudSave] Loaded from ${source}, timestamp:`, new Date(loadedData.timestamp))
+        console.warn(`[CloudSave] Loaded from ${source}, timestamp:`, new Date(loadedData.timestamp))
         return true
       }
 
@@ -361,7 +398,7 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
       const localBackup = loadFromLocalStorage()
       if (localBackup) {
         applyLoadedData(localBackup)
-        console.log('[CloudSave] Loaded from local backup as fallback')
+        console.warn('[CloudSave] Loaded from local backup as fallback')
         return true
       }
 
@@ -369,10 +406,16 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
     } finally {
       setIsLoading(false)
     }
-  }, [applyLoadedData, enforceAuth, isOnline, loadFromLocalStorage, playerId])
+  }, [applyLoadedData, cloudEnabled, enforceAuth, isOnline, loadFromLocalStorage, playerId])
 
   // Сброс
   const reset = useCallback(async (): Promise<boolean> => {
+    if (!cloudEnabled) {
+      localStorage.removeItem(OFFLINE_BACKUP_KEY)
+      localStorage.removeItem(TIMESTAMP_KEY)
+      window.location.reload()
+      return true
+    }
     try {
       const response = await fetch('/api/save', {
         method: 'DELETE',
@@ -393,7 +436,7 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
       console.error('[CloudSave] Reset error:', err)
       return false
     }
-  }, [enforceAuth, playerId])
+  }, [cloudEnabled, enforceAuth, playerId])
 
   const loadRef = useRef(load)
   loadRef.current = load
@@ -419,7 +462,7 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
       const saveData = collectSaveData()
       saveToLocalStorage(saveData)
 
-      if (isOnline) {
+      if (cloudEnabled && isOnline) {
         const blob = new Blob([JSON.stringify(saveData)], { type: 'application/json' })
         navigator.sendBeacon('/api/save', blob)
       }
@@ -427,7 +470,7 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
 
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [collectSaveData, isOnline, saveToLocalStorage])
+  }, [cloudEnabled, collectSaveData, isOnline, saveToLocalStorage])
 
   return {
     isLoading,

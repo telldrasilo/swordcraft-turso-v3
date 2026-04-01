@@ -21,7 +21,9 @@
 | `src/lib/expedition-reward-generator.ts` | Заглушка наград событий |
 | `src/lib/modifier-system/*` | Реестр и провайдеры модификаторов |
 | `src/lib/store-utils/expedition-utils.ts` | Вспомогательные функции завершения (legacy/утилиты) |
-| `src/app/api/save/route.ts` | Сериализация `guild` в БД |
+| `src/lib/cloud-save-feature.ts` | Флаг `NEXT_PUBLIC_CLOUD_SAVE_ENABLED`, чеклист схемы сейва |
+| `src/hooks/use-cloud-save.ts` | Бэкап + опциональная синхронизация с `/api/save` |
+| `src/app/api/save/route.ts` | Сериализация `guild` в БД (активно при включённом облаке) |
 | `src/components/guild/expeditions-section.tsx` | UI старта экспедиции |
 | `src/components/guild/active-expedition-card.tsx` | UI завершения |
 | `src/components/guild/expeditions/ExpeditionEventLog.tsx` | Журнал событий |

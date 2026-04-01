@@ -4,11 +4,10 @@
 
 'use client'
 
-import { motion, AnimatePresence } from 'framer-motion'
+import { AnimatePresence } from 'framer-motion'
 import { Package, Coins, Star, Sword, Filter, SortAsc } from 'lucide-react'
 import { useState, useMemo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useGameStore } from '@/store'
 import { cn } from '@/lib/utils'

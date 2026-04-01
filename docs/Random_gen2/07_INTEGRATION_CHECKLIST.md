@@ -20,7 +20,8 @@
 ## Сохранения
 
 - [ ] После перезагрузки страницы `activeExpeditions` и `events` восстанавливаются из persist.  
-- [ ] Облачное сохранение: колонка `guild` содержит те же поля; загрузка не ломает `merge` в store.  
+- [ ] При **`NEXT_PUBLIC_CLOUD_SAVE_ENABLED=true`**: колонка `guild` в Turso содержит те же поля; загрузка через `/api/save` не ломает `merge` в store.  
+- [ ] При выключенном облаке: регрессии нет — данные только в `localStorage`; прямой `GET /api/save` ожидаемо даёт `503` + `cloudSaveDisabled`.  
 
 ## Миграция
 

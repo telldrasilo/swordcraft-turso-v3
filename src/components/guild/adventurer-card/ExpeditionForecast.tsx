@@ -8,14 +8,13 @@
 
 import React from 'react'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { TrendingUp, CheckCircle, Skull, Coins, Zap, Swords } from 'lucide-react'
+import { TrendingUp } from 'lucide-react'
 import type { Advice } from '@/lib/adventurer-advice'
 import { ModifierBadge } from './ModifierBadge'
 

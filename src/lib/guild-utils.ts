@@ -3,7 +3,7 @@
  */
 
 import type { Adventurer, RecoveryQuest, GuildState } from '@/types/guild'
-import type { CraftedWeapon } from '@/data/weapon-recipes'
+import type { CraftedWeaponV2 } from '@/types/craft-v2'
 import type { ExpeditionTemplate } from '@/data/expedition-templates'
 
 // ================================
@@ -38,7 +38,7 @@ export type GuildActions = {
   startExpedition: (
     expedition: ExpeditionTemplate,
     adventurer: Adventurer,
-    weapon: CraftedWeapon
+    weapon: CraftedWeaponV2
   ) => boolean
   cancelExpedition: (expeditionId: string) => void
   completeExpedition: (expeditionId: string) => ExpeditionResult | null

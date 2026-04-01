@@ -64,7 +64,7 @@ Next.js 15, TypeScript 5, Zustand 5.0.6 (composed store), Tailwind CSS 4, shadcn
 - **src/components/ui/** - shadcn/ui компоненты (~60+ компонентов)
 
 ### API маршруты (Next.js App Router)
-- **src/app/api/save/route.ts** - Сохранения в Turso/libSQL
+- **src/app/api/save/route.ts** - Облачные сохранения Turso/libSQL (активны при `NEXT_PUBLIC_CLOUD_SAVE_ENABLED=true`)
 - **src/app/api/route.ts** - Health check
 
 ## Язык кода

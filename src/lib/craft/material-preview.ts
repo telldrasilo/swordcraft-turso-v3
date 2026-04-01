@@ -5,9 +5,7 @@
 
 import type { MaterialNode } from '@/types/materials/material-core'
 import type { WeaponRecipe } from '@/types/craft-v2'
-import type { Material } from '@/types/craft-v2'
 import { getMaterialAsLegacy } from '@/data/materials'
-import { calculateExpertiseImpact } from '@/types/materials/knowledge'
 import { getMaterialById } from '@/data/materials'
 
 // ================================
@@ -53,8 +51,6 @@ export function calculateMaterialPreview(
     throw new Error(`Material not found: ${material?.identity?.id}`)
   }
 
-  const impact = calculateExpertiseImpact(material, expertise)
-  
   // 1. Базовое качество от уровня кузнеца и экспертизы
   const baseQuality = 30 + blacksmithLevel * 2
   const qualityBonus = expertise * 0.15 // До +15
@@ -63,12 +59,7 @@ export function calculateMaterialPreview(
   
   const baseQualityValue = Math.min(100, baseQuality + qualityBonus + materialQualityBonus)
   
-  // 2. Разброс от экспертизы (varianceMultiplier)
-  // Чем выше экспертиза, тем меньше разброс
-  // varianceMultiplier: 1.0 при 0% экспертизы, 0.2 при 100% экспертизы
-  const variance = impact.varianceMultiplier
-  
-  // 3. Базовые значения для части из рецепта
+  // 2. Базовые значения для части из рецепта
   const recipePart = recipe.parts.find(p => p.id === partId)
   const partQuantity = recipePart?.minQuantity || 1
   
@@ -219,7 +210,8 @@ export function calculateMaterialComparison(
   }
 }
 
-export default {
+const materialPreviewDefaultExport = {
   calculateMaterialPreview,
   calculateMaterialComparison,
 }
+export default materialPreviewDefaultExport

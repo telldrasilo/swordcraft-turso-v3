@@ -6,7 +6,7 @@
 'use client'
 
 import React, { useMemo, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { AnimatePresence } from 'framer-motion'
 import { 
   Card, 
   CardContent, 
@@ -15,7 +15,6 @@ import {
   CardDescription 
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import {
   Dialog,
   DialogContent,
@@ -35,15 +34,11 @@ import {
   UserPlus, 
   Users, 
   AlertTriangle,
-  Info,
   Lock,
-  Crown,
-  Sparkles
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import type { ContractedAdventurer, ContractTier } from '@/types/contract'
-import { CONTRACT_REQUIREMENTS, GUILD_CONTRACT_LIMITS } from '@/types/contract'
-import { getMaxContracts, getContractTierName, getContractTierIcon } from '@/lib/contract-manager'
+import type { ContractedAdventurer } from '@/types/contract'
+import { GUILD_CONTRACT_LIMITS } from '@/types/contract'
+import { getMaxContracts } from '@/lib/contract-manager'
 import { ContractCard } from './contract-card'
 
 // ================================
@@ -68,8 +63,8 @@ interface ContractsSectionProps {
 export const ContractsSection: React.FC<ContractsSectionProps> = ({
   contractedAdventurers,
   guildLevel,
-  guildGold,
-  guildGlory,
+  guildGold: _guildGold,
+  guildGlory: _guildGlory,
   onAssignMission,
   onTerminateContract,
   onOfferContract,

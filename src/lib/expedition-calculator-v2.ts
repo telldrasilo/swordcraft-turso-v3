@@ -7,8 +7,8 @@
  * НЕ НУЖНО изменять этот файл для добавления новых модификаторов!
  */
 
-import type { AdventurerExtended } from '@/types/adventurer-extended'
-import type { ExpeditionTemplate, ExpeditionDifficulty, ExpeditionType } from '@/data/expedition-templates'
+import type { AdventurerExtended, WeaponType } from '@/types/adventurer-extended'
+import type { ExpeditionTemplate, ExpeditionDifficulty } from '@/data/expedition-templates'
 import { difficultyInfo } from '@/data/expedition-templates'
 import { 
   calculateModifiers, 
@@ -71,41 +71,6 @@ const BASE_CRIT_CHANCE = 5 // 5% базовый шанс крита
 // ================================
 // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
 // ================================
-
-function getRarityName(rarity: string): string {
-  const names: Record<string, string> = {
-    common: 'Обычный',
-    uncommon: 'Необычный',
-    rare: 'Редкий',
-    epic: 'Эпический',
-    legendary: 'Легендарный'
-  }
-  return names[rarity] || 'Обычный'
-}
-
-function getMissionTypeName(type: ExpeditionType): string {
-  const names: Record<ExpeditionType, string> = {
-    hunt: 'охоту',
-    scout: 'разведку',
-    clear: 'зачистку',
-    delivery: 'доставку',
-    magic: 'магические миссии'
-  }
-  return names[type] || 'миссию'
-}
-
-/**
- * Преобразовать AppliedModifier в ModifierDetail для UI
- */
-function appliedToDetail(applied: AppliedModifier): ModifierDetail {
-  return {
-    source: applied.source.name,
-    sourceIcon: applied.source.icon,
-    value: applied.effectiveValue,
-    description: applied.source.description || '',
-    type: applied.effectiveValue > 0 ? 'positive' : applied.effectiveValue < 0 ? 'negative' : 'neutral'
-  }
-}
 
 /**
  * Определить соответствие уровня
@@ -184,7 +149,7 @@ export function calculateExpeditionResult(
     },
     weapon: {
       id: weaponId,
-      type: weaponType as any,
+      type: weaponType as WeaponType,
       attack: weaponAttack,
       quality: weaponQuality ?? 50,
       qualityRank: weaponQualityRank,

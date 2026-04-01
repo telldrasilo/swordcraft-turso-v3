@@ -15,9 +15,9 @@
  */
 
 import { generateId, generateClientName, randomInt, randomElement } from './generators'
-import { ORDER_MIN_QUALITY, ORDER_MAX_QUALITY, ORDER_BASE_GOLD_REWARD, ORDER_BASE_FAME_REWARD } from './constants'
+import { ORDER_MIN_QUALITY, ORDER_MAX_QUALITY, ORDER_BASE_FAME_REWARD } from './constants'
 import type { OrderCompletionParams, OrderCompletionResult } from './types'
-import type { WeaponRecipe } from '@/data/weapon-recipes'
+import type { RecipeForCraftingCost } from '@/lib/craft/inventory-check'
 import { getCraftingCost } from '@/lib/craft/inventory-check'
 import type { NPCOrder, MaterialAdvance } from '@/types/npc-order'
 
@@ -73,7 +73,7 @@ export function calculateGoldReward(
   weaponType: string,
   material: string | undefined,
   playerLevel: number,
-  recipeOrCost?: WeaponRecipe | number  // Рецепт или готовая стоимость материалов
+  recipeOrCost?: RecipeForCraftingCost | number  // Рецепт или готовая стоимость материалов
 ): number {
   // Определяем стоимость материалов
   let materialCost = 0
@@ -142,7 +142,7 @@ export function calculateGoldRewardRange(
   weaponType: string,
   material: string | undefined,
   playerLevel: number,
-  recipeOrCost?: WeaponRecipe | number // Можно передать рецепт или готовую стоимость материалов
+  recipeOrCost?: RecipeForCraftingCost | number // Можно передать рецепт или готовую стоимость материалов
 ): { min: number; max: number; current: (quality: number) => number } {
   // Рассчитываем награду за минимальное качество
   const minReward = calculateGoldReward(minQuality, weaponType, material, playerLevel, recipeOrCost)
@@ -169,7 +169,7 @@ export function calculateGoldRewardRange(
  */
 export function calculateFameReward(
   minQuality: number,
-  playerFame: number
+  _playerFame: number
 ): number {
   const baseFame = ORDER_BASE_FAME_REWARD
   const qualityBonus = Math.floor(minQuality / 20)

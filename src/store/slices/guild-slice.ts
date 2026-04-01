@@ -14,49 +14,30 @@ import {
   calculateReputationGain,
 } from '@/types/guild'
 import {
-  AdventurerExtended,
   SearchState,
 } from '@/types/adventurer-extended'
 import type {
   ContractedAdventurer,
   ContractTier,
-  ContractTerms,
 } from '@/types/contract'
-import { CONTRACT_TERMS, CONTRACT_REQUIREMENTS, GUILD_CONTRACT_LIMITS } from '@/types/contract'
 import type { CraftedWeaponV2 } from '@/types/craft-v2'
 import { weaponAttack } from '@/lib/weapon-v2-helpers'
 import {
-  generateAdventurerPool,
-  isAdventurerExpired,
   ADVENTURER_LIFETIME,
-  getAdventurerFullName,
-  generateExtendedAdventurer,
-  toLegacyAdventurer,
-} from '@/lib/adventurer-generator-extended'
-import { calculateAdventurerBonuses, type Adventurer as PoolAdventurer } from '@/lib/adventurer-generator'
+  calculateAdventurerBonuses,
+  type Adventurer as PoolAdventurer,
+} from '@/lib/adventurer-generator'
 import {
   ExpeditionTemplate,
-  expeditionTemplates,
   calculateCommission,
   calculateWarSoul,
   calculateSuccessChance,
   calculateWeaponLossChance,
 } from '@/data/expedition-templates'
 import {
-  applyBonusesToResult,
-} from '@/data/unique-bonuses'
-import {
-  createContract,
-  canOfferContract,
-  getMaxContracts,
   updateLoyalty,
   getLoyaltyStatus,
   wantsToTerminate,
-  calculateTerminationPenalty,
-  checkIdleLoyaltyLoss,
-  applyContractModifiers,
-  getContractTierName,
-  getContractTierIcon,
 } from '@/lib/contract-manager'
 
 // Импорт утилит

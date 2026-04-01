@@ -14,7 +14,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import type { AdventurerExtended, Rarity } from '@/types/adventurer-extended'
+import type { AdventurerExtended } from '@/types/adventurer-extended'
 import { getRarityConfig, getRarityStars } from '@/data/adventurer-rarity'
 import { getPersonalityTraitById } from '@/data/adventurer-tags/personality-traits'
 import { calculateAdventurerBonuses } from '@/lib/adventurer-generator-extended'

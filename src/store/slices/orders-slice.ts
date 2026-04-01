@@ -125,11 +125,11 @@ export const createOrdersSlice: StateCreator<
     // Проверяем лимит заказов
     const activeOrders = state.orders.filter(o => o.status === 'available').length
     if (activeOrders >= 3) {
-      console.log('[Orders Slice] Order limit reached (3)')
+      console.warn('[Orders Slice] Order limit reached (3)')
       return null
     }
 
-    console.log('[Orders Slice] Attempting to generate order, player level:', context.playerLevel, 'unlocked recipes:', context.unlockedRecipes.weaponRecipes.length)
+    console.warn('[Orders Slice] Attempting to generate order, player level:', context.playerLevel, 'unlocked recipes:', context.unlockedRecipes.weaponRecipes.length)
 
     // Генерируем достижимый заказ с помощью новой утилиты
     const existingClients = state.orders
@@ -154,7 +154,7 @@ export const createOrdersSlice: StateCreator<
       return null
     }
 
-    console.log('[Orders Slice] Order generated successfully:', order.id, order.weaponType, order.material)
+    console.warn('[Orders Slice] Order generated successfully:', order.id, order.weaponType, order.material)
 
     set((state) => ({
       orders: [...state.orders, order]
@@ -216,7 +216,7 @@ export const createOrdersSlice: StateCreator<
       ),
     }))
 
-    console.log('[Orders Slice] Advance taken:', amountToTake, 'from order:', orderId)
+    console.warn('[Orders Slice] Advance taken:', amountToTake, 'from order:', orderId)
     return { success: true, taken: amountToTake }
   },
 
@@ -297,6 +297,6 @@ export const createOrdersSlice: StateCreator<
     
     // После этого useEffect в контейнере увидит изменение orders.length 
     // и автоматически сгенерирует новые заказы
-    console.log('[Orders Slice] Orders refreshed, available orders removed. Total orders:', updatedOrders.length)
+    console.warn('[Orders Slice] Orders refreshed, available orders removed. Total orders:', updatedOrders.length)
   },
 })

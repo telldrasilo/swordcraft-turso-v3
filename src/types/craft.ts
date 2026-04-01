@@ -2,7 +2,7 @@
  * Типы для системы крафта
  */
 
-import type { ResourceKey, CraftingCost } from './resources'
+import type { CraftingCost } from './resources'
 import type { QualityGrade } from './shared/quality'
 import type { WeaponEnchantment } from './shared/enchantment'
 

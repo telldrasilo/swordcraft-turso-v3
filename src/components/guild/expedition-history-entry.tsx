@@ -6,7 +6,7 @@
 'use client'
 
 import React, { useState, useMemo } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
 import {
   Tooltip,
   TooltipContent,
@@ -29,25 +28,18 @@ import {
   User, 
   Crown, 
   Scroll, 
-  Coins, 
   Sparkles, 
   Star,
   Heart,
   Sword,
   Shield,
   CheckCircle,
-  XCircle,
-  Clock,
-  Trophy,
   AlertTriangle,
-  Zap,
   Target,
   Users,
-  Compass
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ExpeditionHistoryEntry, Adventurer } from '@/types/guild'
-import type { AdventurerExtended } from '@/types/adventurer-extended'
 import type { ContractTier } from '@/types/contract'
 import { CONTRACT_TERMS, CONTRACT_REQUIREMENTS } from '@/types/contract'
 import { getMaxContracts, getContractTierName, getContractTierIcon, getContractTierColor } from '@/lib/contract-manager'
@@ -73,16 +65,6 @@ interface ExpeditionHistoryEntryProps {
   adventurerSuccessRate: number
   alreadyContracted?: boolean
   onOfferContract?: (adventurer: Adventurer, tier: ContractTier) => void
-}
-
-// ================================
-// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
-// ================================
-
-const formatTime = (seconds: number) => {
-  const min = Math.floor(seconds / 60)
-  const sec = seconds % 60
-  return `${min}:${sec.toString().padStart(2, '0')}`
 }
 
 // ================================

@@ -26,7 +26,6 @@ import {
 import { cn } from '@/lib/utils'
 import { 
   ResourceIcon, 
-  resourceIcons, 
   rarityColors,
   getResourceIconInfo 
 } from '@/components/ui/resource-icon'

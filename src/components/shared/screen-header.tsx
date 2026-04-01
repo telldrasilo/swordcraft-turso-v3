@@ -30,7 +30,7 @@ export function ScreenHeader({
   title,
   icon: Icon,
   iconColor = 'text-amber-500',
-  description,
+  description: _description,
   tooltipTitle,
   tooltipContent,
   badge,

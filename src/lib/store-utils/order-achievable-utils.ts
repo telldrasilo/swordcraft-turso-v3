@@ -4,17 +4,25 @@
  */
 
 import { generateId, randomInt, randomElement, generateClientName } from './generators'
-import { ORDER_MIN_QUALITY, ORDER_MAX_QUALITY, ORDER_BASE_GOLD_REWARD, ORDER_BASE_FAME_REWARD } from './constants'
+import { ORDER_MIN_QUALITY, ORDER_MAX_QUALITY } from './constants'
 import { calculateGoldReward, calculateFameReward } from './order-utils'
 import { calculateAttack } from './craft-utils'
 import { RESOURCE_SELL_PRICES } from './constants'
-import { WeaponRecipe, weaponRecipes } from '@/data/weapon-recipes'
+import type { WeaponRecipe as LegacyWeaponRecipe } from '@/data/weapon-recipes'
+import { weaponRecipes } from '@/data/weapon-recipes'
+import { getRecipeById } from '@/data/recipes'
+import type { RecipeForCraftingCost } from '@/lib/craft/inventory-check'
 import { getCraftingCost } from '@/lib/craft/inventory-check'
 import type { NPCOrder, MaterialAdvance } from '@/types/npc-order'
 import type { UnlockedRecipes } from '@/store/slices/craft-slice'
 import type { Resources } from '@/store/slices/resources-slice'
 
 export type { MaterialAdvance }
+
+/** Для расчёта стоимости: v2 по id, иначе legacy (iron_* и т.д. есть только в v1). */
+function recipeForCraftingCost(recipe: LegacyWeaponRecipe): RecipeForCraftingCost {
+  return getRecipeById(recipe.id) ?? recipe
+}
 
 // ================================
 // ТИПЫ
@@ -104,7 +112,7 @@ export function checkOrderAchievability(
  * Проверить, может ли игрок позволить материалы для рецепта
  */
 export function checkCanAffordRecipeMaterials(
-  recipe: WeaponRecipe,
+  recipe: LegacyWeaponRecipe,
   playerResources: Resources
 ): boolean {
   if (!recipe.cost) return true
@@ -123,7 +131,7 @@ export function checkCanAffordRecipeMaterials(
  * Рассчитать стоимость материалов для выполнения заказа
  */
 export function calculateMaterialCostForOrder(
-  recipe: WeaponRecipe
+  recipe: LegacyWeaponRecipe
 ): { materials: { resource: string; amount: number }[]; totalCost: number } {
   if (!recipe.cost) {
     return { materials: [], totalCost: 0 }
@@ -148,7 +156,7 @@ export function calculateMaterialCostForOrder(
  * Создать аванс материалов для заказа
  */
 export function generateMaterialAdvance(
-  recipe: WeaponRecipe,
+  recipe: LegacyWeaponRecipe,
   originalReward: number
 ): MaterialAdvance | null {
   const { materials, totalCost } = calculateMaterialCostForOrder(recipe)
@@ -181,7 +189,7 @@ export function calculateMinAchievableQuality(playerLevel: number): number {
  * Рассчитать максимальную атаку, которую может создать игрок для рецепта
  */
 export function calculateMaxAchievableAttack(
-  recipe: WeaponRecipe,
+  recipe: LegacyWeaponRecipe,
   playerLevel: number
 ): number {
   // Используем максимальное качество, которое может создать игрок
@@ -202,7 +210,7 @@ export function calculateMaxAchievableAttack(
 export function filterRecipesByProgression(
   category: 'basic' | 'progressive' | 'ambitious',
   context: OrderGenerationContext
-): WeaponRecipe[] {
+): LegacyWeaponRecipe[] {
   return weaponRecipes.filter(recipe => {
     switch (category) {
       case 'basic':
@@ -244,12 +252,12 @@ export function generateAchievableOrder(context: OrderGenerationContext): NPCOrd
   // Фильтруем рецепты по категории
   const availableRecipes = filterRecipesByProgression(category.type, context)
 
-  console.log('[Order Generation] Category:', category.type, 'Available recipes:', availableRecipes.length, 'Unlocked recipes:', context.unlockedRecipes.weaponRecipes)
+  console.warn('[Order Generation] Category:', category.type, 'Available recipes:', availableRecipes.length, 'Unlocked recipes:', context.unlockedRecipes.weaponRecipes)
 
   if (availableRecipes.length === 0) {
     // Если нет рецептов в выбранной категории, пробуем базовую
     const basicRecipes = filterRecipesByProgression('basic', context)
-    console.log('[Order Generation] Trying basic recipes:', basicRecipes.length)
+    console.warn('[Order Generation] Trying basic recipes:', basicRecipes.length)
     if (basicRecipes.length === 0) {
       console.warn('[Order Generation] No suitable recipes found')
       return null
@@ -259,7 +267,7 @@ export function generateAchievableOrder(context: OrderGenerationContext): NPCOrd
 
   // Выбираем случайный рецепт
   const recipe = randomElement(availableRecipes)
-  console.log('[Order Generation] Selected recipe:', recipe.id)
+  console.warn('[Order Generation] Selected recipe:', recipe.id)
 
   return generateOrderFromRecipe(recipe, context)
 }
@@ -285,7 +293,7 @@ function selectOrderCategory(): OrderCategory {
  * Сгенерировать заказ из рецепта
  */
 function generateOrderFromRecipe(
-  recipe: WeaponRecipe,
+  recipe: LegacyWeaponRecipe,
   context: OrderGenerationContext
 ): NPCOrder {
   // Генерируем клиента
@@ -306,7 +314,7 @@ function generateOrderFromRecipe(
   const minAttack = minQuality > 70 ? randomInt(10, Math.min(maxPossibleAttack, 20 + context.playerLevel)) : undefined
 
   // Рассчитываем точную стоимость материалов для хранения в заказе
-  const materialCostMap = getCraftingCost(recipe, {})
+  const materialCostMap = getCraftingCost(recipeForCraftingCost(recipe), {})
   const resourcePrices: Record<string, number> = {
     iron: 2, wood: 1, stone: 1, coal: 1,
     ironIngot: 5, steelIngot: 12, bronzeIngot: 8,
@@ -319,20 +327,23 @@ function generateOrderFromRecipe(
   }, 0)
 
   // Награды (передаем recipe для точного расчета стоимости материалов)
-  const goldReward = calculateGoldReward(minQuality, recipe.type, recipe.material, context.playerLevel, recipe)
+  const goldReward = calculateGoldReward(
+    minQuality,
+    recipe.type,
+    recipe.material,
+    context.playerLevel,
+    recipeForCraftingCost(recipe)
+  )
   const fameReward = calculateFameReward(minQuality, context.playerFame)
 
   // Проверяем, может ли игрок позволить материалы
   const canAffordMaterials = checkCanAffordRecipeMaterials(recipe, context.playerResources)
 
-  // Аванс материалов
-  let materialAdvance: MaterialAdvance | undefined
-
-  if (!canAffordMaterials) {
-    materialAdvance = generateMaterialAdvance(recipe, goldReward) ?? undefined
-    // НЕ уменьшаем награду здесь - это будет сделано при выполнении заказа
-    // на основе фактического качества оружия
-  }
+  // Аванс материалов (если игрок не может купить сырьё сразу)
+  const materialAdvance = !canAffordMaterials
+    ? generateMaterialAdvance(recipe, goldReward) ?? undefined
+    : undefined
+  // НЕ уменьшаем награду здесь — при выполнении заказа по фактическому качеству
 
   // Требования для появления
   const requiredLevel = Math.max(1, context.playerLevel - 2)
@@ -350,6 +361,7 @@ function generateOrderFromRecipe(
     goldReward,
     fameReward,
     materialCost, // Точная стоимость материалов для отображения диапазона
+    materialAdvance,
     status: 'available',
     requiredLevel,
     requiredFame,
@@ -362,7 +374,7 @@ function generateOrderFromRecipe(
 /**
  * Рассчитать качество для заказа
  */
-function calculateOrderQuality(recipe: WeaponRecipe, playerLevel: number): number {
+function calculateOrderQuality(_recipe: LegacyWeaponRecipe, playerLevel: number): number {
   const minPossible = calculateMinAchievableQuality(playerLevel)
   const maxPossible = Math.min(ORDER_MAX_QUALITY, 50 + playerLevel * 2)
 

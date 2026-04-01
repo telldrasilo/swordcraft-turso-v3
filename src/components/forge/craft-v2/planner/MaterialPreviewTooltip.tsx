@@ -39,7 +39,6 @@ export function MaterialPreviewTooltip({ material, comparison, requiredQuantity,
   
   // Проверка уровня детализации (как в энциклопедии)
   const showDetails = isDetailLevelAvailable(knowledge, 'experienced') // 50%+ экспертизы
-  const showApplied = isDetailLevelAvailable(knowledge, 'familiar') // 30%+ экспертизы
 
   const content = (
     <>

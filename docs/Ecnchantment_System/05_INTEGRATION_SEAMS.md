@@ -165,13 +165,14 @@ Action boundaries:
 
 Файлы:
 
+- `src/lib/cloud-save-feature.ts` (ориентация: когда облако включается и как расширять схему)
 - `src/hooks/use-cloud-save.ts`
 - `src/app/api/save/route.ts`
 - `src/lib/db.ts`
 
 Когда менять:
 
-- всегда, если меняется save-shape или новый altar-state выходит за текущие JSON-структуры.
+- всегда, если меняется save-shape или новый altar-state выходит за текущие JSON-структуры; слой API/БД — дополнительно, если облако включено в окружении.
 
 ## Обязательные action boundaries для внешнего модуля
 
@@ -201,6 +202,7 @@ Action boundaries:
 - `src/components/altar/sacrifice-section.tsx`
 - `src/components/altar/enchanted-weapons-section.tsx`
 - `src/components/ui/weapon-card.tsx`
+- `src/lib/cloud-save-feature.ts`
 - `src/hooks/use-cloud-save.ts`
 - `src/app/api/save/route.ts`
 - `src/lib/db.ts`
@@ -213,7 +215,7 @@ Action boundaries:
 - игрок;
 - инвентарь оружия;
 - store actions;
-- save/load;
+- локальный persist и консистентность с `use-cloud-save` (бэкап / будущее облако);
 - UI altar.
 
 ### Опциональные, но желательные для будущего

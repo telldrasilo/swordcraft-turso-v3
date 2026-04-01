@@ -32,13 +32,14 @@ export {
   initialStatistics,
   initialResources,
   initialBuildings,
-  initialActiveCraft,
   initialActiveRefining,
   initialWeaponInventory,
   initialUnlockedRecipes,
   // Данные
   workerClassData,
 } from './game-store-composed'
+
+export { initialActiveCraft } from './slices/craft-slice'
 
 // Типы из slices
 export type { NPCOrder, OrderStatus, OrderBonusItem } from './slices/orders-slice'

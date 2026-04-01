@@ -15,7 +15,7 @@ import { useGameStore } from '@/store'
 import { useSound } from '@/lib/sounds'
 import { useState } from 'react'
 import { getEnchantment, enchantmentSchoolInfo } from '@/data/enchantments'
-import { qualityGrades } from '@/data/weapon-recipes'
+import { qualityGrades } from '@/lib/craft/weapon-display-meta'
 import { EnchantWeaponModal } from './enchant-weapon-modal'
 
 export function EnchantedWeaponsSection() {

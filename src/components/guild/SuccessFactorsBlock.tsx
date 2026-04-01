@@ -31,10 +31,10 @@ export interface SuccessFactorsBlockProps {
 // ================================
 
 export const SuccessFactorsBlock: React.FC<SuccessFactorsBlockProps> = ({
-  successChance,
+  successChance: _successChance,
   factors,
   blockType,
-  adventurerName,
+  adventurerName: _adventurerName,
   quote,
 }) => {
   const blockStyles = {

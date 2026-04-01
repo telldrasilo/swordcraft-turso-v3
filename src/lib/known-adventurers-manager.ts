@@ -3,7 +3,7 @@
  * Управляет хранением, обновлением и повторным появлением искателей
  */
 
-import type { AdventurerExtended, WeaponType } from '@/types/adventurer-extended'
+import type { AdventurerExtended } from '@/types/adventurer-extended'
 import type { 
   KnownAdventurer, 
   MissionResultForStats,

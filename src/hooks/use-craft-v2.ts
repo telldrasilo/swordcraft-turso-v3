@@ -10,7 +10,6 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import type { 
   ActiveCraftV2, 
   CraftPlan, 
-  CraftStageInstance, 
   CraftedWeaponV2,
   MaterialAssignment 
 } from '@/types/craft-v2'

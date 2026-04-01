@@ -4,7 +4,7 @@
  */
 
 import { generateId } from './generators'
-import { MAX_ENCHANTMENTS_PER_WEAPON, TIER_MULTIPLIERS } from './constants'
+import { TIER_MULTIPLIERS } from './constants'
 import type { SacrificeResult, EnchantParams, EnchantResult } from './types'
 
 // ================================

@@ -85,7 +85,7 @@ store.addMaterialExpertise(materialId, amount)
 3. **Cross-Slice Actions** — Сложные операции (несколько слайсов) в `game-store-composed.ts` и вынесенные модули `src/store/cross-slice/`
 4. **Modifier System v2** — Система модификаторов экспедиций с 8 провайдерами
 5. **Craft System v2** — Новая система крафта с детальным управлением материалами и этапами
-6. **Cloud Saves** — Периодическое сохранение в Turso/libSQL через `src/app/api/save/route.ts` и `use-cloud-save` (по умолчанию раз в 60 секунд)
+6. **Cloud Saves** — Опционально: `NEXT_PUBLIC_CLOUD_SAVE_ENABLED=true` + Turso; иначе только Zustand `persist` и локальный бэкап в `use-cloud-save`. Чеклист расширения схемы: `src/lib/cloud-save-feature.ts`
 
 ## Константы игры
 
@@ -94,15 +94,15 @@ store.addMaterialExpertise(materialId, amount)
 
 ## Сохранение и загрузка
 
-- Автосохранение через Turso/libSQL
-- Локальное сохранение через Zustand persist middleware (localStorage)
-- API маршруты в src/app/api/save/route.ts
+- **Основной слой:** Zustand persist (`localStorage`, см. store) + локальный бэкап в `use-cloud-save.ts`
+- **Облако (Turso):** только если **`NEXT_PUBLIC_CLOUD_SAVE_ENABLED=true`**; иначе `/api/save` не используется клиентом (ответ 503 при прямом вызове). Чеклист расширения полей: `src/lib/cloud-save-feature.ts`
+- API: `src/app/api/save/route.ts`
 
 ## Тесты и проверка качества
 
 ### Что использовать
 - **Unit-тесты:** [Vitest](https://vitest.dev/) (среда Node), файлы **`src/**/*.test.ts`** (см. [vitest.config.ts](vitest.config.ts)).
-- **Покрытие:** провайдер `@vitest/coverage-v8`; отчёт в `./coverage/` (в `.gitignore`). В конфиге покрытие **не** тянет `src/app/**` и `src/components/**`, чтобы метрики отражали бизнес-логику, а не UI.
+- **Покрытие:** провайдер `@vitest/coverage-v8`; отчёт в `./coverage/` (в `.gitignore`). В конфиге заданы **`coverage.include`** (`src/lib/**/*.ts`) и **`coverage.thresholds`**; `src/app/**` и `src/components/**` в метриках не участвуют.
 
 ### Команды (локально)
 | Команда | Назначение |
@@ -115,7 +115,7 @@ store.addMaterialExpertise(materialId, amount)
 | `npm run build` | Production-сборка Next.js (строгая проверка) |
 
 ### CI
-В [.github/workflows/ci.yml](.github/workflows/ci.yml): **`npm ci` → `npm run test` → `npm run build`**. Любой PR/пуш в `main`/`master` должен проходить эту цепочку.
+В [.github/workflows/ci.yml](.github/workflows/ci.yml): **`npm ci` → `npm run lint` → `npm run test` → `npm run test:coverage` → `npm run build`**. Любой PR/пуш в `main`/`master` должен проходить эту цепочку.
 
 ### Как добавлять тесты
 1. Рядом с модулем создай **`имя-модуля.test.ts`** в том же каталоге (или в `src/store/...` для cross-slice).

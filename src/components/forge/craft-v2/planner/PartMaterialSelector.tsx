@@ -8,7 +8,7 @@
 
 import React, { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronDown, ChevronUp, Coins } from 'lucide-react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { allMaterials } from '@/data/materials'
@@ -23,10 +23,7 @@ import {
   isMaterialAvailable,
   getMaterialQuantity,
 } from '@/lib/craft/material-sorting'
-import { 
-  calculateMaterialComparison, 
-  type MaterialComparison 
-} from '@/lib/craft/material-preview'
+import { calculateMaterialComparison } from '@/lib/craft/material-preview'
 import { MaterialPreviewTooltip } from './MaterialPreviewTooltip'
 import { 
   getMaterialRarity, 
@@ -37,8 +34,6 @@ import {
   getResourceKeyForMaterial, 
 } from '@/lib/craft/inventory-check'
 import { getMaterialPrice } from '@/data/material-shop'
-import type { ResourceKey } from '@/store/slices/resources-slice'
-
 // ================================
 // TIPES
 // ================================
@@ -107,7 +102,7 @@ export function PartMaterialSelector({
   recipe,
   knowledge,
   materialPrices,
-  currentMaterials = {},
+  currentMaterials: _currentMaterials = {},
 }: PartMaterialSelectorProps) {
   const [expanded, setExpanded] = useState(false)
   

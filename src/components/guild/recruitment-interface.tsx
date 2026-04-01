@@ -6,10 +6,9 @@
 'use client'
 
 import React, { useState, useCallback, useMemo, useEffect, useLayoutEffect, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { AnimatePresence } from 'framer-motion'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import {
   Dialog,
   DialogContent,
@@ -22,8 +21,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { Users, Search, Clock, AlertTriangle, CheckCircle, Info } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Users, Search, AlertTriangle, CheckCircle, Info } from 'lucide-react'
 
 import type { AdventurerExtended, SearchState, SearchLogEntry } from '@/types/adventurer-extended'
 import { SearchLog } from './search-log'
@@ -140,7 +138,7 @@ function calculateLocalAcceptChance(
 function useSearchSimulation(
   expedition: RecruitmentInterfaceProps['expedition'],
   guildLevel: number,
-  weaponAttack: number
+  _weaponAttack: number
 ) {
   const [searchState, setSearchState] = useState<SearchState>({
     isSearching: false,
@@ -520,7 +518,7 @@ export const RecruitmentInterface: React.FC<RecruitmentInterfaceProps> = ({
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <AnimatePresence mode="popLayout">
-                {searchState.foundAdventurers.map((adventurer, index) => (
+                {searchState.foundAdventurers.map((adventurer) => (
                   <AdventurerCardV2
                     key={adventurer.id}
                     adventurer={adventurer}

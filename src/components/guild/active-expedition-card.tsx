@@ -26,9 +26,6 @@ import { useState, useEffect } from 'react'
 // Импорт журнала событий
 import { ExpeditionEventLog } from './expeditions/ExpeditionEventLog'
 
-// Импорт функции расчёта репутации
-import { calculateReputationGain } from '@/types/guild'
-
 // Импорт функции показа уведомлений
 import { showReputationNotification } from './ReputationNotification'
 
