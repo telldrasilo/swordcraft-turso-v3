@@ -124,6 +124,13 @@ export const initialRefining: ActiveRefining = {
 }
 
 export const initialUnlockedRecipes: UnlockedRecipes = {
-  weaponRecipes: ['iron_sword', 'iron_dagger', 'iron_axe', 'iron_mace', 'iron_spear', 'iron_hammer'],
+  weaponRecipes: [
+    'basic_sword',
+    'basic_dagger',
+    'basic_axe',
+    'basic_mace',
+    'basic_spear',
+    'basic_hammer',
+  ],
   refiningRecipes: ['iron_ingot', 'copper_ingot', 'tin_ingot', 'wood_planks', 'stone_blocks'],
 }

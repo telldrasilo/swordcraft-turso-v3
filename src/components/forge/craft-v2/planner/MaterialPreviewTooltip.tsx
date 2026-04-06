@@ -12,6 +12,8 @@ import type { MaterialNode } from '@/types/materials/material-core'
 import type { MaterialComparison } from '@/lib/craft/material-preview'
 import { getMaterialRarity, RARITY_COLORS, RARITY_BG_COLORS, RARITY_LABELS } from '@/types/materials/material-core'
 import { isDetailLevelAvailable, type MaterialKnowledge } from '@/types/materials/knowledge'
+import { formatWeaponCraftV2RoleHint } from '@/lib/materials/material-process-contribution'
+import { SOUL_POTENTIAL_MAX, SOUL_POTENTIAL_MIN } from '@/data/war-soul-balance'
 
 interface MaterialPreviewTooltipProps {
   material: MaterialNode
@@ -36,6 +38,7 @@ export function MaterialPreviewTooltip({ material, comparison, requiredQuantity,
   const [popoverOpen, setPopoverOpen] = useState(false)
   const rarity = getMaterialRarity(material.economy)
   const { preview, delta } = comparison
+  const forgeRoleHint = formatWeaponCraftV2RoleHint(material.identity.id)
   
   // Проверка уровня детализации (как в энциклопедии)
   const showDetails = isDetailLevelAvailable(knowledge, 'experienced') // 50%+ экспертизы
@@ -50,6 +53,11 @@ export function MaterialPreviewTooltip({ material, comparison, requiredQuantity,
               <Badge variant="outline" className="text-xs bg-stone-800/50">{RARITY_LABELS[rarity]}</Badge>
               <span className="text-xs text-stone-400">{material.identity.class}</span>
             </div>
+            {forgeRoleHint && (
+              <p className="text-xs text-amber-200/90 mt-2 leading-snug border-t border-stone-600/50 pt-2">
+                {forgeRoleHint}
+              </p>
+            )}
           </div>
           <Flame className={cn("w-5 h-5", RARITY_COLORS[rarity])} />
         </div>
@@ -94,9 +102,16 @@ export function MaterialPreviewTooltip({ material, comparison, requiredQuantity,
           </div>
           
           {/* Soul with tooltip */}
-          <NestedTooltip content={`Вместимость Души Войны (${preview.soulCapacity.min}-${preview.soulCapacity.max}) определяет, сколько магической энергии может накопить оружие. Нужно для зачарований и особых способностей.`}>
+          <NestedTooltip content={`Потенциал души (оценка по этой части): ×${preview.soulPotential.min.toFixed(2)}–×${preview.soulPotential.max.toFixed(2)} — множитель к награде души войны за миссию на готовом оружии (полное значение считается по всем частям и синергиям).`}>
             <div className="cursor-help">
-              <StatRange label="Душа" min={preview.soulCapacity.min} max={preview.soulCapacity.max} delta={null} icon={<Flame className="w-3 h-3 text-amber-400" />} />
+              <StatRange
+                label="Потенциал души"
+                min={preview.soulPotential.min}
+                max={preview.soulPotential.max}
+                delta={null}
+                variant="soulPotential"
+                icon={<Flame className="w-3 h-3 text-amber-400" />}
+              />
             </div>
           </NestedTooltip>
         </div>
@@ -238,22 +253,56 @@ function TooltipWrapper({ content, children }: TooltipWrapperProps) {
   )
 }
 
-interface StatRangeProps { label: string; min: number; max: number; delta: { min: number; max: number } | null; icon: React.ReactNode }
+interface StatRangeProps {
+  label: string
+  min: number
+  max: number
+  delta: { min: number; max: number } | null
+  icon: React.ReactNode
+  /** Soul Potential — нормализация бара по диапазону множителя */
+  variant?: 'default' | 'soulPotential'
+}
 
-function StatRange({ label, min, max, delta, icon }: StatRangeProps) {
+function StatRange({ label, min, max, delta, icon, variant = 'default' }: StatRangeProps) {
+  const soulSpan = SOUL_POTENTIAL_MAX - SOUL_POTENTIAL_MIN
+  const fmt = (n: number) =>
+    variant === 'soulPotential' ? `×${n.toFixed(2)}` : String(Math.round(n))
+  const bar =
+    variant === 'soulPotential' ? (
+      <div className="relative h-2 bg-stone-800 rounded overflow-hidden">
+        <div
+          className="absolute h-full bg-amber-500/45 rounded"
+          style={{
+            left: `${Math.min(100, Math.max(0, ((min - SOUL_POTENTIAL_MIN) / soulSpan) * 100))}%`,
+            width: `${Math.max(0, Math.min(100, ((max - min) / soulSpan) * 100))}%`,
+          }}
+        />
+      </div>
+    ) : (
+      <div className="relative h-2 bg-stone-800 rounded overflow-hidden">
+        <div className="absolute h-full bg-stone-600 opacity-50" style={{ left: '45%', width: '10%' }} />
+        <div className="absolute h-full bg-blue-500/50" style={{ left: `${min}%`, width: `${max - min}%` }} />
+      </div>
+    )
+
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between text-xs">
         <div className="flex items-center gap-2">{icon}<span className="text-stone-400">{label}</span></div>
         <div className="flex items-center gap-1">
-          <span className="font-mono text-stone-300">{min}-{max}</span>
-          {delta && <span className={cn("font-mono text-xs", delta.min >= 0 ? "text-green-400" : "text-red-400")}>({delta.min >= 0 ? '+' : ''}{delta.min}-{delta.max >= 0 ? '+' : ''}{delta.max})</span>}
+          <span className="font-mono text-stone-300">
+            {fmt(min)}–{fmt(max)}
+          </span>
+          {delta && (
+            <span className={cn('font-mono text-xs', delta.min >= 0 ? 'text-green-400' : 'text-red-400')}>
+              ({delta.min >= 0 ? '+' : ''}
+              {delta.min}-{delta.max >= 0 ? '+' : ''}
+              {delta.max})
+            </span>
+          )}
         </div>
       </div>
-      <div className="relative h-2 bg-stone-800 rounded overflow-hidden">
-        <div className="absolute h-full bg-stone-600 opacity-50" style={{ left: '45%', width: '10%' }} />
-        <div className="absolute h-full bg-blue-500/50" style={{ left: `${min}%`, width: `${max - min}%` }} />
-      </div>
+      {bar}
     </div>
   )
 }

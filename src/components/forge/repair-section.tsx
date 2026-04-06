@@ -1,87 +1,80 @@
 /**
- * RepairSection - секция ремонта оружия
+ * RepairSection - секция ремонта оружия (один клинок на верстаке)
  */
 
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { Wrench, CheckCircle, Zap } from 'lucide-react'
-import { useState } from 'react'
+import { Wrench, CheckCircle, Zap, Package } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { useGameStore } from '@/store'
 import { useSound } from '@/lib/sounds'
-import { getSmithMastery, type RepairType } from '@/data/repair-system'
+import { getSmithMastery } from '@/data/repair-system'
 import { RepairCard } from '@/components/ui/repair-card'
-import type { CraftedWeaponV2 } from '@/types/craft-v2'
+import { WeaponInventoryCard } from '@/components/forge/weapon-inventory-card'
 import type { RepairResult } from '@/data/repair-system'
 
 export function RepairSection() {
   const weaponInventory = useGameStore((state) => state.weaponInventory)
-  const getBestBlacksmith = useGameStore((state) => state.getBestBlacksmith)
-  const executeWeaponRepair = useGameStore((state) => state.executeWeaponRepair)
-  const [selectedRepairByWeapon, setSelectedRepairByWeapon] = useState<Record<string, RepairType | null>>({})
+  const repairBenchWeaponId = useGameStore((state) => state.repairBenchWeaponId)
+  const returnWeaponFromRepairBench = useGameStore((state) => state.returnWeaponFromRepairBench)
+  const player = useGameStore((state) => state.player)
+  const settleAutoRepairForgeVisitReady = useGameStore((state) => state.settleAutoRepairForgeVisitReady)
   const [lastRepair, setLastRepair] = useState<{ weaponName: string; result: RepairResult } | null>(null)
   const { play } = useSound()
-  
-  // Фильтруем оружие, которое нуждается в ремонте
-  const damagedWeapons = weaponInventory.weapons
-    .filter(w => (w.currentDurability ?? w.stats.durability) < w.stats.maxDurability)
-    .sort((a, b) => (a.currentDurability ?? a.stats.durability) - (b.currentDurability ?? b.stats.durability))
-  
-  const handleRepair = (weapon: CraftedWeaponV2, option: RepairType) => {
-    setTimeout(() => {
-      const result = executeWeaponRepair(weapon.id, option)
-      if (result.success && result.result) {
-        play('craft_complete')
-        setLastRepair({ weaponName: weapon.fullName, result: result.result })
-        setTimeout(() => {
-          setLastRepair(null)
-        }, 3000)
-      }
-    }, 500)
-  }
-  
-  const blacksmith = getBestBlacksmith()
-  const mastery = blacksmith ? getSmithMastery(blacksmith.level) : null
-  
+
+  useEffect(() => {
+    settleAutoRepairForgeVisitReady()
+  }, [settleAutoRepairForgeVisitReady])
+
+  useEffect(() => {
+    if (
+      repairBenchWeaponId &&
+      !weaponInventory.weapons.some((w) => w.id === repairBenchWeaponId)
+    ) {
+      returnWeaponFromRepairBench()
+    }
+  }, [repairBenchWeaponId, weaponInventory.weapons, returnWeaponFromRepairBench])
+
+  const benchWeapon = useMemo(() => {
+    if (!repairBenchWeaponId) return undefined
+    return weaponInventory.weapons.find((w) => w.id === repairBenchWeaponId)
+  }, [weaponInventory.weapons, repairBenchWeaponId])
+
+  const mastery = getSmithMastery(Math.max(1, player.level))
+
   return (
     <div className="space-y-4">
-      {/* Информация о кузнеце */}
-      {!blacksmith ? (
-        <Card className="card-medieval bg-stone-800/30">
-          <CardContent className="p-3">
-            <div className="flex items-center gap-2 text-stone-500">
-              <Wrench className="w-4 h-4" />
-              <span className="text-sm">Нет кузнеца — ремонт с базовыми параметрами</span>
-            </div>
-          </CardContent>
-        </Card>
-      ) : mastery && (
-        <Card className="card-medieval bg-stone-800/50">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Wrench className="w-5 h-5 text-amber-500" />
-                <div>
-                  <p className="text-sm font-medium text-stone-300">{blacksmith.name}</p>
-                  <p className="text-xs text-amber-400">{mastery.name}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 text-xs">
-                <div className="flex items-center gap-1 text-green-400">
-                  <CheckCircle className="w-3 h-3" />
-                  <span>{mastery.successBonus >= 0 ? '+' : ''}{mastery.successBonus}% к успеху</span>
-                </div>
-                <div className="flex items-center gap-1 text-purple-400">
-                  <span>{mastery.discountPercent}% скидка</span>
-                </div>
+      <Card className="card-medieval bg-stone-800/50">
+        <CardContent className="p-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Wrench className="w-5 h-5 text-amber-500" />
+              <div>
+                <p className="text-sm font-medium text-stone-300">{player.name}</p>
+                <p className="text-xs text-amber-400">
+                  {mastery.name} · ур. {player.level}
+                </p>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
-      
-      {/* Уведомление о ремонте */}
+            <div className="flex items-center gap-3 text-xs">
+              <div className="flex items-center gap-1 text-green-400">
+                <CheckCircle className="w-3 h-3" />
+                <span>
+                  {mastery.successBonus >= 0 ? '+' : ''}
+                  {mastery.successBonus}% к успеху
+                </span>
+              </div>
+              <div className="flex items-center gap-1 text-purple-400">
+                <span>{mastery.discountPercent}% скидка на материалы</span>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <AnimatePresence>
         {lastRepair && (
           <motion.div
@@ -92,9 +85,7 @@ export function RepairSection() {
           >
             <div className="flex items-center gap-2 text-green-400">
               <CheckCircle className="w-5 h-5" />
-              <span className="font-semibold">
-                {lastRepair.weaponName} отремонтирован!
-              </span>
+              <span className="font-semibold">{lastRepair.weaponName} отремонтирован!</span>
             </div>
             {lastRepair.result && (
               <div className="text-xs text-green-300 mt-1 flex gap-3">
@@ -104,35 +95,52 @@ export function RepairSection() {
           </motion.div>
         )}
       </AnimatePresence>
-      
-      {/* Список повреждённого оружия */}
-      {damagedWeapons.length === 0 ? (
+
+      {!repairBenchWeaponId || !benchWeapon ? (
         <Card className="card-medieval">
           <CardContent className="p-8 text-center">
             <div className="w-20 h-20 mx-auto rounded-full bg-stone-800/50 flex items-center justify-center mb-4">
-              <Wrench className="w-10 h-10 text-stone-600" />
+              <Package className="w-10 h-10 text-stone-600" />
             </div>
-            <p className="text-stone-500">Всё оружие в отличном состоянии</p>
-            <p className="text-stone-600 text-sm mt-1">Отправляйте оружие в вылазки для заработка</p>
+            <p className="text-stone-400 font-medium">Верстак свободен</p>
+            <p className="text-stone-500 text-sm mt-2 max-w-md mx-auto">
+              Во вкладке «Инвентарь» нажмите «Отправить на ремонт» на карточке клинка — он появится здесь.
+              Одновременно на верстаке только одно оружие.
+            </p>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {damagedWeapons.map((weapon) => (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="border-stone-600 text-stone-300 hover:bg-stone-800"
+              onClick={() => returnWeaponFromRepairBench()}
+            >
+              Вернуть в инвентарь
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,22rem)_1fr] gap-4 items-start">
+            <div className="w-full max-w-md mx-auto lg:mx-0">
+              <WeaponInventoryCard weapon={benchWeapon} context="repairBench" />
+            </div>
             <RepairCard
-              key={weapon.id}
-              weapon={weapon}
-              selectedOption={selectedRepairByWeapon[weapon.id] ?? null}
-              onSelect={(option) => {
-                setSelectedRepairByWeapon((prev) => ({ ...prev, [weapon.id]: option }))
-                handleRepair(weapon, option)
+              key={benchWeapon.id}
+              variant="repairWorkbench"
+              compactWeaponChrome
+              weapon={benchWeapon}
+              onRepairDone={(weaponName, result) => {
+                play('craft_complete')
+                setLastRepair({ weaponName, result })
+                setTimeout(() => setLastRepair(null), 3000)
               }}
             />
-          ))}
+          </div>
         </div>
       )}
-      
-      {/* Подсказка */}
+
       <Card className="card-medieval bg-stone-800/30">
         <CardContent className="p-4">
           <h4 className="font-semibold text-stone-300 mb-2 flex items-center gap-2">
@@ -140,10 +148,18 @@ export function RepairSection() {
             Система ремонта
           </h4>
           <ul className="text-xs text-stone-500 space-y-1">
-            <li>• <strong className="text-amber-400">Материалы</strong> — нужны те же, что и для крафта</li>
-            <li>• <strong className="text-green-400">Мастерство</strong> — уровень кузнеца влияет на успех и риски</li>
-            <li>• <strong className="text-red-400">Риски</strong> — возможность потерять душу, эпичность или maxDurability</li>
-            <li>• <strong className="text-purple-400">Развитие</strong> — кузнец получает опыт за ремонт</li>
+            <li>
+              • <strong className="text-amber-400">Техники и этапы</strong> — выбор работы, таймер этапов,
+              затем бросок и списание материалов при успехе (без золота).
+            </li>
+            <li>
+              • <strong className="text-green-400">Мастерство</strong> — уровень персонажа влияет на успех,
+              скидку на материалы и риски.
+            </li>
+            <li>
+              • <strong className="text-red-400">Риски</strong> — при провале возможна потеря души или
+              maxDurability (скрытые параметры наград также могут снизиться).
+            </li>
           </ul>
         </CardContent>
       </Card>

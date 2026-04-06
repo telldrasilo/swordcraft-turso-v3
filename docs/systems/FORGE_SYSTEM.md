@@ -13,6 +13,8 @@
 - `src/hooks/use-craft-v2.ts`
 - `src/lib/craft/calculator.ts`
 - `src/lib/craft/forecast-calculator.ts`
+- `src/lib/craft/aggregate-expertise-impact.ts` (§6.13: агрегаты экспертизы по плану → прогноз, ролл, время этапов)
+- `src/lib/craft/craft-expertise-from-craft.ts` (B2: прирост экспертизы при завершении крафта v2)
 - `src/lib/craft/constants.ts` (коэффициенты расчёта, прогноза и сортировки материалов)
 - `src/lib/craft/formulas.ts`
 - `src/lib/craft/material-sorting.ts`
@@ -68,6 +70,10 @@
 - `shouldPurchaseMaterials` — в `AdditionalState` рядом с `craftV2Persisted`.
 
 Операции планирования и тайминг этапов выполняются в **`useCraftV2`** (`setRecipe`, `setMaterial`, `startCraft`, `collectWeapon`, `reset` и т.д.); в store остаются методы вроде добавления готового оружия в инвентарь (**`addWeaponV2`**) и синхронизация персиста при сборе результата.
+
+**Экспертиза и энциклопедия (§6.13):** показатели «Скорость / Надёжность / Мастерство / Точность» на карточке материала (`calculateExpertiseImpact` в [`knowledge.ts`](../../src/types/materials/knowledge.ts)) сводятся в плане крафта через **`aggregateExpertiseImpactsForPlan`** и влияют на **`calculateForecast` / `calculateWeapon`**, на разброс прогноза и на длительность этапов в **`generateCraftStages`** (поля `primaryPartId`, `primaryMaterialId`, `stageSource`, `techniqueId` у этапа). Подробные формулы и софткапы — в [`FORMULAS.md`](../utils/FORMULAS.md) (раздел §6.13) и в [`CRAFT_SYSTEM_ROADMAP.md`](CRAFT_SYSTEM_ROADMAP.md) §6.13.
+
+**Прирост экспертизы после крафта (B2):** при переходе в стадию `completed` хук вызывает [`buildCraftExpertiseGainRows` → `applyCraftExpertiseGainRows`](../../src/lib/craft/craft-expertise-from-craft.ts) (последнее — в `queueMicrotask`, см. [`FORMULAS.md`](../utils/FORMULAS.md), раздел про B2).
 
 ## План крафта
 План крафта собирается до запуска процесса и включает:
@@ -200,6 +206,20 @@
 - риск неудачи;
 - состав этапов.
 
+### Техники обработки материала (плавка в горне)
+Отдельный реестр: [`src/data/material-processing-techniques.ts`](../../src/data/material-processing-techniques.ts). Это не боевые приёмы из [`src/data/techniques`](../../src/data/techniques), а правила «слиток в части + переплавка руды в горне».
+
+**Контент:**
+
+1. Добавьте или измените запись в **`MATERIAL_PROCESSING_TECHNIQUES`** (поля `id`, `targetCatalogMaterialIds`, `unlockedByDefault`, при необходимости `incompatibleWith*`, `outcomeModifiers`, `craftStageInsertions` с опциональным **`durationSeconds`**).
+2. Разблокировка для игрока:
+   - постоянно: **`unlockedByDefault: true`**;
+   - с уровня: см. **`FINE_IRON_SMELT_UNLOCK_LEVEL`** в [`src/lib/craft/planner-unlocked-techniques.ts`](../../src/lib/craft/planner-unlocked-techniques.ts);
+   - награда/покупка: вызов **`unlockMaterialProcessingTechnique(id)`** из store ([`craft-slice.ts`](../../src/store/slices/craft-slice.ts)) — id должен совпадать с записью в реестре.
+3. Несовместимые комбинации ловятся **`validateMaterialProcessingPlan`** (планировщик и старт крафта).
+
+Персист: поле **`unlockedMaterialProcessingTechniqueIds`**, версия store **8**, облако — та же колонка в `game_saves` (см. [`src/lib/db.ts`](../../src/lib/db.ts)).
+
 ## Переплавка
 Переплавка использует `src/data/refining-recipes.ts`.
 
@@ -242,21 +262,61 @@
 ## Ремонт
 Ремонт опирается на `src/lib/store-utils/repair-utils.ts` и `src/data/repair-system.ts`.
 
+**Мастерство починки** берётся от **уровня персонажа игрока** (`player.level` в store): наёмные workers и их стамина к ремонту не привязаны.
+
 Основные задачи:
 
-- найти лучшего кузнеца;
-- рассчитать стоимость ремонта;
-- определить максимум восстановления;
+- взять уровень персонажа для `getSmithMastery` и расчёта опций;
+- рассчитать стоимость ремонта в **материалах** (золото не тратится);
 - списать ресурсы;
 - применить восстановление к оружию.
 
 Ключевые функции:
 
-- `findBestBlacksmith()`
+- `getPlayerLevelForRepair()` (в store; по сути `player.level`)
 - `getRepairOptionsForWeapon()`
-- `calculateRepairCost()`
-- `calculateMaxRepairPercent()`
-- `executeRepair()`
+- `executeRepair()` (в `repair-utils.ts`; проверка материалов и бросок)
+- слот верстака: `sendWeaponToRepairBench` / `returnWeaponFromRepairBench`, поле `repairBenchWeaponId`
+
+## Перековка (пре-зачарование, фаза 1)
+
+Отдельная вкладка кузницы **«Перековка»** (`ForgeMainTab === 'reforge'`) — **не** экран ремонта и **не** реестр техник починки/крафта. Канон, критерии и worklog: [ENCHANTMENT_MODULE_PHASE1.md](ENCHANTMENT_MODULE_PHASE1.md).
+
+### Назначение
+
+- Трата **души войны** (`warSoul`) с **этого** экземпляра ради **постоянного** эффекта на клинок.
+- **Два типа** техник в реестре: `reforgeType: 'buffStat'` (фиксированная цена в ДВ, случайный % к атаке или max прочности, лимит стаков) и `reforgeType: 'awakenScar'` (списание **всей** текущей души на попытку, шанс успеха/неудачи, в фазе 1 — **не более одного** успешного пробуждения на оружие).
+- Доступ **не зависит** от гейта экрана меню «Зачарования» (`canAccessEnchantmentAltarScreen` к перековке не применяется).
+
+### Верстак и UI
+
+- Клинок должен стоять на **верстаке ремонта**: то же поле `repairBenchWeaponId`, что для [`RepairSection`](../../src/components/forge/repair-section.tsx). Игрок выбирает оружие на вкладке «Ремонт» или переключается на «Перековку» без смены слота.
+- Вкладки: [`forge-screen.tsx`](../../src/components/screens/forge-screen.tsx) (`mainTab === 'reforge'` → [`ReforgeSection`](../../src/components/forge/reforge-section.tsx) → [`reforge-card.tsx`](../../src/components/forge/reforge-card.tsx)).
+
+### Данные и логика
+
+| Роль | Файл |
+|------|------|
+| Реестр техник, поля разблокировки и баланса | [`src/data/reforge/reforge-techniques-registry.ts`](../../src/data/reforge/reforge-techniques-registry.ts) |
+| Чистая логика: шанс, списание души, эффекты, причины отказа | [`src/lib/reforge/apply.ts`](../../src/lib/reforge/apply.ts) |
+| Публичный API модуля | [`src/lib/reforge/index.ts`](../../src/lib/reforge/index.ts) |
+
+Состояние на экземпляре — `weaponReforge` в [`craft-v2.ts`](../../src/types/craft-v2.ts) (счётчики баффов, ref-базы для %, `awakenedScarKeys`, `scarAwakeningCompleted`).
+
+### Разблокировки техник (гибрид)
+
+- **`minGuildLevel`** — уровень гильдии из store.
+- **`sourceCraftTechniqueId`** (опционально) — техника **обработки материалов** (плавка и т.д.): считается доступной, если в [`material-processing-techniques`](../../src/data/material-processing-techniques.ts) у записи `unlockedByDefault` **или** id входит в эффективный список планировщика [`getPlannerUnlockedTechniqueIds`](../../src/lib/craft/planner-unlocked-techniques.ts) от **`player.level`** и **`unlockedMaterialProcessingTechniqueIds`** (как в крафте v2).
+- Контекст применения: `ReforgeApplyContext` (`guildLevel`, `playerLevel`, `unlockedMaterialProcessingTechniqueIds`) — собирается в `ReforgeSection` и передаётся в store при действии `applyReforgeTechnique`.
+
+### Store
+
+- Применение: `applyReforgeTechnique` в [`game-store-composed.ts`](../../src/store/game-store-composed.ts) (чистая функция `applyReforgeTechniquePure` из `src/lib/reforge/apply.ts`).
+
+### Связанные документы
+
+- Бриф для интеграторов: [ENCHANTMENT_MODULE_DEVELOPER_BRIEF.md](ENCHANTMENT_MODULE_DEVELOPER_BRIEF.md) §11.5.
+- Техники **починки** и **перековки** — разные реестры; не смешивать с [`repair-system.ts`](../../src/data/repair-system.ts).
 
 ## War Soul и epic multiplier
 Система кузницы связана с более поздними боевыми и экспедиционными системами через:
@@ -276,8 +336,8 @@
 - `resources-slice.ts` — списание и получение ресурсов.
 - `orders-slice.ts` — проверка соответствия оружия заказу.
 - `guild-slice.ts` — выбор оружия для экспедиций.
-- `enchantments-slice.ts` — наложение чар и жертвоприношение.
-- `encyclopedia-slice.ts` — рост экспертизы по материалам.
+- зачарования: `craft-slice` (`unlockedEnchantments`) + cross-slice в `game-store-composed.ts` (жертвоприношение/наложение legacy); отдельный `enchantments-slice.ts` удалён (фаза 0).
+- `encyclopedia-slice.ts` — рост экспертизы по материалам (`addMaterialExpertise`); из крафта v2 — через [`craft-expertise-from-craft.ts`](../../src/lib/craft/craft-expertise-from-craft.ts) (отложенное применение, см. выше).
 
 ## Что смотреть при изменениях
 Если меняется крафт, обычно нужно проверить сразу несколько зон:
@@ -288,6 +348,8 @@
 - `src/store/slices/craft-slice.ts`
 - `src/store/game-store-composed.ts` (крафт v2: `craftV2Persisted`, инвентарь)
 - `src/hooks/use-craft-v2.ts`
+- `src/lib/craft/craft-expertise-from-craft.ts`
+- `src/lib/craft/aggregate-expertise-impact.ts`
 - `src/lib/craft/constants.ts`
 - `src/lib/craft/formulas.ts`
 - `src/lib/craft/calculator.ts`

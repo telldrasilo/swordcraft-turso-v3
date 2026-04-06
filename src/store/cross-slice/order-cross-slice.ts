@@ -9,9 +9,12 @@ import type { GameStatistics } from '@/store/slices/player-slice'
 import type { CraftedWeaponV2 } from '@/types/craft-v2'
 import { calculateGoldReward } from '@/lib/store-utils/order-utils'
 import { calculateReputationGain } from '@/types/guild'
+import { getWeaponGuildServiceBlockReason } from '@/lib/guild-weapon-service-eligibility'
+import { toast } from '@/hooks/use-toast'
 
 /** Минимальный контракт стора для координации заказов (без циклического импорта GameStore). */
 export type OrderCrossSliceStore = {
+  repairBenchWeaponId?: string | null
   weaponInventory: { weapons: CraftedWeaponV2[] }
   orders: OrdersSlice['orders']
   activeOrderId: string | null
@@ -19,6 +22,7 @@ export type OrderCrossSliceStore = {
   resources: Record<string, number | undefined>
   statistics: GameStatistics
   addResource: (key: ResourceKey, amount: number) => void
+  grantResourceKeyFromWorld: (key: ResourceKey, amount: number) => void
   addFame: (amount: number) => void
   addReputation: (amount: number) => void
   updateStatistics: (partial: Partial<GameStatistics>) => void
@@ -47,6 +51,16 @@ export function buildOrderCrossSlice(
       const state = get()
       const weapon = state.weaponInventory.weapons.find((w) => w.id === weaponId)
       if (!weapon) return false
+
+      const serviceBlock = getWeaponGuildServiceBlockReason(weapon, state.repairBenchWeaponId ?? null)
+      if (serviceBlock) {
+        toast({
+          variant: 'destructive',
+          title: 'Оружие не принимают',
+          description: serviceBlock,
+        })
+        return false
+      }
 
       const order = state.orders.find((o) => o.id === orderId)
       if (!order) return false
@@ -84,7 +98,7 @@ export function buildOrderCrossSlice(
       if (result.rewards.bonusItems) {
         for (const bonus of result.rewards.bonusItems) {
           if (bonus.resource in state.resources) {
-            state.addResource(bonus.resource as ResourceKey, bonus.amount)
+            state.grantResourceKeyFromWorld(bonus.resource as ResourceKey, bonus.amount)
           }
         }
       }

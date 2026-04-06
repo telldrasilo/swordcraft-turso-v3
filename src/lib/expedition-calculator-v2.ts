@@ -44,6 +44,9 @@ export interface ExpeditionCalculation {
   weaponWear: number
   weaponLossChance: number
   critChance: number
+
+  /** Слава гильдии при успехе (без крита; крит ×1.5 в completeExpeditionFull) */
+  guildGloryOnSuccess: number
   
   successModifiers: ModifierDetail[]
   goldModifiers: ModifierDetail[]
@@ -51,6 +54,7 @@ export interface ExpeditionCalculation {
   weaponLossModifiers: ModifierDetail[]
   weaponWearModifiers: ModifierDetail[]
   critModifiers: ModifierDetail[]
+  gloryModifiers: ModifierDetail[]
   
   levelMatch: {
     adventurerLevel: number
@@ -239,6 +243,14 @@ export function calculateExpeditionResult(
     critChance += mod.effectiveValue
   }
   const finalCritChance = Math.max(0, Math.min(25, critChance))
+
+  const baseGuildGloryRaw = baseWarSoul * 0.1 + 5
+  let gloryMult = 1
+  const gloryModsApplied = result.byTarget.glory.filter((m) => m.applied)
+  for (const mod of gloryModsApplied) {
+    gloryMult += mod.effectiveValue / 100
+  }
+  const guildGloryOnSuccess = Math.max(0, Math.floor(baseGuildGloryRaw * gloryMult))
   
   // ===== 5. ФОРМИРОВАНИЕ МОДИФИКАТОРОВ ДЛЯ UI =====
   
@@ -284,6 +296,7 @@ export function calculateExpeditionResult(
     weaponWear: Math.round(finalWeaponWear),
     weaponLossChance: Math.round(finalWeaponLoss),
     critChance: Math.round(finalCritChance),
+    guildGloryOnSuccess,
     
     successModifiers: result.byTarget.successChance.filter(m => m.applied).map(toModifierDetail),
     goldModifiers: result.byTarget.gold.filter(m => m.applied).map(toModifierDetail),
@@ -291,6 +304,7 @@ export function calculateExpeditionResult(
     weaponLossModifiers: result.byTarget.weaponLossChance.filter(m => m.applied).map(toModifierDetail),
     weaponWearModifiers: result.byTarget.weaponWear.filter(m => m.applied).map(toModifierDetail),
     critModifiers: result.byTarget.critChance.filter(m => m.applied).map(toModifierDetail),
+    gloryModifiers: gloryModsApplied.map(toModifierDetail),
     
     levelMatch: calculateLevelMatch(adventurer.combat.level, expedition.difficulty),
     recommendation,

@@ -6,10 +6,11 @@
  * Структура:
  * - eldritch.ts — бездна, древние машины и элдрич (4 события)
  *
- * Итого: 4 события для depths_of_the_world
+ * Итого: 6 событий для depths_of_the_world
  */
 
 import { depthsEldritchEvents } from './eldritch';
+import { depthsElementalEvents } from './elemental';
 
 // ============================================================================
 // ЭКСПОРТ ВСЕХ СОБЫТИЙ
@@ -28,11 +29,12 @@ export {
 // Объединённый массив всех событий локации
 export const depthsOfTheWorldEvents = [
   ...depthsEldritchEvents,
+  ...depthsElementalEvents,
 ];
 
 // Статистика событий локации
 export const depthsOfTheWorldEventsStats = {
-  total: 4,
+  total: 6,
   locationId: 'depths_of_the_world',
   byType: {
     positive: 1,

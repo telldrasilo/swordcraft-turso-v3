@@ -25,6 +25,9 @@ import { CONTRACT_CONFIG } from '../data/missions/_mission-template';
 import { filterEventsByConditions, getEventsForLocation } from '../data/events';
 import { materialById } from '@/data/materials/library';
 
+/** Дополнительные выборы материала на один эффект grant_location_material (сверх первого) */
+const DEFAULT_EXTRA_LOCATION_MATERIAL_ROLLS = 3;
+
 // ============================================================================
 // ГЕНЕРАЦИЯ СОБЫТИЙ ДЛЯ МИССИИ
 // ============================================================================
@@ -217,45 +220,45 @@ export function resolveEventEffects(
 ): ResolvedEffect[] {
   const resolved: ResolvedEffect[] = [];
 
-  for (const effect of effects) {
-    const resolvedEffect = resolveEffect(effect, location, seed + resolved.length);
-    if (resolvedEffect) {
-      resolved.push(resolvedEffect);
-    }
+  for (let i = 0; i < effects.length; i++) {
+    const effect = effects[i]!;
+    resolved.push(...resolveEffectExpanded(effect, location, seed + i * 9973 + resolved.length));
   }
 
   return resolved;
 }
 
-/**
- * Разрешить один эффект
- */
-function resolveEffect(
+/** Один логический эффект → одна или несколько записей резолва */
+function resolveEffectExpanded(
   effect: EventEffect,
   location: Location,
   seed: number
-): ResolvedEffect | null {
+): ResolvedEffect[] {
   switch (effect.type) {
     case 'grant_location_material': {
-      // Динамически выбираем материал из ресурсов локации
       const rarity = effect.materialRarity || 'common';
       const catalogued = location.resources.filter((r) => Boolean(materialById[r.materialId]));
-      const selectedResource = selectMaterialFromLocation(catalogued, rarity, seed);
-
-      if (!selectedResource) return null;
-
-      const quantity = randomInRange(
-        effect.materialQuantity?.base ?? 1,
-        effect.materialQuantity?.variance ?? 0,
-        seed
-      );
-
-      return {
-        type: 'grant_material',
-        materialId: selectedResource.materialId,
-        quantity: Math.max(1, quantity),
-        description: effect.description,
-      };
+      const configured = effect.extraMaterialRolls ?? DEFAULT_EXTRA_LOCATION_MATERIAL_ROLLS;
+      const extraRolls = Math.max(0, Math.min(6, configured));
+      const totalRolls = 1 + extraRolls;
+      const out: ResolvedEffect[] = [];
+      for (let r = 0; r < totalRolls; r++) {
+        const selectedResource = selectMaterialFromLocation(catalogued, rarity, seed + r * 7919);
+        if (!selectedResource) continue;
+        const rawQty = randomInRange(
+          effect.materialQuantity?.base ?? 1,
+          effect.materialQuantity?.variance ?? 0,
+          seed + r * 503
+        );
+        const quantity = Math.max(1, Math.round(rawQty * 1.25));
+        out.push({
+          type: 'grant_material',
+          materialId: selectedResource.materialId,
+          quantity,
+          description: effect.description,
+        });
+      }
+      return out;
     }
 
     case 'grant_resource': {
@@ -265,43 +268,51 @@ function resolveEffect(
         seed
       );
 
-      return {
-        type: 'grant_resource',
-        resourceId: effect.resourceId,
-        quantity: Math.max(1, quantity),
-        description: effect.description,
-      };
+      return [
+        {
+          type: 'grant_resource',
+          resourceId: effect.resourceId,
+          quantity: Math.max(1, quantity),
+          description: effect.description,
+        },
+      ];
     }
 
     case 'damage_weapon':
     case 'damage_adventurer':
     case 'modify_success_chance':
     case 'modify_gold_reward': {
-      return {
-        type: effect.type,
-        quantity: effect.modifier ?? 0,
-        description: effect.description,
-      };
+      return [
+        {
+          type: effect.type,
+          quantity: effect.modifier ?? 0,
+          description: effect.description,
+        },
+      ];
     }
 
     case 'modify_duration': {
-      return {
-        type: 'modify_duration',
-        quantity: effect.modifier ?? 0,
-        description: effect.description,
-      };
+      return [
+        {
+          type: 'modify_duration',
+          quantity: effect.modifier ?? 0,
+          description: effect.description,
+        },
+      ];
     }
 
     case 'narrative_only': {
-      return {
-        type: 'narrative_only',
-        quantity: 0,
-        description: effect.description,
-      };
+      return [
+        {
+          type: 'narrative_only',
+          quantity: 0,
+          description: effect.description,
+        },
+      ];
     }
 
     default:
-      return null;
+      return [];
   }
 }
 

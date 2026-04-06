@@ -229,6 +229,11 @@ export const eventForgottenCaveIn: EventTemplate = {
       modifier: -5,
       description: '-5% к успеху (раны и усталость)',
     },
+    {
+      type: 'damage_weapon',
+      modifier: 10,
+      description: '-10% прочности оружия (камни по клинку и гарде)',
+    },
   ],
 
   weight: 15,

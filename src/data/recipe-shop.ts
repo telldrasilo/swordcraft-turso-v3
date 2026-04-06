@@ -30,108 +30,90 @@ export interface RecipePrice {
 // ================================
 
 export const weaponRecipePrices: RecipePrice[] = [
-  // === БРОНЗОВОЕ ОРУЖИЕ (Покупка) ===
+  // Формы оружия (v2 id в allRecipes). Материал задаётся при крафте частей.
   {
-    recipeId: 'bronze_sword',
-    name: 'Бронзовый меч',
+    recipeId: 'long_sword',
+    name: 'Длинный меч',
     source: 'purchase',
     gold: 200,
     requiredLevel: 5,
     rarity: 'uncommon',
-    description: 'Рецепт бронзового меча. Можно купить у торговца.'
+    description: 'Чертёж удлинённого меча. Можно купить у торговца.',
   },
   {
-    recipeId: 'bronze_axe',
-    name: 'Бронзовый топор',
+    recipeId: 'battle_axe',
+    name: 'Боевой топор',
     source: 'purchase',
     gold: 250,
     requiredLevel: 5,
     rarity: 'uncommon',
-    description: 'Рецепт бронзового топора. Можно купить у торговца.'
+    description: 'Чертёж тяжёлого топора. Можно купить у торговца.',
   },
-  
-  // === СТАЛЬНОЕ ОРУЖИЕ (Заказы) ===
   {
-    recipeId: 'steel_sword',
-    name: 'Стальной меч',
+    recipeId: 'long_sword',
+    name: 'Длинный меч (награда гвардии)',
     source: 'order',
     gold: 100,
     requiredLevel: 8,
     requiredFame: 50,
     rarity: 'rare',
-    description: 'Рецепт стального меча. Выдаётся за выполнение заказа гвардии.'
+    description: 'Тот же чертёж длинного меча — выдаётся за службу гвардии.',
   },
   {
-    recipeId: 'steel_dagger',
-    name: 'Стальной кинжал',
-    source: 'order',
-    gold: 80,
-    requiredLevel: 8,
-    requiredFame: 40,
-    rarity: 'rare',
-    description: 'Рецепт стального кинжала. Награда от воровской гильдии.'
-  },
-  {
-    recipeId: 'steel_spear',
-    name: 'Стальное копьё',
+    recipeId: 'battle_axe',
+    name: 'Боевой топор (гильдия)',
     source: 'order',
     gold: 150,
     requiredLevel: 8,
     requiredFame: 60,
     rarity: 'rare',
-    description: 'Рецепт стального копья. Заказ от наёмников.'
+    description: 'Чертёж боевого топора — награда гильдии.',
   },
-  
-  // === СЕРЕБРЯНОЕ ОРУЖИЕ (Экспедиции) ===
   {
-    recipeId: 'silver_sword',
-    name: 'Серебряный меч',
+    recipeId: 'long_sword',
+    name: 'Длинный меч (руины)',
     source: 'expedition',
     requiredLevel: 10,
     requiredFame: 100,
     rarity: 'epic',
-    description: 'Рецепт серебряного меча. Можно найти в древних руинах.'
+    description: 'Обрывки эльфийского чертежа длинного меча.',
   },
   {
-    recipeId: 'silver_dagger',
-    name: 'Серебряный кинжал',
+    recipeId: 'long_sword',
+    name: 'Длинный меч (орден охоты)',
     source: 'expedition',
     requiredLevel: 10,
     requiredFame: 80,
     rarity: 'epic',
-    description: 'Рецепт серебряного кинжала. Награда за охоту на нечисть.'
+    description: 'Чертёж для длинного клинка по стандартам ордена.',
   },
-  
-  // === ЗОЛОТОЕ ОРУЖИЕ (Заказы знати) ===
   {
-    recipeId: 'gold_sword',
-    name: 'Золотой меч',
+    recipeId: 'long_sword',
+    name: 'Длинный меч (знать)',
     source: 'order',
     gold: 500,
     requiredLevel: 15,
     requiredFame: 200,
     rarity: 'epic',
-    description: 'Рецепт золотого меча. Королевский заказ.'
+    description: 'Придворный заказ на чертёж длинного меча.',
   },
-  
-  // === МИФРИЛОВОЕ ОРУЖИЕ (Экспедиции) ===
   {
-    recipeId: 'mithril_sword',
-    name: 'Мифриловый меч',
+    recipeId: 'long_sword',
+    name: 'Длинный меч (elf оружейная)',
     source: 'expedition',
     requiredLevel: 20,
     requiredFame: 500,
     rarity: 'legendary',
-    description: 'Рецепт мифрилового меча. Тайна эльфийских кузнецов.'
+    description: 'Полный эльфийский вариант формы длинного меча.',
   },
   {
-    recipeId: 'mithril_dagger',
-    name: 'Мифриловый кинжал',
+    recipeId: 'long_sword',
+    name: 'Длинный меч (глубины)',
     source: 'expedition',
     requiredLevel: 20,
     requiredFame: 400,
     rarity: 'legendary',
-    description: 'Рецепт мифрилового кинжала. Находка в глубинах.'
+    description: 'Редкий вариант той же формы — находка из глубин.',
   },
 ]
 

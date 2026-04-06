@@ -163,7 +163,7 @@ export function AdventureCard({
                 {!hasAnyWeapon 
                   ? 'Нет оружия — создайте в кузнице'
                   : hasBrokenWeapons
-                    ? 'Всё оружие сломано — отремонтируйте в кузнице'
+                    ? 'Всё оружие сломано — восстановите во вкладке «Ремонт» кузницы'
                     : `Нет оружия с атакой ${adventure.minWeaponLevel * 5}+`
                 }
               </p>

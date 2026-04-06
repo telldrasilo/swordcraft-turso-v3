@@ -21,6 +21,7 @@ import type {
   ContractTier,
 } from '@/types/contract'
 import type { CraftedWeaponV2 } from '@/types/craft-v2'
+import { validateExpeditionStart } from '@/lib/expedition-start-validation'
 import { weaponAttack } from '@/lib/weapon-v2-helpers'
 import {
   ADVENTURER_LIFETIME,
@@ -62,6 +63,8 @@ export interface ExpeditionResult {
   isCrit?: boolean
   /** Материалы на склад после экспедиции (канон. id) */
   materialsGained?: { materialId: string; quantity: number }[]
+  /** Подписи видимых повреждений, записанных на оружие в этой миссии (по журналу событий) */
+  damageTagLabelsApplied?: string[]
   // Новые поля для контрактов
   loyaltyChange?: number
   contractTerminated?: boolean
@@ -78,16 +81,12 @@ export { ADVENTURER_LIFETIME }
 // ================================
 
 export interface ExtendedGuildState extends GuildState {
-  // Контрактные искатели
-  contractedAdventurers: ContractedAdventurer[]
-  
   // Состояние поиска
   searchState: SearchState | null
 }
 
 export const initialExtendedGuildState: ExtendedGuildState = {
   ...initialGuildState,
-  contractedAdventurers: [],
   searchState: null,
 }
 
@@ -183,51 +182,31 @@ export const getGuildLevelInfo = (state: GuildSliceState) => {
   }
 }
 
+/** Старт экспедиции не списывает золото кузнеца — проверка золота по `cost` не применяется. */
 export const canStartExpedition = (
   expedition: ExpeditionTemplate,
   adventurer: Adventurer,
   weapon: CraftedWeaponV2,
-  gold: number,
-  activeExpeditions: ActiveExpedition[]
-): { can: boolean; reason: string } => {
-  // Проверка затрат
-  const totalCost = expedition.cost.supplies + expedition.cost.deposit
-  if (gold < totalCost) {
-    return { can: false, reason: 'Недостаточно золота' }
-  }
-
-  // Проверка оружия
-  if (weapon.currentDurability <= 10) {
-    return { can: false, reason: 'Оружие слишком повреждено' }
-  }
-
-  if (weaponAttack(weapon) < expedition.minWeaponAttack) {
-    return { can: false, reason: `Требуется атака ${expedition.minWeaponAttack}+` }
-  }
-
-  // Проверка требований искателя
-  const minAttack = adventurer.requirements?.minAttack ?? 0
-  if (weaponAttack(weapon) < minAttack) {
-    return { can: false, reason: `Искатель требует атаку ${minAttack}+` }
-  }
-
-  // Проверяем, что оружие не в другой экспедиции
-  if (activeExpeditions.some(e => e.weaponId === weapon.id)) {
-    return { can: false, reason: 'Оружие уже в экспедиции' }
-  }
-
-  // Проверяем, что искатель не в другой экспедиции
-  if (activeExpeditions.some(e => e.adventurerId === adventurer.id)) {
-    return { can: false, reason: 'Искатель уже в экспедиции' }
-  }
-
-  return { can: true, reason: '' }
-}
+  guildLevel: number,
+  activeExpeditions: ActiveExpedition[],
+  repairBenchWeaponId?: string | null
+): { can: boolean; reason: string } =>
+  validateExpeditionStart({
+    expedition,
+    adventurer,
+    weapon,
+    guildLevel,
+    activeExpeditions,
+    repairBenchWeaponId: repairBenchWeaponId ?? null,
+  })
 
 // ================================
 // Расчёт результата экспедиции
 // ================================
 
+/**
+ * @deprecated Legacy-модель наград/контрактов. Активный путь: `expedition-calculator-v2` и `completeExpeditionFull`.
+ */
 export const calculateExpeditionResult = (
   expedition: ExpeditionTemplate,
   adventurer: Adventurer,

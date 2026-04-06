@@ -51,7 +51,8 @@ interface ContractsSectionProps {
   guildGold: number
   guildGlory: number
   onAssignMission?: (adventurerId: string) => void
-  onTerminateContract?: (adventurerId: string) => void
+  /** Возврат `{ success, reason }` — при неуспехе диалог остаётся открытым и показывается причина */
+  onTerminateContract?: (adventurerId: string) => { success: boolean; reason?: string }
   onOfferContract?: () => void
   availableAdventurersCount?: number
 }
@@ -72,6 +73,7 @@ export const ContractsSection: React.FC<ContractsSectionProps> = ({
 }) => {
   const [selectedForTerminate, setSelectedForTerminate] = useState<string | null>(null)
   const [showTerminateDialog, setShowTerminateDialog] = useState(false)
+  const [terminateError, setTerminateError] = useState<string | null>(null)
   
   // Лимит контрактов
   const maxContracts = useMemo(() => getMaxContracts(guildLevel), [guildLevel])
@@ -109,15 +111,24 @@ export const ContractsSection: React.FC<ContractsSectionProps> = ({
   // Обработка расторжения
   const handleTerminateClick = (adventurerId: string) => {
     setSelectedForTerminate(adventurerId)
+    setTerminateError(null)
     setShowTerminateDialog(true)
   }
   
   const confirmTerminate = () => {
-    if (selectedForTerminate && onTerminateContract) {
-      onTerminateContract(selectedForTerminate)
+    if (!selectedForTerminate || !onTerminateContract) {
+      setShowTerminateDialog(false)
+      setSelectedForTerminate(null)
+      return
     }
-    setShowTerminateDialog(false)
-    setSelectedForTerminate(null)
+    const r = onTerminateContract(selectedForTerminate)
+    if (r.success) {
+      setShowTerminateDialog(false)
+      setSelectedForTerminate(null)
+      setTerminateError(null)
+    } else {
+      setTerminateError(r.reason ?? 'Не удалось расторгнуть контракт')
+    }
   }
   
   // Если нет контрактников
@@ -299,7 +310,16 @@ export const ContractsSection: React.FC<ContractsSectionProps> = ({
       </Card>
       
       {/* Диалог подтверждения расторжения */}
-      <Dialog open={showTerminateDialog} onOpenChange={setShowTerminateDialog}>
+      <Dialog
+        open={showTerminateDialog}
+        onOpenChange={(open) => {
+          setShowTerminateDialog(open)
+          if (!open) {
+            setSelectedForTerminate(null)
+            setTerminateError(null)
+          }
+        }}
+      >
         <DialogContent className="bg-stone-900 border-stone-700">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-red-400">
@@ -311,7 +331,12 @@ export const ContractsSection: React.FC<ContractsSectionProps> = ({
             </DialogDescription>
           </DialogHeader>
           
-          <div className="py-4">
+          <div className="py-4 space-y-3">
+            {terminateError && (
+              <div className="rounded-lg border border-red-500/40 bg-red-950/50 px-3 py-2 text-sm text-red-200">
+                {terminateError}
+              </div>
+            )}
             <div className="p-3 rounded-lg bg-red-900/20 border border-red-600/30">
               <p className="text-sm text-red-300">
                 Штраф за расторжение: 50% от стоимости контракта будет вычтено из казны гильдии.

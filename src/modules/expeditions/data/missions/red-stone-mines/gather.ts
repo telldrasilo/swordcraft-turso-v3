@@ -6,11 +6,10 @@
  * - copper_ore (медная руда) - common
  * - tin_ore (оловянная руда) - common
  * - coal (уголь) - common
- * - stone (камень) - common
+ * - fieldstone (полевой камень) - common
  * - red_stone (красный камень) - common
  * - flint (кремень) - common
  * - clay (глина) - common
- * - copper_nuggets (медные самородки) - uncommon
  */
 
 import type { MissionTemplate } from '../../missions/_mission-template';
@@ -175,10 +174,10 @@ export const gatherCoalCopperCommon: MissionTemplate = {
 };
 
 // ============================================================================
-// ПОИСК МЕДНЫХ САМОРОДКОВ (uncommon, normal)
+// БОГАТАЯ МЕДНАЯ ЖИЛА (uncommon, normal) — та же сущность, что и медная руда
 // ============================================================================
 
-export const gatherCopperNuggetsUncommon: MissionTemplate = {
+export const gatherRichCopperVeinUncommon: MissionTemplate = {
   id: 'red_stone_gather_nuggets_1',
   locationId: 'red_stone_mines',
 
@@ -186,9 +185,9 @@ export const gatherCopperNuggetsUncommon: MissionTemplate = {
   rarity: 'uncommon',
   difficulty: 'normal',
 
-  name: 'Самородки в россыпи',
-  description: `После недавнего обвала в нижней штольне открылась старая россыпь — рыхлые породы, богатые самородным металлом. Геолог подтвердил наличие медных самородков, редко — с примесью серебра. Шахтёры боятся туда соваться из-за неустойчивости свода, но опытный искатель может набрать неплохой улов, если будет осторожен. Шахта предлагает долю от находок.`,
-  objective: 'Собрать медные самородки в россыпи (1-3 единицы)',
+  name: 'Богатая медная жила',
+  description: `После обвала в нижней штольне открылась россыпь с богатой медной рудой — куски крупнее обычного, местами почти без пустой породы. Шахтёры осторожничают из‑за неустойчивости свода, но опытный искатель может вынести солидный груз, если не станет форсировать.`,
+  objective: 'Добыть качественную медную руду (3-7 единиц)',
 
   client: {
     name: 'Геолог Мариус',
@@ -246,7 +245,7 @@ export const gatherCopperNuggetsUncommon: MissionTemplate = {
   },
 
   resources: [
-    { materialId: 'copper_nuggets', quantity: { base: 1, variance: 0.5, perDifficulty: 0, perRarity: 1 } },
+    { materialId: 'copper_ore', quantity: { base: 5, variance: 0.45, perDifficulty: 1, perRarity: 1 } },
   ],
 
   isRepeatable: true,
@@ -260,5 +259,5 @@ export const gatherCopperNuggetsUncommon: MissionTemplate = {
 export const redStoneGatherMissions: MissionTemplate[] = [
   gatherIronOreCommon,
   gatherCoalCopperCommon,
-  gatherCopperNuggetsUncommon,
+  gatherRichCopperVeinUncommon,
 ];

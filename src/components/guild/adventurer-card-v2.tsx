@@ -32,6 +32,7 @@ import { MetBadge } from '@/components/ui/met-badge'
 import { SuccessFactorsBlock, type SuccessFactor } from './SuccessFactorsBlock'
 import { getAdventurerQuote } from './adventurer-quotes'
 import type { RecruitmentExpeditionView } from '@/lib/adventurer-converter'
+import { difficultyInfo } from '@/data/expedition-templates'
 
 // ================================
 // ПРОПСЫ
@@ -149,6 +150,7 @@ export const AdventurerCardV2: React.FC<AdventurerCardV2Props> = ({
   
   // Полный расчёт экспедиции через V2 калькулятор
   const calc = useMemo(() => {
+    const diff = difficultyInfo[expedition.difficulty]
     const template = {
       id: expedition.id,
       name: expedition.name,
@@ -163,8 +165,8 @@ export const AdventurerCardV2: React.FC<AdventurerCardV2Props> = ({
         baseWarSoul: expedition.baseWarSoul 
       },
       minGuildLevel: expedition.minGuildLevel,
-      failureChance: expedition.failureChance,
-      weaponLossChance: expedition.weaponLossChance,
+      failureChance: diff.failureChance,
+      weaponLossChance: diff.weaponLossChance,
       recommendedWeaponTypes: [],
       minWeaponAttack: expedition.minWeaponAttack || 5,
     }

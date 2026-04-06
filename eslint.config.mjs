@@ -31,6 +31,8 @@ const eslintConfig = [
       "lib/**",
       "data/**",
       "types/**",
+      // Node-скрипты (.cjs / утилиты); не смешивать с правилами Next/TS для `src/`
+      "scripts/**",
     ],
   },
   {

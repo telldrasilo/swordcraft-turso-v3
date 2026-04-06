@@ -2,19 +2,10 @@
  * Общие утилиты и константы для компонентов кузницы
  */
 
-// Иконки ресурсов (сырьё и переработанные)
-export const resourceIcons: Record<string, string> = {
-  // Сырьё
-  iron: '⚙️', coal: '🔥', wood: '🌲', stone: '⛰️',
-  copper: '🟤', tin: '⚪', silver: '🥈', goldOre: '✨', mithril: '💠',
-  // Переработанные
-  ironIngot: '🔩', copperIngot: '🟤', tinIngot: '⚪',
-  bronzeIngot: '🥉', steelIngot: '⚙️', silverIngot: '🥈',
-  goldIngot: '🥇', mithrilIngot: '💠',
-  planks: '🪵', stoneBlocks: '🧱',
-  // Валюты
-  gold: '💰', soulEssence: '💧'
-}
+import { RESOURCE_KEY_EMOJI } from '@/lib/ui/resource-emoji'
+
+/** Эмодзи складских ключей — тот же набор, что `ResourceIcon`. */
+export const resourceIcons: Record<string, string> = RESOURCE_KEY_EMOJI
 
 // Названия ресурсов для отображения
 export const resourceNames: Record<string, string> = {

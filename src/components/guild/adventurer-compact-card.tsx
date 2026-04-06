@@ -149,7 +149,7 @@ export const AdventurerCompactCard: React.FC<AdventurerCompactCardProps> = ({
           </div>
         )}
 
-        {/* Способности */}
+        {/* Уникальные бонусы — учитываются в модификаторах экспедиции v2 */}
         {adventurer.uniqueBonuses.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {adventurer.uniqueBonuses.slice(0, 2).map((bonus) => (

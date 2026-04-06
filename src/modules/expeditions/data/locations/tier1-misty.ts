@@ -22,10 +22,10 @@ export const mistyLowlands: Location = {
 
   resources: [
     // Базовые материалы
-    { materialId: 'iron_ore', baseWeight: 30, rarity: 'common', minQuantity: 1, maxQuantity: 2 },
+    { materialId: 'iron_ore', baseWeight: 72, rarity: 'common', minQuantity: 2, maxQuantity: 4 },
+    { materialId: 'coal', baseWeight: 68, rarity: 'common', minQuantity: 1, maxQuantity: 3 },
     { materialId: 'fieldstone', baseWeight: 40, rarity: 'common', minQuantity: 1, maxQuantity: 3 },
     { materialId: 'raw_leather', baseWeight: 60, rarity: 'common', minQuantity: 2, maxQuantity: 5 },
-    { materialId: 'coal', baseWeight: 20, rarity: 'common', minQuantity: 1, maxQuantity: 2 },
     // Новые материалы
     { materialId: 'clay', baseWeight: 90, rarity: 'common', minQuantity: 3, maxQuantity: 8 },
     { materialId: 'peat', baseWeight: 80, rarity: 'common', minQuantity: 2, maxQuantity: 6 },
@@ -85,6 +85,8 @@ export const mistyLowlands: Location = {
   plotHook: `Болотная ведьма Марга рассказывает о "старом городе под водой". Её бабушка говорила,
 что до болота здесь было поселение, которое ушло под воду за одну ночь. Говорят, колокола его
 церкви всё ещё звонят иногда, когда туман особенно густ.`,
+
+  presentElements: ['water', 'air', 'darkness'],
 
   dungeonHook: {
     name: 'Затонувший город Ильтар',

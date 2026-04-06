@@ -4,19 +4,75 @@
 
 'use client'
 
-import { useState, useMemo } from 'react'
-import { BookOpen, Search, Info, TestTube } from 'lucide-react'
+import { useState, useMemo, useEffect } from 'react'
+import { BookOpen, Search, Info, TestTube, Clock } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
+import { Progress } from '@/components/ui/progress'
 import {
   MaterialCard,
   SearchBar,
   CategoryTabs,
 } from '@/components/encyclopedia'
-import { allMaterials } from '@/data/materials'
+import { allMaterials, materialById } from '@/data/materials'
+import { getMaterialStudyTechniqueById } from '@/data/material-study-techniques'
 import { getDisplayCategory } from '@/types/materials'
 import type { MaterialDisplayCategory, MaterialNode } from '@/types/materials'
+import type { MaterialStudySession } from '@/types/material-study'
 import { useGameStore } from '@/store/game-store-composed'
+
+function formatStudyRemain(totalSec: number): string {
+  const sec = Math.max(0, totalSec)
+  const h = Math.floor(sec / 3600)
+  const m = Math.floor((sec % 3600) / 60)
+  const s = sec % 60
+  if (h > 0) return `${h} ч ${m} мин`
+  if (m > 0) return `${m} мин ${s} с`
+  return `${s} с`
+}
+
+function MaterialStudyProgress({ session }: { session: MaterialStudySession }) {
+  const [nowMs, setNowMs] = useState<number | null>(null)
+  useEffect(() => {
+    const tick = (): void => {
+      setNowMs(Date.now())
+    }
+    tick()
+    const id = window.setInterval(tick, 500)
+    return () => window.clearInterval(id)
+  }, [session.id, session.endTime])
+
+  const clock = nowMs ?? session.startTime
+  const total = Math.max(1, session.endTime - session.startTime)
+  const elapsed = clock - session.startTime
+  const pct = Math.min(100, Math.max(0, (elapsed / total) * 100))
+  const remainSec = Math.max(0, Math.ceil((session.endTime - clock) / 1000))
+
+  const matNode = materialById[session.materialId]
+  const materialName = matNode?.identity.name ?? session.materialId
+  const tech = getMaterialStudyTechniqueById(session.techniqueId)
+  const techName = tech?.name ?? session.techniqueId
+
+  return (
+    <Card className="bg-stone-900/70 border-amber-800/40">
+      <CardContent className="p-4 space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+          <span className="flex items-center gap-2 text-amber-200/95 font-medium min-w-0">
+            <Clock className="w-4 h-4 text-amber-500 shrink-0" />
+            <span className="truncate">Изучение: {materialName}</span>
+          </span>
+          <span className="text-stone-400 text-xs shrink-0 tabular-nums">
+            осталось ~{formatStudyRemain(remainSec)}
+          </span>
+        </div>
+        <p className="text-xs text-stone-500">{techName}</p>
+        <Progress value={pct} className="h-2 bg-stone-800" />
+      </CardContent>
+    </Card>
+  )
+}
+
+const IS_DEV = process.env.NODE_ENV === 'development'
 
 export function EncyclopediaScreen() {
   const [searchQuery, setSearchQuery] = useState('')
@@ -28,6 +84,9 @@ export function EncyclopediaScreen() {
   const setMaterialExpertise = useGameStore(state => state.setMaterialExpertise)
   const showOnlyDiscovered = useGameStore(state => state.showOnlyDiscovered)
   const toggleShowOnlyDiscovered = useGameStore(state => state.toggleShowOnlyDiscovered)
+  const materialStudySessions = useGameStore(s => s.materialStudySessions)
+  const encyclopediaFocusMaterialId = useGameStore(s => s.encyclopediaFocusMaterialId)
+  const setEncyclopediaFocusMaterialId = useGameStore(s => s.setEncyclopediaFocusMaterialId)
 
   // Filter materials
   const filteredMaterials = useMemo(() => {
@@ -65,8 +124,23 @@ export function EncyclopediaScreen() {
       })
   }, [selectedCategory, searchQuery, materialKnowledge, showOnlyDiscovered])
 
-  // Test: toggle expertise between 100%, 10% and original values
+  useEffect(() => {
+    if (!encyclopediaFocusMaterialId) return
+    const id = encyclopediaFocusMaterialId
+    const t = window.setTimeout(() => {
+      const el = document.querySelector(`[data-encyclopedia-material="${CSS.escape(id)}"]`)
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      setEncyclopediaFocusMaterialId(null)
+    }, 120)
+    return () => window.clearTimeout(t)
+  }, [encyclopediaFocusMaterialId, setEncyclopediaFocusMaterialId])
+
+  /**
+   * Только dev: массово меняет экспертизу и пишет в persist — в production давало «у всех 10%».
+   * По роадмапу §6.1 10% только у стартового набора (см. CRAFT_STARTER_KNOWLEDGE_MATERIAL_IDS).
+   */
   const testToggleExpertise = () => {
+    if (!IS_DEV) return
     const targetExpertise = testMode === 'normal' ? 100 : (testMode === 'max' ? 10 : null)
 
     if (targetExpertise === null) {
@@ -75,12 +149,8 @@ export function EncyclopediaScreen() {
       return
     }
 
-    // Set expertise for all displayed materials
-    filteredMaterials.forEach((material: MaterialNode) => {
-      const currentExpertise = materialKnowledge[material.identity.id]?.expertise || 0
-      if (currentExpertise > 0) {
-        setMaterialExpertise(material.identity.id, targetExpertise)
-      }
+    allMaterials.forEach((material: MaterialNode) => {
+      setMaterialExpertise(material.identity.id, targetExpertise)
     })
 
     setTestMode(targetExpertise === 100 ? 'max' : 'min')
@@ -91,6 +161,8 @@ export function EncyclopediaScreen() {
     if (testMode === 'max') return 'Test: All 10%'
     return 'Test: Reset'
   }
+
+  const runningStudySessions = materialStudySessions.filter(s => s.status === 'running')
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -104,14 +176,17 @@ export function EncyclopediaScreen() {
           <p className="text-stone-500 text-sm">Изучайте свойства материалов</p>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            onClick={testToggleExpertise}
-            className="flex items-center gap-2 px-3 py-1 text-xs bg-purple-900/50 hover:bg-purple-800/50 border border-purple-700 text-purple-300 rounded"
-            title={`Тест: переключить экспертизу всех материалов (${testMode})`}
-          >
-            <TestTube className="w-4 h-4" />
-            <span>{getTestButtonText()}</span>
-          </button>
+          {IS_DEV ? (
+            <button
+              type="button"
+              onClick={testToggleExpertise}
+              className="flex items-center gap-2 px-3 py-1 text-xs bg-purple-900/50 hover:bg-purple-800/50 border border-purple-700 text-purple-300 rounded"
+              title={`[dev] Тест persist: все материалы 100% → 10% → сброс режима (значения в store не откатываются автоматически)`}
+            >
+              <TestTube className="w-4 h-4" />
+              <span>{getTestButtonText()}</span>
+            </button>
+          ) : null}
           <div className="text-stone-400 text-sm">
             {filteredMaterials.length} / {allMaterials.length}
           </div>
@@ -137,6 +212,14 @@ export function EncyclopediaScreen() {
         </div>
       </div>
 
+      {runningStudySessions.length > 0 && (
+        <div className="space-y-3">
+          {runningStudySessions.map(s => (
+            <MaterialStudyProgress key={s.id} session={s} />
+          ))}
+        </div>
+      )}
+
       {/* Material grid */}
       {filteredMaterials.length === 0 ? (
         <Card className="bg-stone-900/50 border-stone-700">
@@ -155,11 +238,16 @@ export function EncyclopediaScreen() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredMaterials.map((material: MaterialNode) => (
-            <MaterialCard
+            <div
               key={material.identity.id}
-              material={material}
-              knowledge={materialKnowledge[material.identity.id]}
-            />
+              data-encyclopedia-material={material.identity.id}
+              className="min-w-0"
+            >
+              <MaterialCard
+                material={material}
+                knowledge={materialKnowledge[material.identity.id]}
+              />
+            </div>
           ))}
         </div>
       )}
@@ -183,6 +271,11 @@ export function EncyclopediaScreen() {
             <li>
               <strong className="text-purple-400">Новые свойства</strong> —
               открываются по мере накопления экспертизы
+            </li>
+            <li>
+              <strong className="text-amber-400">Изучение в энциклопедии</strong> —
+              прогресс и активная сессия сохраняются в сохранении игры (в том числе после обновления
+              страницы и при переходе на другие вкладки)
             </li>
           </ul>
         </CardContent>

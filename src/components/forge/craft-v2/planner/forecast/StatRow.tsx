@@ -3,9 +3,10 @@
 import { motion } from 'framer-motion'
 import { type StatRange } from '@/types/forecast'
 import { cn } from '@/lib/utils'
+import { SOUL_POTENTIAL_MAX, SOUL_POTENTIAL_MIN } from '@/data/war-soul-balance'
 
 interface StatRowProps {
-  stat: 'attack' | 'durability' | 'weight' | 'soulCapacity'
+  stat: 'attack' | 'durability' | 'weight' | 'soulPotential'
   range: StatRange
   icon: React.ReactNode
   label: string
@@ -33,7 +34,7 @@ const STAT_CONFIG = {
     borderColor: 'border-stone-700/30',
     gradient: 'from-stone-500/60 to-stone-400/40'
   },
-  soulCapacity: {
+  soulPotential: {
     iconColor: 'text-purple-400',
     barColor: 'bg-purple-500',
     bgBarColor: 'bg-purple-900/20',
@@ -45,27 +46,43 @@ const STAT_CONFIG = {
 export function StatRow({ stat, range, icon, label }: StatRowProps) {
   const config = STAT_CONFIG[stat]
 
-  // Вычисляем позицию диапазона на баре (нормализованная 0-100)
-  // Используем разумные максимумы для нормализации
+  // Для soulPotential шкала от SOUL_POTENTIAL_MIN до SOUL_POTENTIAL_MAX (множитель награды души).
+  const soulSpan = SOUL_POTENTIAL_MAX - SOUL_POTENTIAL_MIN
   const MAX_VALUES = {
     attack: 150,
     durability: 300,
     weight: 20,
-    soulCapacity: 50
-  }
-  const maxValue = MAX_VALUES[stat] || 100
-  const normalizedMin = Math.max(0, Math.min(100, (range.min / maxValue) * 100))
-  const normalizedMax = Math.max(0, Math.min(100, (range.max / maxValue) * 100))
+    soulPotential: SOUL_POTENTIAL_MAX,
+  } as const
+  const maxValue = MAX_VALUES[stat as keyof typeof MAX_VALUES] ?? 100
+  const normalizedMin =
+    stat === 'soulPotential'
+      ? Math.max(0, Math.min(100, ((range.min - SOUL_POTENTIAL_MIN) / soulSpan) * 100))
+      : Math.max(0, Math.min(100, (range.min / maxValue) * 100))
+  const normalizedMax =
+    stat === 'soulPotential'
+      ? Math.max(0, Math.min(100, ((range.max - SOUL_POTENTIAL_MIN) / soulSpan) * 100))
+      : Math.max(0, Math.min(100, (range.max / maxValue) * 100))
   const rangeWidth = normalizedMax - normalizedMin
 
   const precision = stat === 'weight' ? 1 : 0
 
   const formatValue = (val: number): string => {
+    if (stat === 'soulPotential') {
+      return `×${val.toFixed(2)}`
+    }
     return precision > 0 ? val.toFixed(precision) : val.toString()
   }
 
   return (
-    <div className="px-3 py-2 rounded-lg border border-stone-700 transition-all duration-200">
+    <div
+      className="px-3 py-2 rounded-lg border border-stone-700 transition-all duration-200"
+      title={
+        stat === 'soulPotential'
+          ? 'Потенциал души: множитель к награде души войны за успешную экспедицию'
+          : undefined
+      }
+    >
       {/* Иконка и название */}
       <div className="flex items-center gap-3 mb-1.5">
         <span className={cn('w-5 h-5', config.iconColor)}>

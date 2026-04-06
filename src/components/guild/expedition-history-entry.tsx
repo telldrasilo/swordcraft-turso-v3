@@ -40,6 +40,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ExpeditionHistoryEntry, Adventurer } from '@/types/guild'
+import type { AdventurerExtended } from '@/types/adventurer-extended'
 import type { ContractTier } from '@/types/contract'
 import { CONTRACT_TERMS, CONTRACT_REQUIREMENTS } from '@/types/contract'
 import { getMaxContracts, getContractTierName, getContractTierIcon, getContractTierColor } from '@/lib/contract-manager'
@@ -64,7 +65,11 @@ interface ExpeditionHistoryEntryProps {
   adventurerMissionCount: number
   adventurerSuccessRate: number
   alreadyContracted?: boolean
-  onOfferContract?: (adventurer: Adventurer, tier: ContractTier) => void
+  onOfferContract?: (
+    adventurer: Adventurer,
+    tier: ContractTier,
+    adventurerExtended?: AdventurerExtended | null
+  ) => void
 }
 
 // ================================
@@ -214,7 +219,7 @@ export const ExpeditionHistoryEntryComponent: React.FC<ExpeditionHistoryEntryPro
     if (canOfferContract.can && legacy && onOfferContract) {
       const tierAvailable = checkTierAvailability(selectedTier)
       if (tierAvailable.available) {
-        onOfferContract(legacy, selectedTier)
+        onOfferContract(legacy, selectedTier, extended ?? null)
         setShowAdventurerModal(false)
       }
     }
@@ -601,6 +606,9 @@ export const ExpeditionHistoryEntryComponent: React.FC<ExpeditionHistoryEntryPro
                       <Sparkles className="w-4 h-4" />
                       ✨ Уникальные бонусы
                     </h4>
+                    <p className="text-[11px] text-stone-500 leading-snug">
+                      Влияют на прогноз и исход миссии через систему модификаторов v2 (золото, успех, износ и т.д.).
+                    </p>
                     <div className="flex flex-wrap gap-2">
                       {extended.uniqueBonuses.map((bonus, i) => (
                         <TooltipProvider key={i}>

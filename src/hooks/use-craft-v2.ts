@@ -11,7 +11,8 @@ import type {
   ActiveCraftV2, 
   CraftPlan, 
   CraftedWeaponV2,
-  MaterialAssignment 
+  MaterialAssignment,
+  PartMaterialSupplyEntry,
 } from '@/types/craft-v2'
 import { 
   generateCraftStages, 
@@ -34,6 +35,18 @@ import { useGameStore } from '@/store/game-store-composed'
 import type { WeaponForecast } from '@/types/forecast'
 import type { MaterialKnowledge } from '@/types/materials/knowledge'
 import { buildCompletedWeaponV2 } from '@/hooks/use-craft-v2-helpers'
+import { isMaterialUnlockedForForge } from '@/lib/craft/material-forge-access'
+import {
+  applyCraftExpertiseGainRows,
+  buildCraftExpertiseGainRows,
+  type CraftExpertiseGainRow,
+} from '@/lib/craft/craft-expertise-from-craft'
+import {
+  aggregateProcessingForecastSpreadTightness,
+  aggregateProcessingQualityDelta,
+  validateMaterialProcessingPlan,
+} from '@/data/material-processing-techniques'
+import { getPlannerUnlockedTechniqueIds } from '@/lib/craft/planner-unlocked-techniques'
 
 function buildExpertiseMap(
   knowledge: Record<string, MaterialKnowledge> | undefined
@@ -44,6 +57,14 @@ function buildExpertiseMap(
     m[id] = k?.expertise ?? 0
   })
   return m
+}
+
+function getMaterialProcessingUnlockIdsFromStore(): string[] {
+  const s = useGameStore.getState()
+  return getPlannerUnlockedTechniqueIds({
+    playerLevel: s.player.level,
+    unlockedMaterialProcessingTechniqueIds: s.unlockedMaterialProcessingTechniqueIds ?? [],
+  })
 }
 
 // ================================
@@ -74,6 +95,9 @@ export interface CraftV2State {
   
   /** Нужно ли закупать материалы */
   shouldPurchaseMaterials: boolean
+
+  /** Прирост экспертизы по материалам после завершения крафта (для UI при заборе) */
+  lastCraftExpertiseGains: CraftExpertiseGainRow[] | null
 }
 
 export interface UseCraftV2Return {
@@ -95,6 +119,9 @@ export interface UseCraftV2Return {
   // Result actions
   collectWeapon: () => CraftedWeaponV2 | null
   reset: () => void
+
+  /** Путь снабжения частей (руда + плавка) перед стартом крафта из контейнера */
+  setPartMaterialSupply: (supply: Record<string, PartMaterialSupplyEntry>) => void
 }
 
 // ================================
@@ -110,6 +137,7 @@ const initialState: CraftV2State = {
   weaponName: null,
   stage: 'planning',
   shouldPurchaseMaterials: false,
+  lastCraftExpertiseGains: null,
 }
 
 function getRestoredState(): CraftV2State {
@@ -126,6 +154,74 @@ function getRestoredState(): CraftV2State {
     weaponName: persisted.weaponName || null,
     stage: persisted.stage || 'planning',
     shouldPurchaseMaterials: useGameStore.getState().shouldPurchaseMaterials ?? false,
+    lastCraftExpertiseGains: null,
+  }
+}
+
+function finalizeCompletedCraftV2(
+  prev: CraftV2State,
+  blacksmithLevel: number
+): CraftV2State | null {
+  if (!prev.preview || !prev.plan) return null
+  const recipe = getRecipeById(prev.plan.recipeId)
+  if (!recipe) return null
+
+  const techniques = prev.plan.techniques
+    .map(id => getTechniqueById(id))
+    .filter((t): t is NonNullable<typeof t> => t !== undefined)
+
+  const expertiseMap = buildExpertiseMap(useGameStore.getState().materialKnowledge)
+  const unlockProc = getMaterialProcessingUnlockIdsFromStore()
+  const pq = aggregateProcessingQualityDelta(
+    prev.plan.partMaterialSupply,
+    prev.plan.materials,
+    unlockProc
+  )
+  const spreadT = aggregateProcessingForecastSpreadTightness(
+    prev.plan.partMaterialSupply,
+    prev.plan.materials,
+    unlockProc
+  )
+  const forecast =
+    prev.forecast ??
+    calculateForecast(
+      recipe,
+      prev.plan.materials,
+      techniques,
+      blacksmithLevel,
+      expertiseMap,
+      pq,
+      spreadT
+    )
+
+  const rolled = rollWeaponOutcome(prev.preview, forecast)
+  const combatPart = recipe.combatPart || 'blade'
+  const combatMatId = prev.plan.materials[combatPart]?.materialId
+  const combatMaterial = combatMatId ? getMaterialAsLegacy(combatMatId) ?? null : null
+  const weaponName = generateWeaponName(recipe, combatMaterial, rolled.quality)
+  const completedWeapon = buildCompletedWeaponV2(prev.plan, rolled, weaponName, recipe)
+
+  const gains = buildCraftExpertiseGainRows(prev.plan.materials, {
+    getExpertise: id =>
+      useGameStore.getState().materialKnowledge[id]?.expertise ?? 0,
+    getMaterialDisplayName: id => getMaterialAsLegacy(id)?.name ?? id,
+  })
+  // Нельзя вызывать addMaterialExpertise внутри updater'а useState (React 19 / concurrent).
+  if (gains.length > 0) {
+    queueMicrotask(() => {
+      applyCraftExpertiseGainRows(gains, (id, d) => {
+        useGameStore.getState().addMaterialExpertise(id, d)
+      })
+    })
+  }
+
+  return {
+    ...prev,
+    activeCraft: null,
+    completedWeapon,
+    weaponName,
+    stage: 'completed',
+    lastCraftExpertiseGains: gains.length > 0 ? gains : null,
   }
 }
 
@@ -201,6 +297,14 @@ export function useCraftV2(
   const recipeIdRef = useRef<string | null>(
     state.plan?.recipeId || null
   )
+  const partMaterialSupplyRef = useRef<Record<string, PartMaterialSupplyEntry>>({})
+
+  const setPartMaterialSupply = useCallback(
+    (supply: Record<string, PartMaterialSupplyEntry>) => {
+      partMaterialSupplyRef.current = supply
+    },
+    []
+  )
   
   // ================================
   // PLANNING ACTIONS
@@ -210,6 +314,7 @@ export function useCraftV2(
     recipeIdRef.current = recipeId
     materialsRef.current = {}
     techniquesRef.current = []
+    partMaterialSupplyRef.current = {}
     
     const recipe = getRecipeById(recipeId)
     if (!recipe) {
@@ -230,6 +335,7 @@ export function useCraftV2(
         weight: 0,
         balance: 0,
         soulCapacity: 0,
+        soulPotential: 1,
         repairPotential: 1,
         enchantSlots: 0,
         enchantPower: 1,
@@ -302,17 +408,51 @@ export function useCraftV2(
     const combatMaterial = combatMaterialId ? getMaterialAsLegacy(combatMaterialId) : null
     
     const expertiseMap = buildExpertiseMap(materialKnowledge)
-    const preview = calculateWeapon(recipe, materials, techniques, blacksmithLevel)
+    const unlockProc = getMaterialProcessingUnlockIdsFromStore()
+    const pq = aggregateProcessingQualityDelta(
+      partMaterialSupplyRef.current,
+      materials,
+      unlockProc
+    )
+    const spreadT = aggregateProcessingForecastSpreadTightness(
+      partMaterialSupplyRef.current,
+      materials,
+      unlockProc
+    )
+    const preview = calculateWeapon(
+      recipe,
+      materials,
+      techniques,
+      blacksmithLevel,
+      pq,
+      expertiseMap
+    )
     const forecast = calculateForecast(
       recipe,
       materials,
       techniques,
       blacksmithLevel,
-      expertiseMap
+      expertiseMap,
+      pq,
+      spreadT
     )
     const weaponName = generateWeaponName(recipe, combatMaterial || null, preview.quality)
     
-    const stages = generateCraftStages(recipe, materials, techniques, blacksmithLevel, forgeLevel)
+    const supply =
+      Object.keys(partMaterialSupplyRef.current).length > 0
+        ? { ...partMaterialSupplyRef.current }
+        : undefined
+    const stages = generateCraftStages(
+      recipe,
+      materials,
+      techniques,
+      blacksmithLevel,
+      forgeLevel,
+      undefined,
+      false,
+      supply,
+      expertiseMap
+    )
     const estimatedTime = stages.reduce((sum, s) => sum + s.calculatedDuration, 0)
     
     setState(prev => ({
@@ -320,14 +460,17 @@ export function useCraftV2(
       preview,
       forecast,
       weaponName,
-      plan: prev.plan ? {
-        ...prev.plan,
-        materials,
-        techniques: techniqueIds,
-        estimatedTime,
-        estimatedStats: preview.stats,
-        estimatedQuality: preview.qualityGrade,
-      } : null,
+      plan: prev.plan
+        ? {
+            ...prev.plan,
+            materials,
+            techniques: techniqueIds,
+            estimatedTime,
+            estimatedStats: preview.stats,
+            estimatedQuality: preview.qualityGrade,
+            partMaterialSupply: supply,
+          }
+        : null,
     }))
   }, [blacksmithLevel, forgeLevel, materialKnowledge, setState])
   
@@ -349,12 +492,60 @@ export function useCraftV2(
     const recipe = getRecipeById(recipeId)
     if (!recipe) return
 
+    const know = useGameStore.getState().materialKnowledge
+    for (const part of recipe.parts) {
+      const a = materials[part.id]
+      if (!a?.materialId) continue
+      if (!isMaterialUnlockedForForge(a.materialId, know)) {
+        console.warn('Cannot start craft: material below forge expertise threshold', a.materialId)
+        return
+      }
+    }
+
     const techniques = techniqueIds
       .map(id => getTechniqueById(id))
       .filter((t): t is NonNullable<typeof t> => t !== undefined)
 
-    const stages = generateCraftStages(recipe, materials, techniques, blacksmithLevel, forgeLevel, undefined, shouldPurchase)
-    const plan = createCraftPlan(recipeId, materials, techniqueIds, blacksmithLevel, forgeLevel, shouldPurchase)
+    const supply =
+      Object.keys(partMaterialSupplyRef.current).length > 0
+        ? { ...partMaterialSupplyRef.current }
+        : undefined
+
+    const unlockProc = getMaterialProcessingUnlockIdsFromStore()
+    const procVal = validateMaterialProcessingPlan(
+      materials,
+      supply,
+      techniqueIds,
+      unlockProc
+    )
+    if (!procVal.ok) {
+      console.warn(procVal.reason)
+      return
+    }
+
+    const expertiseMap = buildExpertiseMap(know)
+
+    const stages = generateCraftStages(
+      recipe,
+      materials,
+      techniques,
+      blacksmithLevel,
+      forgeLevel,
+      undefined,
+      shouldPurchase,
+      supply,
+      expertiseMap
+    )
+    const plan = createCraftPlan(
+      recipeId,
+      materials,
+      techniqueIds,
+      blacksmithLevel,
+      forgeLevel,
+      shouldPurchase,
+      supply,
+      expertiseMap
+    )
     
     const activeCraft: ActiveCraftV2 = {
       id: `craft_${Date.now()}`,
@@ -423,34 +614,8 @@ export function useCraftV2(
       }))
       craft.currentStageIndex = craft.stages.length - 1
       
-      if (prev.preview && prev.plan) {
-        const recipe = getRecipeById(prev.plan.recipeId)
-        if (!recipe) return prev
-
-        const techniques = prev.plan.techniques
-          .map(id => getTechniqueById(id))
-          .filter((t): t is NonNullable<typeof t> => t !== undefined)
-
-        const expertiseMap = buildExpertiseMap(useGameStore.getState().materialKnowledge)
-        const forecast =
-          prev.forecast ??
-          calculateForecast(recipe, prev.plan.materials, techniques, blacksmithLevel, expertiseMap)
-
-        const rolled = rollWeaponOutcome(prev.preview, forecast)
-        const combatPart = recipe.combatPart || 'blade'
-        const combatMatId = prev.plan.materials[combatPart]?.materialId
-        const combatMaterial = combatMatId ? getMaterialAsLegacy(combatMatId) ?? null : null
-        const weaponName = generateWeaponName(recipe, combatMaterial, rolled.quality)
-        const completedWeapon = buildCompletedWeaponV2(prev.plan, rolled, weaponName, recipe)
-
-        return {
-          ...prev,
-          activeCraft: null,
-          completedWeapon,
-          weaponName,
-          stage: 'completed' as const,
-        }
-      }
+      const done = finalizeCompletedCraftV2(prev, blacksmithLevel)
+      if (done) return done
 
       return prev
     })
@@ -469,6 +634,7 @@ export function useCraftV2(
       ...prev,
       completedWeapon: null,
       stage: 'planning',
+      lastCraftExpertiseGains: null,
     }))
 
     return completedWeapon
@@ -478,6 +644,7 @@ export function useCraftV2(
     materialsRef.current = {}
     techniquesRef.current = []
     recipeIdRef.current = null
+    partMaterialSupplyRef.current = {}
     setState(initialState)
   }, [setState])
   
@@ -531,34 +698,8 @@ export function useCraftV2(
         if (!currentStageFound && craft.stages.length > 0) {
           craft.status = 'completed'
           
-          if (prev.preview && prev.plan) {
-            const recipe = getRecipeById(prev.plan.recipeId)
-            if (recipe) {
-              const techniques = prev.plan.techniques
-                .map(id => getTechniqueById(id))
-                .filter((t): t is NonNullable<typeof t> => t !== undefined)
-
-              const expertiseMap = buildExpertiseMap(useGameStore.getState().materialKnowledge)
-              const forecast =
-                prev.forecast ??
-                calculateForecast(recipe, prev.plan.materials, techniques, blacksmithLevel, expertiseMap)
-
-              const rolled = rollWeaponOutcome(prev.preview, forecast)
-              const combatPart = recipe.combatPart || 'blade'
-              const combatMatId = prev.plan.materials[combatPart]?.materialId
-              const combatMaterial = combatMatId ? getMaterialAsLegacy(combatMatId) ?? null : null
-              const weaponName = generateWeaponName(recipe, combatMaterial, rolled.quality)
-              const completedWeapon = buildCompletedWeaponV2(prev.plan, rolled, weaponName, recipe)
-
-              return {
-                ...prev,
-                activeCraft: null,
-                completedWeapon,
-                weaponName,
-                stage: 'completed' as const,
-              }
-            }
-          }
+          const done = finalizeCompletedCraftV2(prev, blacksmithLevel)
+          if (done) return done
         }
         
         return { ...prev, activeCraft: craft }
@@ -584,6 +725,7 @@ export function useCraftV2(
     instantComplete,  // Тестовая функция мгновенного завершения
     collectWeapon,
     reset,
+    setPartMaterialSupply,
   }
 }
 

@@ -8,15 +8,22 @@ import { QualityBadge } from './forecast/QualityBadge'
 import { StatRow } from './forecast/StatRow'
 import { type WeaponForecast } from '@/types/forecast'
 import { cn } from '@/lib/utils'
+import {
+  MATERIAL_EXPERTISE_MILESTONE_HIGH,
+  MATERIAL_EXPERTISE_MILESTONE_MAX,
+} from '@/lib/store-utils/constants'
 
 interface WeaponForecastPanelProps {
   forecast: WeaponForecast
   className?: string
+  /** Средняя экспертиза по выбранным материалам плана (для подсказки вех B2) */
+  avgMaterialExpertise?: number
 }
 
 export function WeaponForecastPanel({
   forecast,
-  className
+  className,
+  avgMaterialExpertise,
 }: WeaponForecastPanelProps) {
   // Слабейшая характеристика (наибольшая дисперсия)
   const weakStat = useMemo(() => {
@@ -24,10 +31,11 @@ export function WeaponForecastPanel({
       { key: 'attack', label: 'Атака', variance: forecast.attack.variance },
       { key: 'durability', label: 'Прочность', variance: forecast.durability.variance },
       { key: 'weight', label: 'Вес', variance: forecast.weight.variance },
-      { key: 'soulCapacity', label: 'Душа Войны', variance: forecast.soulCapacity.variance },
     ]
     return stats.reduce((a, b) => (a.variance > b.variance ? a : b))
   }, [forecast])
+
+  const accuracyRounded = Math.round(forecast.predictionAccuracy)
 
   return (
     <Card className={cn(
@@ -72,11 +80,11 @@ export function WeaponForecastPanel({
                   label="Вес"
                 />
                 <StatRow
-                  key="soulCapacity"
-                  stat="soulCapacity"
-                  range={forecast.soulCapacity}
+                  key="soulPotential"
+                  stat="soulPotential"
+                  range={forecast.soulPotential}
                   icon={<Flame className="w-5 h-5" />}
-                  label="Душа Войны"
+                  label="Потенциал души"
                 />
               </AnimatePresence>
             </div>
@@ -105,13 +113,22 @@ export function WeaponForecastPanel({
         {/* Разделитель */}
         <div className="h-px bg-gradient-to-r from-transparent via-stone-700 to-transparent lg:hidden" />
 
+        {avgMaterialExpertise != null &&
+          avgMaterialExpertise >= MATERIAL_EXPERTISE_MILESTONE_HIGH && (
+            <p className="text-xs text-emerald-400/95">
+              {avgMaterialExpertise >= MATERIAL_EXPERTISE_MILESTONE_MAX
+                ? 'Веха мастерства: средняя экспертиза от 100% — дополнительный бонус к качеству в расчёте прогноза.'
+                : 'Веха мастерства: средняя экспертиза от 80% — малый бонус к качеству в расчёте прогноза.'}
+            </p>
+          )}
+
         {/* Информация о точности прогноза */}
         <AnimatePresence>
-          {forecast.predictionAccuracy < 100 && (
+          {accuracyRounded < 100 && (
             <motion.div
               className={cn(
                 'flex items-center gap-3 p-3 rounded-lg',
-                forecast.predictionAccuracy < 70
+                accuracyRounded < 70
                   ? 'bg-red-900/20 border border-red-800/50'
                   : 'bg-amber-900/20 border border-amber-800/50'
               )}
@@ -122,14 +139,14 @@ export function WeaponForecastPanel({
             >
               <Zap className={cn(
                 'w-4 h-4',
-                forecast.predictionAccuracy < 70 ? 'text-red-400' : 'text-amber-400'
+                accuracyRounded < 70 ? 'text-red-400' : 'text-amber-400'
               )} />
               <div className="flex-1">
                 <p className="text-sm text-stone-300">
                   <span className={cn(
                     'font-semibold',
-                    forecast.predictionAccuracy < 70 ? 'text-red-400' : 'text-amber-400'
-                  )}>Точность: {forecast.predictionAccuracy}%</span>
+                    accuracyRounded < 70 ? 'text-red-400' : 'text-amber-400'
+                  )}>Точность: {accuracyRounded}%</span>
                 </p>
                 <p className="text-xs text-stone-500 mt-0.5">
                   Повысьте экспертизу материалов

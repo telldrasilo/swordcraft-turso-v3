@@ -14,6 +14,7 @@ import {
   TrendingUp,
   FastForward,
   Flag,
+  AlertTriangle,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -27,7 +28,7 @@ import { useState, useEffect } from 'react'
 
 // Импорт журнала событий
 import { ExpeditionEventLog } from './expeditions/ExpeditionEventLog'
-import { EXPEDITION_DEV_UI_ENABLED } from '@/lib/expedition-dev-tools'
+import { EXPEDITION_SKIP_TIMELINE_UI_ENABLED } from '@/lib/expedition-dev-tools'
 import { getMaterialName } from '@/modules/expeditions'
 
 // Импорт функции показа уведомлений
@@ -42,7 +43,8 @@ export function ActiveExpeditionCard({ expedition }: ActiveExpeditionCardProps) 
   const cancelExpedition = useGameStore((state) => state.cancelExpedition)
   const skipExpeditionToNextEvent = useGameStore((state) => state.skipExpeditionToNextEvent)
   const skipExpeditionTimelineToEnd = useGameStore((state) => state.skipExpeditionTimelineToEnd)
-  
+  const navigateToForgeTab = useGameStore((state) => state.navigateToForgeTab)
+
   const [timeLeft, setTimeLeft] = useState<number>(0)
   const [progress, setProgress] = useState<number>(0)
   const [wallNow, setWallNow] = useState(() => Date.now())
@@ -150,7 +152,7 @@ export function ActiveExpeditionCard({ expedition }: ActiveExpeditionCardProps) 
 
           {!isComplete ? (
             <>
-              {EXPEDITION_DEV_UI_ENABLED && (
+              {EXPEDITION_SKIP_TIMELINE_UI_ENABLED && (
                 <div className="mt-3 flex flex-wrap gap-2 rounded-md border border-dashed border-amber-700/40 bg-stone-950/50 p-2">
                   <Button
                     type="button"
@@ -227,6 +229,12 @@ export function ActiveExpeditionCard({ expedition }: ActiveExpeditionCardProps) 
                           </>
                         )}
                       </div>
+
+                      {sortedEv.length > 0 && (
+                        <p className="text-[11px] text-stone-500 text-center leading-snug mb-4 px-1">
+                          Бонусы из журнала миссии (успех, золото, материалы) уже учтены в значениях ниже — итог собирается при завершении вместе с модульными событиями.
+                        </p>
+                      )}
                       
                       <div className="space-y-3 mb-6">
                         <div className="flex items-center justify-between bg-stone-800/50 rounded-lg p-3">
@@ -282,6 +290,35 @@ export function ActiveExpeditionCard({ expedition }: ActiveExpeditionCardProps) 
                             </span>
                           </div>
                         )}
+
+                        {!lastResult.weaponLost &&
+                          lastResult.damageTagLabelsApplied &&
+                          lastResult.damageTagLabelsApplied.length > 0 && (
+                            <div className="rounded-lg border border-amber-800/45 bg-amber-950/25 p-3">
+                              <div className="flex items-start gap-2">
+                                <AlertTriangle className="w-4 h-4 shrink-0 text-amber-500 mt-0.5" />
+                                <div className="min-w-0">
+                                  <p className="text-xs text-amber-200/95 font-medium mb-1">
+                                    Заметные повреждения клинка
+                                  </p>
+                                  <p className="text-xs text-stone-400 leading-snug">
+                                    {lastResult.damageTagLabelsApplied.join(' · ')}
+                                  </p>
+                                  <Button
+                                    type="button"
+                                    variant="link"
+                                    className="h-auto p-0 mt-2 text-xs text-amber-400/95"
+                                    onClick={() => {
+                                      setShowRewards(false)
+                                      navigateToForgeTab('repair')
+                                    }}
+                                  >
+                                    Открыть вкладку «Ремонт» в кузнице
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         
                         {lastResult.weaponLost && (
                           <div className="flex items-center justify-between bg-red-900/30 rounded-lg p-3 border border-red-600/50">

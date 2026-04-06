@@ -9,7 +9,7 @@ import { motion } from 'framer-motion'
 import {
   Sword, Heart, Star, Sparkles, Map, Shield,
   Flame, Wind, Droplet, Sun, Moon,
-  Diamond, Crown, Target,
+  Diamond, Target,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -28,11 +28,15 @@ import {
   weaponTypeStats,
   getQualityGrade,
 } from '@/lib/craft/weapon-display-meta'
-import { weaponRecipes } from '@/data/weapon-recipes'
+import { legacyRecipeRowForCraftedWeapon } from '@/data/weapon-recipes'
 import {
   getWarSoulTier,
   getProgressToNextTier,
+  getNextTierInfo,
+  resolveWarSoulProgressBarMax,
+  WAR_SOUL_WEAPON_POOL_MIN,
 } from '@/lib/war-soul-utils'
+import { isWarSoulPoolUncapped } from '@/data/war-soul-balance'
 
 // ================================
 // ТИПЫ СВОЙСТВ ОРУЖИЯ
@@ -110,16 +114,6 @@ export const propertyConfig = {
     priority: 4,
     tooltipTitle: 'Душа Войны',
     tooltipDesc: 'Сила, накопленная в боях. Используется для зачарований и улучшений в Алтаре.',
-  },
-  epicMultiplier: {
-    icon: <Crown className="w-3.5 h-3.5" />,
-    color: 'text-amber-400',
-    bgColor: 'bg-stone-800/80',
-    displayType: 'multiplier' as const,
-    category: 'special' as const,
-    priority: 5,
-    tooltipTitle: 'Эпический множитель',
-    tooltipDesc: 'Увеличивает награды от экспедиций. Растёт с каждым приключением.',
   },
   adventureCount: {
     icon: <Map className="w-3.5 h-3.5" />,
@@ -307,38 +301,38 @@ export function extractWeaponProperties(weapon: WeaponCardWeapon): WeaponPropert
   })
 
   // Душа Войны с тиром и прогресс-баром
-  if (weapon.warSoul > 0 || (weapon.maxWarSoul ?? 0) > 0) {
-    const tier = getWarSoulTier(weapon.warSoul, weapon.maxWarSoul ?? 100)
-    const progress = getProgressToNextTier(weapon.warSoul, weapon.maxWarSoul ?? 100)
-    
+  if (
+    weapon.warSoul > 0 ||
+    (weapon.maxWarSoul ?? 0) > 0 ||
+    (weapon.soulPotential ?? 0) > 0
+  ) {
+    const uncapped = isWarSoulPoolUncapped(weapon.maxWarSoul)
+    const poolCap = uncapped
+      ? Number.POSITIVE_INFINITY
+      : (weapon.maxWarSoul ?? WAR_SOUL_WEAPON_POOL_MIN)
+    const tier = getWarSoulTier(weapon.warSoul, poolCap)
+    const progress = getProgressToNextTier(weapon.warSoul, poolCap)
+    const barMax = resolveWarSoulProgressBarMax(weapon.warSoul, poolCap)
+    const nextTier = getNextTierInfo(weapon.warSoul, poolCap)
+    const pot = weapon.soulPotential ?? weapon.stats.soulPotential ?? 1
+    const soulLine = nextTier
+      ? `${tier.icon} ${tier.name}: ${weapon.warSoul}/${barMax} душ до «${nextTier.name}»`
+      : uncapped
+        ? `${tier.icon} ${tier.name}: ${weapon.warSoul} душ`
+        : `${tier.icon} ${tier.name}: ${weapon.warSoul}/${barMax} душ (пул)`
+
     properties.push({
       id: 'warSoul',
       name: tier.name,
       value: weapon.warSoul,
-      maxValue: weapon.maxWarSoul ?? 100,
+      maxValue: barMax,
       icon: tier.icon,
       color: tier.color,
       bgColor: tier.bgColor,
-      tooltip: `${tier.icon} ${tier.name}: ${weapon.warSoul}/${weapon.maxWarSoul ?? 100} Души Войны\nПрогресс к следующему тиру: ${progress}%\n\nБонусы текущего тира:\n+${tier.bonus.successBonus}% шанс успеха\n+${tier.bonus.goldBonus}% золота\n+${tier.bonus.warSoulBonus}% душ${tier.bonus.critChance > 0 ? `\n+${tier.bonus.critChance}% крита` : ''}`,
+      tooltip: `${soulLine}\nПотенциал души: ×${pot.toFixed(2)} к награде за миссию\nПрогресс к следующему тиру: ${progress}%\n\nБонусы текущего тира:\n+${tier.bonus.successBonus}% шанс успеха\n+${tier.bonus.goldBonus}% золота\n+${tier.bonus.warSoulBonus}% душ${tier.bonus.critChance > 0 ? `\n+${tier.bonus.critChance}% крита` : ''}`,
       displayType: 'bar',
       category: 'special',
       priority: 4,
-    })
-  }
-
-  // Эпический множитель (если > 1)
-  if (weapon.epicMultiplier > 1) {
-    properties.push({
-      id: 'epicMultiplier',
-      name: 'Эпичность',
-      value: weapon.epicMultiplier,
-      icon: config.epicMultiplier.icon,
-      color: config.epicMultiplier.color,
-      bgColor: config.epicMultiplier.bgColor,
-      tooltip: `${config.epicMultiplier.tooltipTitle}: ${config.epicMultiplier.tooltipDesc}`,
-      displayType: 'multiplier',
-      category: 'special',
-      priority: 5,
     })
   }
 
@@ -548,7 +542,7 @@ export function WeaponCard({
 }: WeaponCardProps) {
   const qualityInfo = resolveQualityGradeConfig(weapon)
   const typeStats = weaponTypeStats[weapon.type as keyof typeof weaponTypeStats]
-  const legacyRecipe = weaponRecipes.find((r) => r.id === weapon.recipeId)
+  const legacyRecipe = legacyRecipeRowForCraftedWeapon(weapon)
   const properties = extractWeaponProperties(weapon)
 
   const tier = (legacyRecipe?.tier as string | undefined) ?? 'common'
@@ -557,7 +551,7 @@ export function WeaponCard({
 
   // Мемоизация расчёта тира Души Войны для оптимизации
   const warSoulTier = useMemo(() => {
-    return getWarSoulTier(weapon.warSoul, weapon.maxWarSoul ?? 100)
+    return getWarSoulTier(weapon.warSoul, weapon.maxWarSoul ?? WAR_SOUL_WEAPON_POOL_MIN)
   }, [weapon.warSoul, weapon.maxWarSoul])
 
   // Разделяем свойства по категориям
@@ -717,7 +711,7 @@ export function WeaponCard({
             </div>
           )}
 
-          {/* Специальные свойства (Душа Войны, Эпичность) */}
+          {/* Специальные свойства (Душа Войны) */}
           {specialProps.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-3 pt-2 border-t border-stone-700/50">
               {specialProps.map(prop => (
@@ -778,7 +772,7 @@ interface WeaponMiniCardProps {
 
 export function WeaponMiniCard({ weapon, selected, onSelect, disabled }: WeaponMiniCardProps) {
   const qualityInfo = resolveQualityGradeConfig(weapon)
-  const legacyRecipe = weaponRecipes.find((r) => r.id === weapon.recipeId)
+  const legacyRecipe = legacyRecipeRowForCraftedWeapon(weapon)
   const tier = (legacyRecipe?.tier as string | undefined) ?? 'common'
   const tierColor = qualityColors[tier] ?? qualityColors['common']
   const maxDur = weapon.stats.maxDurability || 1
@@ -787,7 +781,7 @@ export function WeaponMiniCard({ weapon, selected, onSelect, disabled }: WeaponM
   
   // Мемоизация расчёта тира Души Войны
   const warSoulTier = useMemo(() => {
-    return getWarSoulTier(weapon.warSoul, weapon.maxWarSoul ?? 100)
+    return getWarSoulTier(weapon.warSoul, weapon.maxWarSoul ?? WAR_SOUL_WEAPON_POOL_MIN)
   }, [weapon.warSoul, weapon.maxWarSoul])
 
   return (

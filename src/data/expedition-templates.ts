@@ -39,6 +39,8 @@ export interface ExpeditionTemplate {
   moduleObjective?: string
   /** Название локации модуля для UI (до интеграции прогрессии по картам) */
   moduleLocationName?: string
+  /** Id локации модуля (`getLocationById`) — ресурсы миссии, события */
+  moduleLocationId?: string
   /** Заказчик миссии (имя для карточки) */
   moduleClientName?: string
   icon: string

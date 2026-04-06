@@ -26,7 +26,9 @@ export const encyclopediaByCategory: Record<MaterialDisplayCategory, MaterialNod
   gems: encyclopediaMaterials.filter(m => getDisplayCategory(m) === 'gems'),
   wood: encyclopediaMaterials.filter(m => getDisplayCategory(m) === 'wood'),
   leather: encyclopediaMaterials.filter(m => getDisplayCategory(m) === 'leather'),
+  herbs: encyclopediaMaterials.filter(m => getDisplayCategory(m) === 'herbs'),
   organics: encyclopediaMaterials.filter(m => getDisplayCategory(m) === 'organics'),
+  fuels: encyclopediaMaterials.filter(m => getDisplayCategory(m) === 'fuels'),
   other: encyclopediaMaterials.filter(m => getDisplayCategory(m) === 'other'),
 }
 

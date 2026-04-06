@@ -271,10 +271,11 @@ describe('resolveEventEffects', () => {
 
     const resolved = resolveEventEffects(effects, location, 12345);
 
-    expect(resolved.length).toBeGreaterThan(0);
-    expect(resolved[0].type).toBe('grant_material');
-    expect(resolved[0].materialId).toBeDefined();
-    expect(resolved[0].quantity).toBeGreaterThan(0);
+    const mats = resolved.filter((r) => r.type === 'grant_material')
+    expect(mats.length).toBeGreaterThanOrEqual(3)
+    expect(mats.every((r) => r.type === 'grant_material')).toBe(true)
+    expect(mats[0].materialId).toBeDefined()
+    expect(mats[0].quantity).toBeGreaterThan(0)
   });
 
   it('should resolve grant_resource effect', () => {

@@ -2,6 +2,8 @@
 // ТИПЫ ДЛЯ ПРОГНОЗА РЕЗУЛЬТАТА ОРУЖИЯ
 // ================================
 
+import type { MaterialAssignment, Technique, WeaponRecipe } from '@/types/craft-v2'
+
 // ================================
 // Диапазон характеристики
 // ================================
@@ -54,7 +56,8 @@ export interface WeaponForecast {
   attack: StatRange
   durability: StatRange
   weight: StatRange
-  soulCapacity: StatRange
+  /** Множитель награды души войны (Soul Potential); min/max совпадают, variance 0. */
+  soulPotential: StatRange
   quality: QualityScore
   predictionAccuracy: number  // точность прогноза 50-100%
 }
@@ -79,7 +82,7 @@ export interface ContributionBreakdown {
 }
 
 export interface StatBreakdown {
-  stat: 'attack' | 'durability' | 'weight' | 'soulCapacity'
+  stat: 'attack' | 'durability' | 'weight' | 'soulPotential'
   breakdown: ContributionBreakdown[]
   accuracy: number
 }
@@ -96,6 +99,15 @@ export interface ForecastInput {
       weightBase: number
       soulCapacityBase: number
     }
+  }
+  /**
+   * Полный контекст крафта для расчёта Soul Potential (как в `computeSoulPotential`).
+   * Без него альтернативный прогноз (`calculateWeaponForecast`) даёт ×1.0.
+   */
+  craftContext?: {
+    recipe: WeaponRecipe
+    materials: MaterialAssignment
+    techniques: Technique[]
   }
   materials: Array<{
     material: {

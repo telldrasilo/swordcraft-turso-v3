@@ -12,6 +12,9 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { ExpeditionTemplate, difficultyInfo, typeInfo } from '@/data/expedition-templates'
+import { ELEMENTAL_AXIS_LABELS } from '@/data/weapon-damage/elemental-axes'
+import { getLocationById, getMaterialName } from '@/modules/expeditions'
+import { materialById } from '@/data/materials/library'
 
 // ================================
 // ТИПЫ
@@ -43,6 +46,27 @@ export const ExpeditionSelectionCard: React.FC<ExpeditionSelectionCardProps> = (
   const type = typeInfo[expedition.type]
   const clientBudget = expedition.reward?.baseGold ?? 0
   const guildOps = expedition.cost.supplies + expedition.cost.deposit
+  /** База провала для v2 — из баланса сложности, не из полей строки шаблона */
+  const displayFailurePct = difficulty.failureChance
+
+  const moduleLocation =
+    expedition.moduleLocationId != null ? getLocationById(expedition.moduleLocationId) : undefined
+
+  const harvestableResources =
+    expedition.moduleLocationId != null
+      ? (() => {
+          const loc = moduleLocation
+          if (!loc?.resources?.length) return []
+          return loc.resources
+            .filter((r) => Boolean(materialById[r.materialId]))
+            .map((r) => ({
+              id: r.materialId,
+              label: getMaterialName(r.materialId),
+              rarity: r.rarity,
+            }))
+            .sort((a, b) => a.label.localeCompare(b.label, 'ru'))
+        })()
+      : []
 
   return (
     <motion.div
@@ -125,11 +149,17 @@ export const ExpeditionSelectionCard: React.FC<ExpeditionSelectionCardProps> = (
               <Sword className="w-3 h-3 flex-shrink-0" />
               <span>⚔️ {expedition.minWeaponAttack}+</span>
             </div>
-            <div className="flex items-center gap-1.5 text-orange-400">
+            <div
+              className="flex items-center gap-1.5 text-orange-400"
+              title="Ориентир базового риска провала по сложности миссии (как в калькуляторе v2); итог зависит от модификаторов в брифинге."
+            >
               <Skull className="w-3 h-3 flex-shrink-0" />
-              <span>{expedition.failureChance}% риск</span>
+              <span>{displayFailurePct}% риск</span>
             </div>
-            <p className="col-span-2 text-[10px] text-stone-500 leading-snug">
+            <p
+              className="col-span-2 text-[10px] text-stone-500 leading-snug"
+              title="Сумма снабжения и залога по контракту заказчика; с вашего золота при отправке миссии не списывается."
+            >
               Снабжение и залог по контракту ({guildOps} 💰) платит заказчик — не списывается с вашего счёта.
             </p>
           </div>
@@ -145,6 +175,39 @@ export const ExpeditionSelectionCard: React.FC<ExpeditionSelectionCardProps> = (
               </span>
             </div>
           </div>
+
+          {variant === 'missionBoard' &&
+            moduleLocation?.presentElements &&
+            moduleLocation.presentElements.length > 0 && (
+              <p className="text-[10px] text-stone-500 mb-2 leading-snug flex-shrink-0">
+                <span className="text-stone-500/80">Встречающиеся стихии: </span>
+                {moduleLocation.presentElements
+                  .map((id) => ELEMENTAL_AXIS_LABELS[id] ?? id)
+                  .join(', ')}
+              </p>
+            )}
+
+          {variant === 'missionBoard' && harvestableResources.length > 0 && (
+            <div className="rounded-lg border border-emerald-900/40 bg-emerald-950/15 p-2 mb-2 flex-shrink-0">
+              <p className="text-[10px] font-medium uppercase tracking-wide text-emerald-600/90 mb-1.5">
+                Добываемые ресурсы
+              </p>
+              <p className="text-[10px] text-stone-500 mb-1.5 leading-snug">
+                Могут выпасть в находках по ходу миссии (редкость и количество зависят от событий и договора).
+              </p>
+              <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto pr-0.5">
+                {harvestableResources.map((r) => (
+                  <span
+                    key={r.id}
+                    className="inline-flex items-center rounded border border-stone-600/50 bg-stone-900/60 px-1.5 py-0.5 text-[10px] text-stone-300"
+                    title={r.rarity}
+                  >
+                    {r.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Причина недоступности */}
           {!canSelect && reason && (

@@ -18,21 +18,56 @@ export * from './leathers'
 // Руды
 export * from './ores'
 
-// Ресурсы мира (добыча в т.ч. через экспедиции) — единый каталог MaterialNode
-export * from './world-resources'
+// Топливо / самоцветы / органика / особые добываемые (экспедиции)
+export * from './fuels'
+export * from './gems'
+export * from './organics'
+export * from './special'
+
+export { buildWorldNode, loreSummary } from './build-world-node'
+
 // Реэкспорт фабрики legacy и алиас expeditionMaterialNodes → worldResourceNodes
 export * from './expedition'
 
+export { worldResourceNodes } from './world-resource-nodes'
+
 // Импорт всех материалов для коллекций
-import { iron, steel, highCarbonSteel, silverAlloy, coldIron, mithril } from './metals'
+import {
+  iron,
+  ironAlloy,
+  copperAlloy,
+  tinAlloy,
+  goldAlloy,
+  bronze,
+  steel,
+  highCarbonSteel,
+  silverAlloy,
+  coldIron,
+  mithril,
+  mithrilAlloy,
+} from './metals'
 import { fieldstone, flint, granite, obsidian, bloodstone } from './stones'
 import { birch, oak, ash, ebony, ironwood } from './woods'
 import { rawLeather, tannedLeather, bullLeather, dragonLeather } from './leathers'
 import { ironOre, copperOre, tinOre } from './ores'
-import { worldResourceNodes } from './world-resources'
+import { worldResourceNodes } from './world-resource-nodes'
+import { inventoryMappedLegacyMaterialNodes } from './bridge/inventory-mapped-legacy-nodes'
 
 // Массивы для быстрого доступа
-export const allMetals = [iron, steel, highCarbonSteel, silverAlloy, coldIron, mithril]
+export const allMetals = [
+  iron,
+  ironAlloy,
+  copperAlloy,
+  tinAlloy,
+  goldAlloy,
+  bronze,
+  steel,
+  highCarbonSteel,
+  silverAlloy,
+  coldIron,
+  mithril,
+  mithrilAlloy,
+]
 export const allStones = [fieldstone, flint, granite, obsidian, bloodstone]
 export const allWoods = [birch, oak, ash, ebony, ironwood]
 export const allLeathers = [rawLeather, tannedLeather, bullLeather, dragonLeather]
@@ -46,6 +81,7 @@ export const allMaterials = [
   ...allLeathers,
   ...allOres,
   ...worldResourceNodes,
+  ...inventoryMappedLegacyMaterialNodes,
 ]
 
 // Карта материалов по ID
@@ -54,7 +90,20 @@ export const materialById = Object.fromEntries(
 )
 
 // Экспорт отдельных материалов
-export { iron, steel, highCarbonSteel, silverAlloy, coldIron, mithril } from './metals'
+export {
+  iron,
+  ironAlloy,
+  copperAlloy,
+  tinAlloy,
+  goldAlloy,
+  bronze,
+  steel,
+  highCarbonSteel,
+  silverAlloy,
+  coldIron,
+  mithril,
+  mithrilAlloy,
+} from './metals'
 export { fieldstone, flint, granite, obsidian, bloodstone } from './stones'
 export { birch, oak, ash, ebony, ironwood } from './woods'
 export { rawLeather, tannedLeather, bullLeather, dragonLeather } from './leathers'

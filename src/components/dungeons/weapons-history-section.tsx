@@ -5,7 +5,7 @@
 
 'use client'
 
-import { Sword, Sparkles, Star, Heart } from 'lucide-react'
+import { Sword, Sparkles, Heart } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
@@ -31,13 +31,13 @@ export function WeaponsHistorySection() {
           Оружие с историей
         </CardTitle>
         <CardDescription>
-          Чем больше очков души и множитель эпичности — тем больше эссенции при распылении
+          Чем больше Души Войны на клинке — тем больше эссенции при распылении (скрытые множители наград учитываются в расчёте)
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
           {weaponsWithHistory
-            .sort((a, b) => ((b.warSoul || 0) * (b.epicMultiplier || 1)) - ((a.warSoul || 0) * (a.epicMultiplier || 1)))
+            .sort((a, b) => (b.warSoul || 0) - (a.warSoul || 0))
             .slice(0, 6)
             .map((weapon) => {
               const legacyGrade = (QUALITY_GRADE_V2_TO_LEGACY[weapon.qualityGrade] ?? 'normal') as QualityGrade
@@ -69,13 +69,6 @@ export function WeaponsHistorySection() {
                       <Sparkles className="w-3 h-3" />
                       <span>{weapon.warSoul || 0} Души Войны</span>
                     </div>
-                    
-                    {(weapon.epicMultiplier || 1) > 1 && (
-                      <div className="flex items-center gap-1 text-amber-400">
-                        <Star className="w-3 h-3" />
-                        <span>×{(weapon.epicMultiplier || 1).toFixed(2)}</span>
-                      </div>
-                    )}
                     
                     <div className="flex items-center gap-1 text-green-400">
                       <Heart className="w-3 h-3" />

@@ -51,9 +51,18 @@ export {
   calculateExpertiseImpact,
   calculateKnowledgeGain,
   createMaterialKnowledge,
+  createDiscoveredMaterialKnowledge,
   addExpertise,
   isMaterialDiscovered,
   getExpertisePercent,
   isDetailLevelAvailable,
   INITIAL_ENCYCLOPEDIA_STATE,
 } from './knowledge'
+
+// Смысловые роли в процессах (docs/MATERIAL_SEMANTIC_PROCESS_ROLES.md)
+export type {
+  MaterialProcessKind,
+  MaterialProcessFacet,
+  MaterialProcessContributionSource,
+  MaterialProcessContribution,
+} from './material-process'

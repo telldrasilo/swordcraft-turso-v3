@@ -135,6 +135,8 @@ NEXT_PUBLIC_CLOUD_SAVE_ENABLED=true
 
 and configure `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` (see `.env.example`). When cloud is off, `/api/save` returns `503` with `cloudSaveDisabled`; the client does not call it. When on: periodic server saves (~60s), beacon on tab close, load on startup — see `src/lib/cloud-save-feature.ts` for a schema checklist when adding new persisted fields.
 
+**During development**, if the persist schema changes or you see odd load errors after `git pull`, clear `localStorage` for `swordcraft-store-v2` (and `swordcraft-offline-backup` if needed). Save migration is not guaranteed before release.
+
 Authentication policy for production saves is documented in `src/lib/save-auth.ts` (NextAuth / demo provider).
 
 ## Development Notes

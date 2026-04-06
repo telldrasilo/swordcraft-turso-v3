@@ -17,6 +17,7 @@ import type {
   OrderBonusItem,
   MaterialAdvance,
 } from '@/types/npc-order'
+import { hiddenTagsSatisfyOrderMaterial } from '@/lib/craft/weapon-display-meta'
 
 export type { NPCOrder, OrderStatus, OrderBonusItem, MaterialAdvance }
 
@@ -52,8 +53,10 @@ function checkWeaponMatchesOrder(
     // Проверка типа оружия
     if (!weapon.hiddenTags.includes(order.weaponType)) return false
     
-    // Проверка материала
-    if (order.material && !weapon.hiddenTags.includes(order.material)) return false
+    // Проверка материала (заказ: WeaponMaterial; v2: канонический materialId в тегах)
+    if (order.material && !hiddenTagsSatisfyOrderMaterial(weapon.hiddenTags, order.material)) {
+      return false
+    }
   } else {
     // Fallback: старая система проверки
     if (weapon.type !== order.weaponType) return false

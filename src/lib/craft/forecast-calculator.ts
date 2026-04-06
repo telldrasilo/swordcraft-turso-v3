@@ -33,8 +33,6 @@ import {
   FORECAST_EXPERTISE_FACTOR_SLOPE,
   FORECAST_MATERIAL_FACTOR_BASE,
   FORECAST_MATERIAL_QUALITY_DIVISOR,
-  FORECAST_PREDICTION_ACCURACY_BASE,
-  FORECAST_PREDICTION_ACCURACY_PER_EXPERTISE,
   FORECAST_QUALITY_MATERIAL_TERM_WEIGHT,
   FORECAST_QUALITY_MAX_SPREAD_RATIO,
   FORECAST_QUALITY_RANK_FALLBACK,
@@ -46,8 +44,6 @@ import {
   FORECAST_RISK_FACTOR_MAX_REDUCTION,
   FORECAST_SOUL_AFFINITY_WEIGHT,
   FORECAST_SOUL_CONDUCTIVITY_WEIGHT,
-  FORECAST_SOUL_MAX_SPREAD_RATIO,
-  FORECAST_SOUL_VARIANCE_SPREAD,
   FORECAST_TECHNIQUE_FACTOR_QUALITY_DIVISOR,
   FORECAST_TECHNIQUE_INCOMPATIBILITY_PENALTY,
   FORECAST_TECHNIQUE_MATERIAL_INCOMPATIBILITIES,
@@ -57,33 +53,64 @@ import {
   FORECAST_WEIGHT_VARIANCE_SPREAD,
 } from './constants'
 import { applyPercentMultiplier } from './formulas'
+import {
+  MATERIAL_EXPERTISE_MILESTONE_HIGH,
+  MATERIAL_EXPERTISE_MILESTONE_MAX,
+  FORECAST_EXPERTISE_MILESTONE_80_EXTRA,
+  FORECAST_EXPERTISE_MILESTONE_100_EXTRA,
+} from '@/lib/store-utils/constants'
+import { getRegistryForecastExpertiseFactorExtras } from '@/data/material-expertise-milestone-registry'
+import { getMaterialById } from '@/data/materials'
+import { computeSoulPotential } from '@/lib/war-soul-potential'
+import {
+  aggregateExpertiseImpactsForPlan,
+  materialMasteryEfficiencyFromWasteMultiplier,
+  resolveExpertiseImpactForPlanRow,
+  type AggregatedExpertiseImpact,
+  type ExpertisePlanRow,
+} from '@/lib/craft/aggregate-expertise-impact'
 
 // ================================
 // РАСЧЁТ ПРОГНОЗА
 // ================================
 
+function forecastInputToExpertiseRows(
+  materials: ForecastInput['materials']
+): ExpertisePlanRow[] {
+  const tw = materials.reduce((s, m) => s + m.partWeight, 0)
+  if (tw <= 0) return []
+  return materials.map((m) => ({
+    materialId: m.material.identity.id,
+    partWeight: m.partWeight / tw,
+  }))
+}
+
 export function calculateWeaponForecast(input: ForecastInput): WeaponForecast {
   const { materials, materialExpertise } = input
 
-  // 1. Расчёт средней экспертизы
+  const agg = aggregateExpertiseImpactsForPlan(
+    forecastInputToExpertiseRows(materials),
+    materialExpertise
+  )
+
+  // 1. Расчёт средней экспертизы (вехи, разброс)
   const avgExpertise = calculateAverageExpertise(materials, materialExpertise)
-  const predictionAccuracy =
-    FORECAST_PREDICTION_ACCURACY_BASE + avgExpertise * FORECAST_PREDICTION_ACCURACY_PER_EXPERTISE
+  const predictionAccuracy = agg.predictionAccuracy
 
   // 2. Расчёт качества
-  const quality = calculateQuality(input, avgExpertise)
+  const quality = calculateQuality(input, avgExpertise, agg)
 
   // 3. Расчёт характеристик
-  const attack = calculateAttack(input, avgExpertise, predictionAccuracy)
-  const durability = calculateDurability(input, avgExpertise, predictionAccuracy)
-  const weight = calculateWeight(input, avgExpertise, predictionAccuracy)
-  const soulCapacity = calculateSoulCapacity(input, avgExpertise, predictionAccuracy)
+  const attack = calculateAttack(input, avgExpertise, predictionAccuracy, agg)
+  const durability = calculateDurability(input, avgExpertise, predictionAccuracy, agg)
+  const weight = calculateWeight(input, avgExpertise, predictionAccuracy, agg)
+  const soulPotential = calculateSoulPotentialForecast(input, avgExpertise, predictionAccuracy, agg)
 
   return {
     attack,
     durability,
     weight,
-    soulCapacity,
+    soulPotential,
     quality,
     predictionAccuracy
   }
@@ -93,7 +120,11 @@ export function calculateWeaponForecast(input: ForecastInput): WeaponForecast {
 // РАСЧЁТ КАЧЕСТВА
 // ================================
 
-function calculateQuality(input: ForecastInput, avgExpertise: number): QualityScore {
+function calculateQuality(
+  input: ForecastInput,
+  avgExpertise: number,
+  agg: AggregatedExpertiseImpact
+): QualityScore {
   const { blacksmithLevel, materials, techniques } = input
 
   // A. BaseScore (30-130)
@@ -104,10 +135,19 @@ function calculateQuality(input: ForecastInput, avgExpertise: number): QualitySc
   const materialFactor =
     FORECAST_MATERIAL_FACTOR_BASE + avgMaterialQuality / FORECAST_MATERIAL_QUALITY_DIVISOR
 
-  // C. ExpertiseFactor (0.85-1.15)
+  // C. ExpertiseFactor (0.85-1.15) + вехи средней экспертизы по плану (B2 MVP)
+  let expertiseMilestoneMult = 1
+  if (avgExpertise >= MATERIAL_EXPERTISE_MILESTONE_MAX) {
+    expertiseMilestoneMult +=
+      FORECAST_EXPERTISE_MILESTONE_80_EXTRA + FORECAST_EXPERTISE_MILESTONE_100_EXTRA
+  } else if (avgExpertise >= MATERIAL_EXPERTISE_MILESTONE_HIGH) {
+    expertiseMilestoneMult += FORECAST_EXPERTISE_MILESTONE_80_EXTRA
+  }
+  expertiseMilestoneMult += getRegistryForecastExpertiseFactorExtras(avgExpertise)
   const expertiseFactor =
-    FORECAST_EXPERTISE_FACTOR_BASE +
-    (avgExpertise / CRAFT_PERCENT_SCALE) * FORECAST_EXPERTISE_FACTOR_SLOPE
+    (FORECAST_EXPERTISE_FACTOR_BASE +
+      (avgExpertise / CRAFT_PERCENT_SCALE) * FORECAST_EXPERTISE_FACTOR_SLOPE) *
+    expertiseMilestoneMult
 
   // D. TechniqueFactor (1.0-1.5)
   const techniqueBonus = techniques.reduce((sum, t) => sum + (t.effects.qualityBonus || 0), 0)
@@ -132,11 +172,15 @@ function calculateQuality(input: ForecastInput, avgExpertise: number): QualitySc
     expertiseFactor *
     techniqueFactor *
     riskFactor
+  finalQuality *= 1 + 0.08 * Math.max(0, 1 - agg.defectRiskMultiplier)
+  finalQuality += agg.qualityBonus * 0.25
   finalQuality = Math.max(0, Math.min(CRAFT_PERCENT_SCALE, finalQuality))
 
   // Диапазон
   const varianceMultiplier =
-    ((CRAFT_PERCENT_SCALE - avgExpertise) / CRAFT_PERCENT_SCALE) * FORECAST_QUALITY_VARIANCE_SPREAD
+    ((CRAFT_PERCENT_SCALE - avgExpertise) / CRAFT_PERCENT_SCALE) *
+    FORECAST_QUALITY_VARIANCE_SPREAD *
+    agg.varianceMultiplier
   const min = finalQuality * (1 - varianceMultiplier)
   const max = finalQuality * (1 + varianceMultiplier * FORECAST_QUALITY_MAX_SPREAD_RATIO)
 
@@ -160,9 +204,10 @@ function calculateQuality(input: ForecastInput, avgExpertise: number): QualitySc
 function calculateAttack(
   input: ForecastInput,
   avgExpertise: number,
-  _predictionAccuracy: number
+  _predictionAccuracy: number,
+  agg: AggregatedExpertiseImpact
 ): StatRange {
-  const { recipe, materials, techniques } = input
+  const { recipe, materials, techniques, materialExpertise } = input
 
   let attack = recipe.baseStats.attackBase
   const totalWeight = materials.reduce((sum, m) => sum + m.partWeight, 0)
@@ -170,10 +215,14 @@ function calculateAttack(
   // Вклад материалов
   for (const part of materials) {
     const material = part.material
+    const node = getMaterialById(material.identity.id)
+    const exp = materialExpertise[material.identity.id] ?? 0
+    const impact = resolveExpertiseImpactForPlanRow(node, exp)
+    const mastery = materialMasteryEfficiencyFromWasteMultiplier(impact.materialWasteMultiplier)
     const contribution =
       material.physical.hardness * FORECAST_ATTACK_HARDNESS_WEIGHT +
       material.physical.toughness * FORECAST_ATTACK_TOUGHNESS_WEIGHT
-    attack += (contribution * part.partWeight) / totalWeight
+    attack += (contribution * part.partWeight * mastery) / totalWeight
   }
 
   // Вклад техник
@@ -182,7 +231,9 @@ function calculateAttack(
 
   // Диапазон
   const varianceMultiplier =
-    ((CRAFT_PERCENT_SCALE - avgExpertise) / CRAFT_PERCENT_SCALE) * FORECAST_ATTACK_VARIANCE_SPREAD
+    ((CRAFT_PERCENT_SCALE - avgExpertise) / CRAFT_PERCENT_SCALE) *
+    FORECAST_ATTACK_VARIANCE_SPREAD *
+    agg.varianceMultiplier
   const min = Math.max(0, attack * (1 - varianceMultiplier))
   const max = attack * (1 + varianceMultiplier * FORECAST_ATTACK_MAX_SPREAD_RATIO)
 
@@ -200,18 +251,26 @@ function calculateAttack(
 function calculateDurability(
   input: ForecastInput,
   avgExpertise: number,
-  _predictionAccuracy: number
+  _predictionAccuracy: number,
+  agg: AggregatedExpertiseImpact
 ): StatRange {
-  const { recipe, materials, techniques } = input
+  const { recipe, materials, techniques, materialExpertise } = input
 
   let durability = recipe.baseStats.durabilityBase
 
   // Вклад материалов
   for (const part of materials) {
     const material = part.material
-    durability += material.physical.toughness * FORECAST_DUR_TOUGHNESS_WEIGHT * part.quantity
+    const node = getMaterialById(material.identity.id)
+    const exp = materialExpertise[material.identity.id] ?? 0
+    const impact = resolveExpertiseImpactForPlanRow(node, exp)
+    const mastery = materialMasteryEfficiencyFromWasteMultiplier(impact.materialWasteMultiplier)
+    durability += material.physical.toughness * FORECAST_DUR_TOUGHNESS_WEIGHT * part.quantity * mastery
     durability +=
-      material.physical.compressiveStrength * FORECAST_DUR_COMPRESSIVE_WEIGHT * part.quantity
+      material.physical.compressiveStrength *
+      FORECAST_DUR_COMPRESSIVE_WEIGHT *
+      part.quantity *
+      mastery
   }
 
   // Вклад техник
@@ -220,7 +279,9 @@ function calculateDurability(
 
   // Диапазон
   const varianceMultiplier =
-    ((CRAFT_PERCENT_SCALE - avgExpertise) / CRAFT_PERCENT_SCALE) * FORECAST_DUR_VARIANCE_SPREAD
+    ((CRAFT_PERCENT_SCALE - avgExpertise) / CRAFT_PERCENT_SCALE) *
+    FORECAST_DUR_VARIANCE_SPREAD *
+    agg.varianceMultiplier
   const min = Math.max(0, durability * (1 - varianceMultiplier))
   const max = durability * (1 + varianceMultiplier * FORECAST_DUR_MAX_SPREAD_RATIO)
 
@@ -238,16 +299,21 @@ function calculateDurability(
 function calculateWeight(
   input: ForecastInput,
   avgExpertise: number,
-  _predictionAccuracy: number
+  _predictionAccuracy: number,
+  agg: AggregatedExpertiseImpact
 ): StatRange {
-  const { recipe, materials, techniques } = input
+  const { recipe, materials, techniques, materialExpertise } = input
 
   let weight = recipe.baseStats.weightBase
 
   // Вклад материалов
   for (const part of materials) {
     const material = part.material
-    weight += material.physical.density * part.quantity * WEIGHT_PER_UNIT_DENSITY
+    const node = getMaterialById(material.identity.id)
+    const exp = materialExpertise[material.identity.id] ?? 0
+    const impact = resolveExpertiseImpactForPlanRow(node, exp)
+    const mastery = materialMasteryEfficiencyFromWasteMultiplier(impact.materialWasteMultiplier)
+    weight += material.physical.density * part.quantity * WEIGHT_PER_UNIT_DENSITY * mastery
   }
 
   // Вклад техник (balanced_design может снижать вес)
@@ -261,7 +327,9 @@ function calculateWeight(
 
   // Диапазон (меньшая неопределённость для веса)
   const varianceMultiplier =
-    ((CRAFT_PERCENT_SCALE - avgExpertise) / CRAFT_PERCENT_SCALE) * FORECAST_WEIGHT_VARIANCE_SPREAD
+    ((CRAFT_PERCENT_SCALE - avgExpertise) / CRAFT_PERCENT_SCALE) *
+    FORECAST_WEIGHT_VARIANCE_SPREAD *
+    agg.varianceMultiplier
   const min = Math.max(0, weight * (1 - varianceMultiplier))
   const max = weight * (1 + varianceMultiplier * FORECAST_WEIGHT_MAX_SPREAD_RATIO)
 
@@ -273,41 +341,21 @@ function calculateWeight(
 }
 
 // ================================
-// РАСЧЁТ ВМЕСТИМОСТИ ДУШИ
+// Soul Potential (альтернативный прогноз)
 // ================================
 
-function calculateSoulCapacity(
+function calculateSoulPotentialForecast(
   input: ForecastInput,
-  avgExpertise: number,
-  _predictionAccuracy: number
+  _avgExpertise: number,
+  _predictionAccuracy: number,
+  _agg: AggregatedExpertiseImpact
 ): StatRange {
-  const { recipe, materials, techniques } = input
-
-  let soulCapacity = recipe.baseStats.soulCapacityBase
-
-  // Вклад материалов
-  for (const part of materials) {
-    const material = part.material
-    soulCapacity +=
-      material.arcane.conductivity * FORECAST_SOUL_CONDUCTIVITY_WEIGHT * part.quantity
-    soulCapacity += material.arcane.affinity * FORECAST_SOUL_AFFINITY_WEIGHT * part.quantity
+  const ctx = input.craftContext
+  if (ctx) {
+    const v = computeSoulPotential(ctx.recipe, ctx.materials, ctx.techniques)
+    return { min: v, max: v, current: v, variance: 0 }
   }
-
-  // Вклад техник
-  const techniqueBonus = techniques.reduce((sum, t) => sum + (t.effects.conductivityBonus || 0), 0)
-  soulCapacity = applyPercentMultiplier(soulCapacity, techniqueBonus)
-
-  // Диапазон
-  const varianceMultiplier =
-    ((CRAFT_PERCENT_SCALE - avgExpertise) / CRAFT_PERCENT_SCALE) * FORECAST_SOUL_VARIANCE_SPREAD
-  const min = Math.max(0, soulCapacity * (1 - varianceMultiplier))
-  const max = soulCapacity * (1 + varianceMultiplier * FORECAST_SOUL_MAX_SPREAD_RATIO)
-
-  return {
-    min: Math.round(min),
-    max: Math.round(max),
-    variance: varianceMultiplier
-  }
+  return { min: 1, max: 1, current: 1, variance: 0 }
 }
 
 // ================================
@@ -388,13 +436,16 @@ function calculateRankProgress(value: number, rank: QualityRank): number {
 
 export function calculateStatBreakdown(
   input: ForecastInput,
-  stat: 'attack' | 'durability' | 'weight' | 'soulCapacity'
+  stat: 'attack' | 'durability' | 'weight' | 'soulPotential'
 ): StatBreakdown {
   const { blacksmithLevel, materialExpertise, materials } = input
 
   const avgExpertise = calculateAverageExpertise(materials, materialExpertise)
-  const predictionAccuracy =
-    FORECAST_PREDICTION_ACCURACY_BASE + avgExpertise * FORECAST_PREDICTION_ACCURACY_PER_EXPERTISE
+  const agg = aggregateExpertiseImpactsForPlan(
+    forecastInputToExpertiseRows(materials),
+    materialExpertise
+  )
+  const predictionAccuracy = agg.predictionAccuracy
 
   const breakdown: ContributionBreakdown[] = []
 
@@ -436,7 +487,7 @@ export function calculateStatBreakdown(
 
 function calculateMaterialContribution(
   input: ForecastInput,
-  stat: 'attack' | 'durability' | 'weight' | 'soulCapacity'
+  stat: 'attack' | 'durability' | 'weight' | 'soulPotential'
 ): ContributionBreakdown {
   const { materials } = input
   const details: ContributionDetail[] = []
@@ -461,7 +512,7 @@ function calculateMaterialContribution(
       case 'weight':
         value = material.physical.density * part.quantity * WEIGHT_PER_UNIT_DENSITY
         break
-      case 'soulCapacity':
+      case 'soulPotential':
         value =
           (material.arcane.conductivity * FORECAST_SOUL_CONDUCTIVITY_WEIGHT +
             material.arcane.affinity * FORECAST_SOUL_AFFINITY_WEIGHT) *
@@ -487,7 +538,7 @@ function calculateMaterialContribution(
 
 function calculateTechniqueContribution(
   input: ForecastInput,
-  stat: 'attack' | 'durability' | 'weight' | 'soulCapacity'
+  stat: 'attack' | 'durability' | 'weight' | 'soulPotential'
 ): ContributionBreakdown {
   const { techniques } = input
   const details: ContributionDetail[] = []
@@ -506,7 +557,7 @@ function calculateTechniqueContribution(
         if (technique.id === 'balanced_design') value = -FORECAST_WEIGHT_TECH_BALANCED_DESIGN_PERCENT
         if (technique.id === 'master_balance') value = -FORECAST_WEIGHT_TECH_MASTER_BALANCE_PERCENT
         break
-      case 'soulCapacity':
+      case 'soulPotential':
         value = technique.effects.conductivityBonus || 0
         break
     }
@@ -531,7 +582,7 @@ function calculateTechniqueContribution(
 
 function calculateMasteryContribution(
   _input: ForecastInput,
-  _stat: 'attack' | 'durability' | 'weight' | 'soulCapacity',
+  _stat: 'attack' | 'durability' | 'weight' | 'soulPotential',
   blacksmithLevel: number
 ): ContributionBreakdown {
   const value = blacksmithLevel * FORECAST_BREAKDOWN_MASTERY_PER_LEVEL
@@ -551,7 +602,7 @@ function calculateMasteryContribution(
 
 function calculateExpertiseContribution(
   _input: ForecastInput,
-  _stat: 'attack' | 'durability' | 'weight' | 'soulCapacity',
+  _stat: 'attack' | 'durability' | 'weight' | 'soulPotential',
   avgExpertise: number
 ): ContributionBreakdown {
   const value = avgExpertise * FORECAST_BREAKDOWN_EXPERTISE_PER_POINT

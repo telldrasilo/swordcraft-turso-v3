@@ -8,7 +8,7 @@
  * - raw_leather (сырая кожа) - common
  * - bones (кости) - common
  * - iron_ore (железная руда) - common
- * - stone (камень) - common
+ * - fieldstone (полевой камень) - common
  * - coal (уголь) - common
  * - mist_herbs (туманные травы) - uncommon
  */

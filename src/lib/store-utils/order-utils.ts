@@ -19,6 +19,7 @@ import { ORDER_MIN_QUALITY, ORDER_MAX_QUALITY, ORDER_BASE_FAME_REWARD } from './
 import type { OrderCompletionParams, OrderCompletionResult } from './types'
 import type { RecipeForCraftingCost } from '@/lib/craft/inventory-check'
 import { getCraftingCost } from '@/lib/craft/inventory-check'
+import { craftingResourceCostMapToGoldApprox } from '@/lib/store-utils/order-material-cost-gold'
 import type { NPCOrder, MaterialAdvance } from '@/types/npc-order'
 
 // ================================
@@ -82,21 +83,8 @@ export function calculateGoldReward(
     // Передана готовая стоимость материалов
     materialCost = recipeOrCost
   } else if (recipeOrCost) {
-    // Передан рецепт — считаем точную стоимость материалов
     const materialCostMap = getCraftingCost(recipeOrCost, {})
-    
-    // Переводим ресурсы в золото (примерные цены)
-    const resourcePrices: Record<string, number> = {
-      iron: 2, wood: 1, stone: 1, coal: 1,
-      ironIngot: 5, steelIngot: 12, bronzeIngot: 8,
-      copper: 3, tin: 3, silver: 10, mithril: 25,
-      leather: 3, planks: 2
-    }
-    
-    materialCost = Object.entries(materialCostMap).reduce((total, [resource, amount]) => {
-      const price = resourcePrices[resource] || 1
-      return total + (amount || 0) * price
-    }, 0)
+    materialCost = craftingResourceCostMapToGoldApprox(materialCostMap)
   } else {
     // Приблизительная стоимость если нет данных
     const materialCosts: Record<string, number> = {
@@ -329,12 +317,19 @@ export function checkWeaponMatchesOrder(params: {
 /**
  * Выполнить заказ
  */
+function combatMaterialHint(recipeId: string, explicit?: string): string {
+  if (explicit) return explicit
+  const head = recipeId.split('_')[0] || 'iron'
+  if (['iron', 'bronze', 'steel', 'silver', 'gold', 'mithril'].includes(head)) return head
+  return 'iron'
+}
+
 export function completeOrder(params: OrderCompletionParams): OrderCompletionResult {
   const check = checkWeaponMatchesOrder({
     weaponQuality: params.weaponQuality,
     weaponAttack: params.weaponAttack,
     weaponType: params.weaponType,
-    weaponMaterial: params.weaponRecipeId.split('_')[0] || 'iron',
+    weaponMaterial: combatMaterialHint(params.weaponRecipeId, params.weaponMaterial),
     orderMinQuality: params.orderMinQuality,
     orderMinAttack: params.orderMinAttack,
     orderWeaponType: params.orderWeaponType,

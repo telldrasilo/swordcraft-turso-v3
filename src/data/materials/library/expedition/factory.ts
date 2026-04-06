@@ -14,6 +14,7 @@ import type {
   MaterialProcessing,
   MaterialSummary,
 } from '@/types/materials/material-core'
+import { WORLD_ROLE_ICON_EMOJI } from '@/lib/ui/resource-emoji'
 
 type Role =
   | 'ore'
@@ -24,6 +25,7 @@ type Role =
   | 'leather'
   | 'gem'
   | 'special'
+  | 'fuel'
 
 export interface ExpeditionNodeSpec {
   id: string
@@ -129,6 +131,19 @@ const PHY_GEM: MaterialPhysical = {
   tensileStrength: 35,
 }
 
+const PHY_FUEL: MaterialPhysical = {
+  density: 3.4,
+  hardness: 28,
+  toughness: 22,
+  elasticity: 12,
+  meltingPoint: null,
+  ignitionPoint: 320,
+  thermalConductivity: 14,
+  porosity: 38,
+  compressiveStrength: 38,
+  tensileStrength: 18,
+}
+
 const CHEM_DEFAULT: MaterialChemical = {
   reactivity: 35,
   stability: 52,
@@ -213,6 +228,7 @@ function roleToClass(role: Role): MaterialIdentity['class'] {
       return 'metal'
     case 'leather':
       return 'leather'
+    case 'fuel':
     case 'special':
       return 'other'
     default:
@@ -236,6 +252,8 @@ function baseTags(role: Role): string[] {
       return ['natural', 'metal', 'expedition']
     case 'leather':
       return ['natural', 'leather', 'expedition']
+    case 'fuel':
+      return ['natural', 'fuel', 'expedition']
     case 'special':
       return ['exotic', 'special', 'expedition']
     default:
@@ -259,6 +277,8 @@ function pickPhysical(role: Role): MaterialPhysical {
       return { ...PHY_METAL }
     case 'leather':
       return { ...PHY_LEATHER }
+    case 'fuel':
+      return { ...PHY_FUEL }
     case 'special':
       return { ...PHY_GEM }
     default:
@@ -282,6 +302,8 @@ function pickProcessing(role: Role): MaterialProcessing {
       return { ...PROC_METAL }
     case 'leather':
       return { ...PROC_ORGANIC }
+    case 'fuel':
+      return { ...PROC_ORGANIC }
     default:
       return { ...PROC_STONE }
   }
@@ -294,16 +316,7 @@ function pickArcane(role: Role, tier: number): MaterialArcane {
   return { ...ARCANE_LOW }
 }
 
-const ICON_BY_ROLE: Record<Role, string> = {
-  ore: '/icons/resources/ironOre.png',
-  stone: '/icons/resources/stone.png',
-  gem: '/icons/resources/stone.png',
-  wood: '/icons/resources/wood.png',
-  organic: '/icons/resources/wood.png',
-  metal: '/icons/resources/mithrilIngot.png',
-  leather: '/icons/resources/leather.png',
-  special: '/icons/resources/stone.png',
-}
+const ICON_BY_ROLE = WORLD_ROLE_ICON_EMOJI as Record<Role, string>
 
 export function expeditionNode(spec: ExpeditionNodeSpec): MaterialNode {
   const role = spec.role

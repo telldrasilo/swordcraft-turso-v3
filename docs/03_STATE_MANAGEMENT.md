@@ -4,7 +4,7 @@
 
 Проект использует **Zustand 5.0.6** для state management с паттерном **Composed Store**. Все слайсы (slices) объединены в одном файле `src/store/game-store-composed.ts` (~1400 строк); cross-slice логика вынесена в `src/store/cross-slice/` (ремонт, экспедиции, **заказы**).
 
-**Сборка в коде:** в `game-store-composed.ts` — `create<GameStore>()(persist((set, get) => ({ ... }), …))`: подмешиваются вызовы `create*Slice` из `slices/`, дополнительное состояние (`guild`, `craftV2Persisted`, туториал и т.д.) и блок cross-slice действий. Ремонт — `buildRepairCrossSlice`; экспедиции — `buildGuildExpeditionCrossSlice`; награды и проводки заказа (в т.ч. `completeOrder` с двумя аргументами) — `buildOrderCrossSlice`. Крафт v2 — §5 ниже.
+**Сборка в коде:** в `game-store-composed.ts` — `create<GameStore>()(persist((set, get) => ({ ... }), …))`: подмешиваются вызовы `create*Slice` из `slices/`, дополнительное состояние (`guild`, `craftV2Persisted`, туториал и т.д.) и блок cross-slice действий. Ремонт — `buildRepairCrossSlice` (мастерство от `player.level`, без стамины workers); экспедиции — `buildGuildExpeditionCrossSlice`; награды и проводки заказа (в т.ч. `completeOrder` с двумя аргументами) — `buildOrderCrossSlice`. Крафт v2 — §5 ниже.
 
 #### P2-Store-02 (спайк): типизация `create` без `as any`
 
@@ -565,7 +565,7 @@ resetGuildState() => void
 
 Важно:
 
-- исторически в проекте есть `enchantments-slice.ts`, но текущий рабочий контракт системы проходит через `craft-slice.ts` и `game-store-composed.ts`;
+- `enchantments-slice.ts` удалён (фаза 0); рабочий контракт зачарований проходит через `craft-slice.ts` и `game-store-composed.ts`;
 - список открытых чар хранится в `CraftSlice`;
 - cross-slice действия реализованы в `game-store-composed.ts`.
 
@@ -663,7 +663,7 @@ removeEnchantment(weaponId: string, enchantmentId: string) => boolean
 #### Actions (EncyclopediaActions)
 ```typescript
 // Управление знаниями
-addMaterialExpertise(materialId: string, amount: number) => void  // Добавить экспертизу
+addMaterialExpertise(materialId: string, amount: number) => void  // Добавить экспертизу (из энциклопедии и др.; при завершении крафта v2 батч идёт через applyCraftExpertiseGainRows в queueMicrotask — см. craft-expertise-from-craft.ts / use-craft-v2)
 updateMaterialKnowledge(materialId: string, updates: Partial<MaterialKnowledge>) => void
 researchMaterial(materialId: string) => void                    // Исследовать материал
 

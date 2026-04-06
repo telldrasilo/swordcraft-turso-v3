@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import type { Resources } from '@/store/slices/resources-slice'
-import type { WeaponRecipe } from '@/types/craft-v2'
+import type { PartMaterialSupplyEntry, WeaponRecipe } from '@/types/craft-v2'
 import { 
   checkInventoryForCraft, 
   type MaterialToBuy,
@@ -19,6 +19,7 @@ import {
 
 interface MaterialsCheckProps {
   inventory: Resources
+  materialStash?: Record<string, number>
   selectedMaterials: Record<string, string>
   recipe: WeaponRecipe | null
   gold: number
@@ -32,10 +33,12 @@ interface MaterialsCheckProps {
   } | null // Данные активного заказа для расчёта аванса
   shouldTakeAdvance?: boolean // Включена ли галочка аванса
   onToggleTakeAdvance?: (checked: boolean) => void // Обработчик изменения галочки аванса
+  partMaterialSupply?: Record<string, PartMaterialSupplyEntry>
 }
 
 export function MaterialsCheck({
   inventory,
+  materialStash = {},
   selectedMaterials,
   recipe,
   gold,
@@ -46,6 +49,7 @@ export function MaterialsCheck({
   activeOrder = null,
   shouldTakeAdvance = false,
   onToggleTakeAdvance,
+  partMaterialSupply,
 }: MaterialsCheckProps) {
   if (!recipe) return null
   
@@ -61,10 +65,21 @@ export function MaterialsCheck({
     }
   })
   
+  const supply =
+    partMaterialSupply && Object.keys(partMaterialSupply).length > 0
+      ? partMaterialSupply
+      : undefined
+
   // Используем систему проверки
-  const checkResult = checkInventoryForCraft(recipe, materialAssignment, inventory)
+  const checkResult = checkInventoryForCraft(
+    recipe,
+    materialAssignment,
+    inventory,
+    materialStash,
+    supply
+  )
   
-  if (checkResult.requirements.length === 0) return null
+  if (checkResult.requirements.length === 0 && !checkResult.forgeSpendBlockReason) return null
   
   const canAffordPurchase = gold >= checkResult.totalPurchaseCost
   
@@ -88,6 +103,11 @@ export function MaterialsCheck({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
+        {checkResult.forgeSpendBlockReason && (
+          <p className="text-sm text-red-400 border border-red-500/40 rounded-md px-2 py-2 bg-red-950/30">
+            {checkResult.forgeSpendBlockReason}
+          </p>
+        )}
         {/* Общая потребность в сырье */}
         <div className="space-y-1">
           <p className="text-xs text-stone-500 uppercase tracking-wide">Требуется сырья:</p>

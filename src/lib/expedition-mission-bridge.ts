@@ -59,6 +59,7 @@ export function missionModuleToCalculatorTemplate(mission: MissionTemplate): Exp
     description: mission.description,
     moduleObjective: mission.objective,
     moduleLocationName: loc?.name,
+    moduleLocationId: mission.locationId,
     moduleClientName: mission.client?.name,
     icon: missionIcon(type),
     type,

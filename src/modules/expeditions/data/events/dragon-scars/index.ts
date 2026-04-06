@@ -5,11 +5,13 @@
  *
  * Структура:
  * - dragon.ts — драконы, дрейки и огонь (4 события)
+ * - elemental.ts — кровь и молния на клинке (2 события)
  *
- * Итого: 4 события для dragon_scars
+ * Итого: 6 событий для dragon_scars
  */
 
 import { dragonScarsDragonEvents } from './dragon';
+import { dragonElementalEvents } from './elemental';
 
 // ============================================================================
 // ЭКСПОРТ ВСЕХ СОБЫТИЙ
@@ -28,15 +30,16 @@ export {
 // Объединённый массив всех событий локации
 export const dragonScarsEvents = [
   ...dragonScarsDragonEvents,
+  ...dragonElementalEvents,
 ];
 
 // Статистика событий локации
 export const dragonScarsEventsStats = {
-  total: 4,
+  total: 6,
   locationId: 'dragon_scars',
   byType: {
     positive: 1,
-    negative: 2,
+    negative: 3,
     neutral: 0,
     choice: 1,
   },
@@ -44,7 +47,7 @@ export const dragonScarsEventsStats = {
     discovery: 0,
     danger: 2,
     combat: 1,
-    environment: 1,
+    environment: 2,
     travel: 0,
     social: 0,
     treasure: 1,

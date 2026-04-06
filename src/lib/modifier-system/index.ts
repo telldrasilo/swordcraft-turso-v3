@@ -14,6 +14,7 @@ export { modifierRegistry, calculateModifiers, getAllModifiers } from './registr
 import './providers/combat-stats-provider'
 import './providers/level-rarity-provider'
 import './providers/personality-traits-provider'
+import './providers/data-traits-unique-bonuses-provider'
 import './providers/motivations-provider'
 import './providers/social-tags-provider'
 import './providers/strengths-weaknesses-provider'

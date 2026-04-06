@@ -11,6 +11,7 @@ import { OrdersSection } from '../presentation/OrdersSection'
 import { AlertTriangle } from 'lucide-react'
 import type { NPCOrder } from '@/types/npc-order'
 import { type OrderGenerationContext } from '@/lib/store-utils/order-achievable-utils'
+import { hiddenTagsSatisfyOrderMaterial } from '@/lib/craft/weapon-display-meta'
 
 export function OrdersSectionContainer() {
   // Store selectors
@@ -73,8 +74,9 @@ export function OrdersSectionContainer() {
           // Проверка типа оружия
           if (!w.hiddenTags.includes(order.weaponType)) return false
           
-          // Проверка материала
-          if (order.material && !w.hiddenTags.includes(order.material)) return false
+          if (order.material && !hiddenTagsSatisfyOrderMaterial(w.hiddenTags, order.material)) {
+            return false
+          }
         } else {
           // Fallback: старая система
           if (w.type !== order.weaponType) return false

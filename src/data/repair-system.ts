@@ -3,7 +3,7 @@
  * 
  * Ключевые принципы:
  * - Ремонт требует материалы (те же, что использовались при крафте)
- * - Ремонт зависит от уровня мастерства кузнеца
+ * - Мастерство починки зависит от **уровня персонажа игрока** (кузнец = игрок)
  * - Ремонт несёт риски: потеря maxDurability, души, эпичности
  * - Разные типы ремонта для разных ситуаций
  */
@@ -19,21 +19,6 @@ export interface WeaponRepairCalc {
   attack: number
   epicMultiplier: number
   materials: CraftingCost
-}
-
-// Минимальный интерфейс для кузнеца (избегаем циклических зависимостей)
-export interface BlacksmithWorker {
-  id: string
-  level: number
-  class: string
-  stats: {
-    quality: number
-    speed: number
-    stamina_max: number
-    intelligence: number
-    loyalty: number
-  }
-  stamina: number
 }
 
 // ================================
@@ -55,8 +40,7 @@ export interface RepairOption {
   attackLossChance: number // Шанс временной потери атаки
   attackLossPercent: number // % потери атаки если случилась
   epicLossPercent: number // % потери эпичности
-  baseSuccessChance: number // Базовый шанс успеха
-  staminaCost: number // Стоимость стамины кузнеца
+  baseSuccessChance: number // Базовый шанс успеха (с учётом мастерства в getRepairOptions)
 }
 
 export interface RepairResult {
@@ -97,8 +81,7 @@ export interface SmithMasteryLevel {
 }
 
 /**
- * 20 уровней мастерства для долгой прогрессии айдлера
- * Уровень мастерства зависит от уровня кузнеца-рабочего
+ * 20 уровней мастерства; индекс берётся из `getSmithMastery` по уровню персонажа игрока.
  */
 export const SMITH_MASTERY_LEVELS: SmithMasteryLevel[] = [
   {
@@ -386,12 +369,11 @@ export const SMITH_MASTERY_LEVELS: SmithMasteryLevel[] = [
 const SMITH_MASTERY_DEFAULT: SmithMasteryLevel = SMITH_MASTERY_LEVELS[0]!
 
 /**
- * Получить уровень мастерства по уровню кузнеца
+ * Мастерство починки по уровню персонажа игрока (кузнец = игрок).
+ * Индекс мастерства: min(20, max(1, floor(level / 2.5))) — уровень 50 → мастерство 20.
  */
-export function getSmithMastery(workerLevel: number): SmithMasteryLevel {
-  // Уровень мастерства = округление вниз (уровень кузнеца / 2.5)
-  // Кузнец уровня 50 получит мастерство 20
-  const masteryLevel = Math.min(20, Math.max(1, Math.floor(workerLevel / 2.5)))
+export function getSmithMastery(playerLevel: number): SmithMasteryLevel {
+  const masteryLevel = Math.min(20, Math.max(1, Math.floor(playerLevel / 2.5)))
   return SMITH_MASTERY_LEVELS[masteryLevel - 1] ?? SMITH_MASTERY_DEFAULT
 }
 
@@ -412,7 +394,6 @@ export const REPAIR_TYPES: Record<RepairType, Omit<RepairOption, 'materials' | '
     attackLossPercent: 10,
     epicLossPercent: 20,
     baseSuccessChance: 70,
-    staminaCost: 10,
   },
   standard: {
     type: 'standard',
@@ -426,7 +407,6 @@ export const REPAIR_TYPES: Record<RepairType, Omit<RepairOption, 'materials' | '
     attackLossPercent: 5,
     epicLossPercent: 10,
     baseSuccessChance: 85,
-    staminaCost: 20,
   },
   quality: {
     type: 'quality',
@@ -440,7 +420,6 @@ export const REPAIR_TYPES: Record<RepairType, Omit<RepairOption, 'materials' | '
     attackLossPercent: 0,
     epicLossPercent: 3,
     baseSuccessChance: 95,
-    staminaCost: 35,
   },
   restoration: {
     type: 'restoration',
@@ -454,7 +433,6 @@ export const REPAIR_TYPES: Record<RepairType, Omit<RepairOption, 'materials' | '
     attackLossPercent: 0,
     epicLossPercent: 0,
     baseSuccessChance: 100,
-    staminaCost: 50,
   },
   enhancement: {
     type: 'enhancement',
@@ -468,7 +446,6 @@ export const REPAIR_TYPES: Record<RepairType, Omit<RepairOption, 'materials' | '
     attackLossPercent: 0,
     epicLossPercent: 0,
     baseSuccessChance: 60, // Базовый шанс успеха улучшения
-    staminaCost: 80,
   },
 }
 
@@ -539,29 +516,14 @@ export function getRepairMaterials(
 }
 
 /**
- * Получить стоимость ремонта в золоте
+ * Стоимость ремонта в золоте (legacy поле RepairOption). Ремонт в кузнице — только материалы и время.
  */
 export function getRepairGoldCost(
-  weapon: WeaponRepairCalc,
-  repairType: RepairType,
-  mastery: SmithMasteryLevel
+  _weapon: WeaponRepairCalc,
+  _repairType: RepairType,
+  _mastery: SmithMasteryLevel
 ): number {
-  const baseCosts: Record<RepairType, number> = {
-    quick: 10,
-    standard: 25,
-    quality: 60,
-    restoration: 150,
-    enhancement: 300,
-  }
-  
-  const tierMult =
-    TIER_REPAIR_MULTIPLIERS[weapon.tier] ?? TIER_REPAIR_MULTIPLIERS.common
-  const durabilityFactor = (100 - weapon.durability) / 100 // Чем хуже состояние, тем дороже
-  
-  let cost = baseCosts[repairType] * tierMult.goldMult * (1 + durabilityFactor)
-  cost = cost * (1 - mastery.discountPercent / 100)
-  
-  return Math.floor(Math.max(1, cost))
+  return 0
 }
 
 /**
@@ -569,11 +531,9 @@ export function getRepairGoldCost(
  */
 export function getRepairOptions(
   weapon: WeaponRepairCalc,
-  blacksmith: BlacksmithWorker | null
+  playerLevel: number
 ): RepairOption[] {
-  const mastery = blacksmith 
-    ? getSmithMastery(blacksmith.level)
-    : SMITH_MASTERY_DEFAULT // Минимальное мастерство без кузнеца
+  const mastery = getSmithMastery(Math.max(1, playerLevel))
   
   const options: RepairOption[] = []
   const tierMult =
@@ -637,11 +597,9 @@ export function getRepairOptions(
 export function executeRepair(
   weapon: WeaponRepairCalc,
   option: RepairOption,
-  blacksmith: BlacksmithWorker | null
+  playerLevel: number
 ): RepairResult {
-  const mastery = blacksmith 
-    ? getSmithMastery(blacksmith.level)
-    : SMITH_MASTERY_DEFAULT
+  const mastery = getSmithMastery(Math.max(1, playerLevel))
   
   // Базовый результат
   const result: RepairResult = {
@@ -717,26 +675,26 @@ export function executeRepair(
 export function isRepairOptionAvailable(
   weapon: WeaponRepairCalc,
   option: RepairOption,
-  blacksmith: BlacksmithWorker | null
+  playerLevel: number
 ): { available: boolean; reason?: string } {
   // Оружие уже на 100% прочности
   if (weapon.durability >= 100 && option.type !== 'enhancement') {
     return { available: false, reason: 'Оружие не требует ремонта' }
   }
   
+  const mastery = getSmithMastery(Math.max(1, playerLevel))
+
   // Усиление требует грандмастера
   if (option.type === 'enhancement') {
-    const mastery = blacksmith ? getSmithMastery(blacksmith.level) : SMITH_MASTERY_DEFAULT
     if (!mastery.canEnhance) {
-      return { available: false, reason: 'Требуется кузнец уровня Грандмастер' }
+      return { available: false, reason: 'Требуется более высокий уровень персонажа (мастерство грандмастера)' }
     }
   }
   
   // Реставрация требует Эксперта+
   if (option.type === 'restoration' && weapon.maxDurability < 100) {
-    const mastery = blacksmith ? getSmithMastery(blacksmith.level) : SMITH_MASTERY_DEFAULT
     if (!mastery.canRestoreMaxDur) {
-      return { available: false, reason: 'Требуется кузнец уровня Эксперт для восстановления maxDurability' }
+      return { available: false, reason: 'Требуется более высокий уровень персонажа для восстановления max прочности' }
     }
   }
   

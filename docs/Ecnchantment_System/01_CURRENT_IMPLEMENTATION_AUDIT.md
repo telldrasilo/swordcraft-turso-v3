@@ -19,18 +19,17 @@
 
 ### 1. Указан не тот основной slice
 
-Старая документация указывает `src/store/slices/enchantments-slice.ts` как главный slice системы.
+Старая документация указывала `src/store/slices/enchantments-slice.ts` как главный slice системы. **Файл удалён (фаза 0)** — он не был подключён к composed store.
 
 Фактическое состояние:
 
 - store type в `src/store/game-store-composed.ts` не включает отдельный `EnchantmentsSlice`;
 - `unlockedEnchantments` хранится в `CraftSlice`;
-- боевые операции наложения и удаления зачарований реализованы в `game-store-composed.ts`.
+- боевые операции наложения и удаления зачарований (legacy) реализованы в `game-store-composed.ts`.
 
 Практический вывод:
 
-- при внешней разработке нельзя считать `enchantments-slice.ts` активным контрактом подключения;
-- возвращаемая реализация должна интегрироваться в `game-store-composed.ts` и в уже существующую shape-модель store.
+- новый модуль зачарований — по `docs/systems/ENCHANTMENT_AWAKENING_CONCEPT.md`; интеграция — в `game-store-composed.ts` и существующую shape-модель store.
 
 ### 2. Типы в docs расходятся с кодом
 

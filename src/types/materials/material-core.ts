@@ -126,6 +126,10 @@ export interface MaterialNode {
 export function getDisplayCategory(material: MaterialNode): MaterialDisplayCategory {
   const { class: matClass, tags, id } = material.identity
 
+  if (tags.includes('fuel')) {
+    return 'fuels'
+  }
+
   if (matClass === 'mineral' && tags.includes('gem')) {
     return 'gems'
   }
@@ -148,6 +152,10 @@ export function getDisplayCategory(material: MaterialNode): MaterialDisplayCateg
 
   if (matClass === 'leather') {
     return 'leather'
+  }
+
+  if (matClass === 'organic' && tags.includes('herb')) {
+    return 'herbs'
   }
 
   if (matClass === 'organic') {
@@ -209,7 +217,9 @@ export type MaterialDisplayCategory =
   | 'gems'
   | 'wood'
   | 'leather'
+  | 'herbs'
   | 'organics'
+  | 'fuels'
   | 'other'
 
 export const MATERIAL_CATEGORIES: { id: MaterialDisplayCategory; label: string }[] = [
@@ -220,6 +230,8 @@ export const MATERIAL_CATEGORIES: { id: MaterialDisplayCategory; label: string }
   { id: 'gems', label: 'Кристаллы' },
   { id: 'wood', label: 'Дерево' },
   { id: 'leather', label: 'Кожа' },
+  { id: 'herbs', label: 'Травы' },
   { id: 'organics', label: 'Органика' },
+  { id: 'fuels', label: 'Топливо' },
   { id: 'other', label: 'Другое' },
 ]

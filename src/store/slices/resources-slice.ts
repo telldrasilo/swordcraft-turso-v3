@@ -5,7 +5,43 @@
  */
 
 import type { StateCreator } from 'zustand'
+import type { EncyclopediaActions } from './encyclopedia-slice'
 import { RESOURCE_SELL_PRICES } from '@/lib/store-utils/constants'
+import {
+  applyCraftingCostSpend,
+  canAffordCraftingCostWithStash as canAffordCraftingCostWithStashPure,
+  computePoolSpendDeltas,
+  getCatalogMaterialIdsForResourceKey,
+  getGrantTargetMaterialId,
+  removeResourceKeyFromPools,
+} from '@/lib/craft/inventory-check'
+
+const POOL_SPEND_ENC_SKIP_KEYS = new Set<ResourceKey>(['gold', 'soulEssence'])
+
+/** В composed store у `get()` есть действия энциклопедии; слайс типизирован узко. */
+type ResourcesGet = () => ResourcesSlice & Pick<EncyclopediaActions, 'useMaterialAmount' | 'discoverMaterial'>
+
+function applyPoolSpendDeltasToEncyclopedia(
+  get: ResourcesGet,
+  deltas: ReturnType<typeof computePoolSpendDeltas>
+): void {
+  for (const [mid, n] of Object.entries(deltas.stashDecrements)) {
+    if (n > 0) get().useMaterialAmount(mid, n)
+  }
+  for (const [rk, n] of Object.entries(deltas.resourceDecrements)) {
+    if (!n || n <= 0) continue
+    const key = rk as ResourceKey
+    if (POOL_SPEND_ENC_SKIP_KEYS.has(key)) continue
+    const ids = getCatalogMaterialIdsForResourceKey(key)
+    if (ids.length === 0) continue
+    const base = Math.floor(n / ids.length)
+    const remainder = n - base * ids.length
+    ids.forEach((mid, i) => {
+      const part = base + (i < remainder ? 1 : 0)
+      if (part > 0) get().useMaterialAmount(mid, part)
+    })
+  }
+}
 
 // ================================
 // ТИПЫ
@@ -58,9 +94,19 @@ export interface ResourcesActions {
   spendResource: (resource: ResourceKey, amount: number) => boolean
   canAfford: (cost: CraftingCost) => boolean
   spendResources: (cost: CraftingCost) => boolean
+  /** Крафт v2 / переработка: достаточно ли cost с учётом materialStash */
+  canAffordCraftingCostWithStash: (cost: CraftingCost) => boolean
+  /** Крафт v2: списать cost с учётом materialStash (маппинг MATERIAL_TO_RESOURCE), затем resources */
+  spendCraftingCostWithStash: (cost: CraftingCost) => boolean
   sellResource: (resource: ResourceKey, amount: number) => boolean
   getResourceSellPrice: (resource: ResourceKey) => number
   addMaterialToStash: (materialId: string, amount: number) => void
+  /**
+   * Канал начисления материалов (аудит 2–3): каталожный id стадии → `materialStash`
+   * (`getGrantTargetMaterialId`, `REFINING_INPUT_STAGE_MATERIAL_ID` для руд/сырья);
+   * золото / `soulEssence` → `addResource`. Подземелья — отдельный редизайн.
+   */
+  grantResourceKeyFromWorld: (resource: ResourceKey, amount: number) => void
 }
 
 /** Полный тип slice */
@@ -168,21 +214,53 @@ export const createResourcesSlice: StateCreator<
     return true
   },
 
+  canAffordCraftingCostWithStash: (cost) => {
+    const state = get()
+    return canAffordCraftingCostWithStashPure(cost, state.resources, state.materialStash)
+  },
+
+  spendCraftingCostWithStash: (cost) => {
+    const state = get()
+    const result = applyCraftingCostSpend(cost, state.resources, state.materialStash)
+    if (!result.ok) return false
+    const deltas = computePoolSpendDeltas(
+      state.resources,
+      state.materialStash,
+      result.resources,
+      result.materialStash
+    )
+    set({
+      resources: result.resources,
+      materialStash: result.materialStash,
+    })
+    applyPoolSpendDeltasToEncyclopedia(get as ResourcesGet, deltas)
+    return true
+  },
+
   sellResource: (resource, amount) => {
     const state = get()
-    if ((state.resources[resource] || 0) < amount) return false
+    if (!amount || amount <= 0) return false
+    const removed = removeResourceKeyFromPools(resource, amount, state.resources, state.materialStash)
+    if (!removed.ok) return false
 
     const price = state.getResourceSellPrice(resource)
     const totalGold = price * amount
+    const afterResources = {
+      ...removed.resources,
+      gold: removed.resources.gold + totalGold,
+    }
+    const deltas = computePoolSpendDeltas(
+      state.resources,
+      state.materialStash,
+      afterResources,
+      removed.materialStash
+    )
 
-    set((state) => ({
-      resources: {
-        ...state.resources,
-        [resource]: state.resources[resource] - amount,
-        gold: state.resources.gold + totalGold,
-      }
-    }))
-
+    set({
+      resources: afterResources,
+      materialStash: removed.materialStash,
+    })
+    applyPoolSpendDeltasToEncyclopedia(get as ResourcesGet, deltas)
     return true
   },
 
@@ -198,6 +276,23 @@ export const createResourcesSlice: StateCreator<
         [materialId]: Math.max(0, (state.materialStash[materialId] ?? 0) + amount),
       },
     }))
+    ;(get as ResourcesGet)().discoverMaterial(materialId)
+  },
+
+  grantResourceKeyFromWorld: (resource, amount) => {
+    if (!amount || amount <= 0) return
+    const mid = getGrantTargetMaterialId(resource)
+    if (mid) {
+      set((state) => ({
+        materialStash: {
+          ...state.materialStash,
+          [mid]: Math.max(0, (state.materialStash[mid] ?? 0) + amount),
+        },
+      }))
+      ;(get as ResourcesGet)().discoverMaterial(mid)
+    } else {
+      get().addResource(resource, amount)
+    }
   },
 })
 

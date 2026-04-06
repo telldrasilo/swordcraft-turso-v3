@@ -5,7 +5,7 @@
 'use client'
 
 import { AnimatePresence } from 'framer-motion'
-import { Package, Coins, Star, Sword, Filter, SortAsc } from 'lucide-react'
+import { Package, Coins, Star, Sword, Filter, SortAsc, Wrench } from 'lucide-react'
 import { useState, useMemo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -15,17 +15,24 @@ import { WeaponInventoryCard } from './weapon-inventory-card'
 
 export function InventorySection() {
   const weapons = useGameStore((state) => state.weaponInventory.weapons)
+  const repairBenchWeaponId = useGameStore((state) => state.repairBenchWeaponId)
+  const navigateToForgeTab = useGameStore((state) => state.navigateToForgeTab)
   const [sortBy, setSortBy] = useState<'date' | 'quality'>('date')
   const [filterQuality, setFilterQuality] = useState<string>('all')
-  
-  // Мемоизированная сортировка оружия
+
+  const visibleWeapons = useMemo(
+    () => weapons.filter((w) => w.id !== repairBenchWeaponId),
+    [weapons, repairBenchWeaponId]
+  )
+
+  // Мемоизированная сортировка оружия (без клинка на верстаке ремонта)
   const sortedWeapons = useMemo(() => {
-    return [...weapons].sort((a, b) => {
+    return [...visibleWeapons].sort((a, b) => {
       if (sortBy === 'date') return b.createdAt - a.createdAt
       if (sortBy === 'quality') return b.quality - a.quality
       return 0
     })
-  }, [weapons, sortBy])
+  }, [visibleWeapons, sortBy])
   
   // Мемоизированная фильтрация по качеству
   const filteredWeapons = useMemo(() => {
@@ -36,18 +43,46 @@ export function InventorySection() {
   
   // Мемоизированная статистика
   const stats = useMemo(() => {
-    const avgAttack = weapons.length > 0
-      ? Math.round(weapons.reduce((sum, w) => sum + w.stats.attack, 0) / weapons.length)
+    const avgAttack = visibleWeapons.length > 0
+      ? Math.round(visibleWeapons.reduce((sum, w) => sum + w.stats.attack, 0) / visibleWeapons.length)
       : 0
-    const masterpieceCount = weapons.filter(
+    const masterpieceCount = visibleWeapons.filter(
       w => w.qualityGrade === 'masterpiece' || w.qualityGrade === 'legendary'
     ).length
-    
-    return { avgAttack, masterpieceCount, count: weapons.length }
-  }, [weapons])
+    const needsRepairCount = visibleWeapons.filter((w) => {
+      const d = w.currentDurability ?? w.stats.durability
+      const tags = w.activeDamageTags?.length ?? 0
+      return tags > 0 || d < w.stats.maxDurability
+    }).length
+
+    return { avgAttack, masterpieceCount, count: visibleWeapons.length, needsRepairCount }
+  }, [visibleWeapons])
   
   return (
     <div className="space-y-4">
+      {stats.needsRepairCount > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-800/40 bg-amber-950/25 px-3 py-2 text-sm">
+          <span className="text-stone-300">
+            Нужен уход:{' '}
+            <span className="text-amber-200/95 font-medium">{stats.needsRepairCount}</span> из{' '}
+            {stats.count} клинков в списке
+            {repairBenchWeaponId ? (
+              <span className="text-stone-500"> (ещё один на верстаке «Ремонт»)</span>
+            ) : null}
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="border-amber-600/50 text-amber-100 hover:bg-amber-950/50"
+            onClick={() => navigateToForgeTab('repair')}
+          >
+            <Wrench className="w-3.5 h-3.5 mr-1.5" />
+            Открыть «Ремонт»
+          </Button>
+        </div>
+      )}
+
       {/* Статистика инвентаря */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card className="card-medieval bg-stone-800/50">
@@ -137,7 +172,8 @@ export function InventorySection() {
         </Card>
       ) : (
         <AnimatePresence mode="popLayout">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          {/* auto-fill + minmax: минимальная ширина колонки, без сжатия заголовка в одну букву. */}
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,17.5rem),1fr))] gap-4">
             {filteredWeapons.map((weapon) => (
               <WeaponInventoryCard key={weapon.id} weapon={weapon} />
             ))}

@@ -1,0 +1,3369 @@
+{
+  "generatedAtIso": "2026-04-01T16:31:20.029Z",
+  "libraryCount": 80,
+  "craftMapMaterialIdCount": 36,
+  "alloyMaterialIdCount": 3,
+  "expeditionLocationMaterialCount": 68,
+  "expeditionMissionMaterialCount": 45,
+  "referencedNotInLibrary": [
+    "basic_stone",
+    "bronze",
+    "bronzeIngot",
+    "copper",
+    "copperIngot",
+    "copper_alloy",
+    "gold",
+    "goldIngot",
+    "goldOre",
+    "gold_alloy",
+    "hardened_leather",
+    "ironIngot",
+    "iron_alloy",
+    "mahogany",
+    "maple",
+    "marble",
+    "mithrilIngot",
+    "mithril_alloy",
+    "planks",
+    "processed_stone",
+    "processed_wood",
+    "silver",
+    "silverIngot",
+    "soulEssence",
+    "steelIngot",
+    "stone",
+    "stoneBlocks",
+    "tin",
+    "tinIngot",
+    "tin_alloy",
+    "walnut",
+    "wood"
+  ],
+  "materialRows": [
+    {
+      "id": "acorns",
+      "inLibrary": true,
+      "identityClass": "organic",
+      "tags": [
+        "natural",
+        "organic",
+        "herb"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "ancient_coal",
+      "inLibrary": true,
+      "identityClass": "mineral",
+      "tags": [
+        "natural",
+        "mineral",
+        "stone",
+        "fuel"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "ancient_metal",
+      "inLibrary": true,
+      "identityClass": "metal",
+      "tags": [
+        "natural",
+        "metal"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "ancient_sap",
+      "inLibrary": true,
+      "identityClass": "other",
+      "tags": [
+        "exotic",
+        "special"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "ash",
+      "inLibrary": true,
+      "identityClass": "wood",
+      "tags": [
+        "natural",
+        "wood",
+        "flexible",
+        "balanced",
+        "elastic"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": "wood",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE"
+      ],
+      "gapFlags": []
+    },
+    {
+      "id": "ash_dust",
+      "inLibrary": true,
+      "identityClass": "organic",
+      "tags": [
+        "natural",
+        "organic",
+        "herb"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "basic_stone",
+      "inLibrary": false,
+      "identityClass": null,
+      "tags": [],
+      "stubLevel": "no_node",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": "stone",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE"
+      ],
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "birch",
+      "inLibrary": true,
+      "identityClass": "wood",
+      "tags": [
+        "natural",
+        "wood",
+        "lightweight",
+        "soft",
+        "common"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": "wood",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": true,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources",
+        "encyclopedia_initial"
+      ],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE"
+      ],
+      "gapFlags": []
+    },
+    {
+      "id": "black_dust",
+      "inLibrary": true,
+      "identityClass": "organic",
+      "tags": [
+        "natural",
+        "organic",
+        "herb"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "bloodstone",
+      "inLibrary": true,
+      "identityClass": "mineral",
+      "tags": [
+        "natural",
+        "stone",
+        "magical",
+        "blood-magic",
+        "rare"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "bog_iron",
+      "inLibrary": true,
+      "identityClass": "mineral",
+      "tags": [
+        "natural",
+        "mineral",
+        "ore",
+        "iron-bearing"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "bones",
+      "inLibrary": true,
+      "identityClass": "organic",
+      "tags": [
+        "natural",
+        "organic",
+        "herb"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "bronze",
+      "inLibrary": false,
+      "identityClass": null,
+      "tags": [],
+      "stubLevel": "no_node",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": "bronzeIngot",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE"
+      ],
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "bronzeIngot",
+      "inLibrary": false,
+      "identityClass": null,
+      "tags": [],
+      "stubLevel": "no_node",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "refining_recipe"
+      ],
+      "spendHints": [
+        "recipe_cost",
+        "refining_io"
+      ],
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "bull_leather",
+      "inLibrary": true,
+      "identityClass": "leather",
+      "tags": [
+        "refined",
+        "leather",
+        "thick",
+        "durable",
+        "grip"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": "leather",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE"
+      ],
+      "gapFlags": []
+    },
+    {
+      "id": "clay",
+      "inLibrary": true,
+      "identityClass": "mineral",
+      "tags": [
+        "natural",
+        "mineral",
+        "stone",
+        "ceramic"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "coal",
+      "inLibrary": true,
+      "identityClass": "mineral",
+      "tags": [
+        "natural",
+        "mineral",
+        "stone",
+        "fuel",
+        "carbon"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": true,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources",
+        "encyclopedia_initial"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "cold_iron",
+      "inLibrary": true,
+      "identityClass": "metal",
+      "tags": [
+        "natural",
+        "metal",
+        "iron-bearing",
+        "anti-magic",
+        "rare"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": "iron",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE"
+      ],
+      "gapFlags": []
+    },
+    {
+      "id": "cold_iron_ore",
+      "inLibrary": true,
+      "identityClass": "mineral",
+      "tags": [
+        "natural",
+        "mineral",
+        "ore",
+        "iron-bearing"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "copper",
+      "inLibrary": false,
+      "identityClass": null,
+      "tags": [],
+      "stubLevel": "no_node",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": "copper",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "adventures_bonusItems",
+        "npc_orders_bonusItems",
+        "refining_recipe"
+      ],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE",
+        "refining_io",
+        "material_shop_or_shop_screen",
+        "workers_produce"
+      ],
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "copper_alloy",
+      "inLibrary": false,
+      "identityClass": null,
+      "tags": [],
+      "stubLevel": "no_node",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": "copperIngot",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE"
+      ],
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "copper_ore",
+      "inLibrary": true,
+      "identityClass": "mineral",
+      "tags": [
+        "natural",
+        "mineral",
+        "copper-bearing",
+        "ore",
+        "decorative"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "copperIngot",
+      "inLibrary": false,
+      "identityClass": null,
+      "tags": [],
+      "stubLevel": "no_node",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "refining_recipe"
+      ],
+      "spendHints": [
+        "refining_io"
+      ],
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "cryo_fungi",
+      "inLibrary": true,
+      "identityClass": "organic",
+      "tags": [
+        "natural",
+        "organic",
+        "herb"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "decayed_bones",
+      "inLibrary": true,
+      "identityClass": "organic",
+      "tags": [
+        "natural",
+        "organic",
+        "herb"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "deep_clay",
+      "inLibrary": true,
+      "identityClass": "mineral",
+      "tags": [
+        "natural",
+        "mineral",
+        "stone"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "depth_iron",
+      "inLibrary": true,
+      "identityClass": "mineral",
+      "tags": [
+        "natural",
+        "mineral",
+        "ore",
+        "iron-bearing"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "depth_stone",
+      "inLibrary": true,
+      "identityClass": "mineral",
+      "tags": [
+        "natural",
+        "mineral",
+        "stone"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "dragon_bone",
+      "inLibrary": true,
+      "identityClass": "other",
+      "tags": [
+        "exotic",
+        "special"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "dragon_glass",
+      "inLibrary": true,
+      "identityClass": "mineral",
+      "tags": [
+        "natural",
+        "mineral",
+        "gem"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "dragon_leather",
+      "inLibrary": true,
+      "identityClass": "leather",
+      "tags": [
+        "natural",
+        "leather",
+        "legendary",
+        "fireproof",
+        "magical"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": "leather",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE"
+      ],
+      "gapFlags": []
+    },
+    {
+      "id": "dragon_scale",
+      "inLibrary": true,
+      "identityClass": "leather",
+      "tags": [
+        "natural",
+        "leather"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "dream_resin",
+      "inLibrary": true,
+      "identityClass": "organic",
+      "tags": [
+        "natural",
+        "organic",
+        "herb"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "ebony",
+      "inLibrary": true,
+      "identityClass": "wood",
+      "tags": [
+        "natural",
+        "wood",
+        "magical",
+        "dense",
+        "rare"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": "wood",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE"
+      ],
+      "gapFlags": []
+    },
+    {
+      "id": "echo_bark",
+      "inLibrary": true,
+      "identityClass": "organic",
+      "tags": [
+        "natural",
+        "organic",
+        "herb"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "echo_stone",
+      "inLibrary": true,
+      "identityClass": "mineral",
+      "tags": [
+        "natural",
+        "mineral",
+        "gem"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "eternal_ice",
+      "inLibrary": true,
+      "identityClass": "other",
+      "tags": [
+        "exotic",
+        "special"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "fieldstone",
+      "inLibrary": true,
+      "identityClass": "mineral",
+      "tags": [
+        "natural",
+        "stone",
+        "common",
+        "heavy",
+        "basic"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "fire_stone",
+      "inLibrary": true,
+      "identityClass": "mineral",
+      "tags": [
+        "natural",
+        "mineral",
+        "gem"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "flint",
+      "inLibrary": true,
+      "identityClass": "mineral",
+      "tags": [
+        "natural",
+        "stone",
+        "sharp",
+        "spark-producing",
+        "brittle"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "forest_moss",
+      "inLibrary": true,
+      "identityClass": "organic",
+      "tags": [
+        "natural",
+        "organic",
+        "herb"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "frozen_crystals",
+      "inLibrary": true,
+      "identityClass": "mineral",
+      "tags": [
+        "natural",
+        "mineral",
+        "gem"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "gold",
+      "inLibrary": false,
+      "identityClass": null,
+      "tags": [],
+      "stubLevel": "no_node",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": "goldOre",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "npc_orders_bonusItems"
+      ],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE"
+      ],
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "gold_alloy",
+      "inLibrary": false,
+      "identityClass": null,
+      "tags": [],
+      "stubLevel": "no_node",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": "goldIngot",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE"
+      ],
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "gold_ore",
+      "inLibrary": true,
+      "identityClass": "mineral",
+      "tags": [
+        "natural",
+        "mineral",
+        "ore",
+        "gold-bearing"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "goldIngot",
+      "inLibrary": false,
+      "identityClass": null,
+      "tags": [],
+      "stubLevel": "no_node",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "refining_recipe"
+      ],
+      "spendHints": [
+        "recipe_cost",
+        "refining_io"
+      ],
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "goldOre",
+      "inLibrary": false,
+      "identityClass": null,
+      "tags": [],
+      "stubLevel": "no_node",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "adventures_bonusItems",
+        "refining_recipe"
+      ],
+      "spendHints": [
+        "refining_io",
+        "material_shop_or_shop_screen",
+        "workers_produce"
+      ],
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "granite",
+      "inLibrary": true,
+      "identityClass": "mineral",
+      "tags": [
+        "natural",
+        "stone",
+        "durable",
+        "heavy",
+        "crystalline"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": "stone",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE"
+      ],
+      "gapFlags": []
+    },
+    {
+      "id": "hardened_leather",
+      "inLibrary": false,
+      "identityClass": null,
+      "tags": [],
+      "stubLevel": "no_node",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": "leather",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE"
+      ],
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "heart_of_flame",
+      "inLibrary": true,
+      "identityClass": "other",
+      "tags": [
+        "exotic",
+        "special"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "heart_of_the_mountain",
+      "inLibrary": true,
+      "identityClass": "other",
+      "tags": [
+        "exotic",
+        "special"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "high_carbon_steel",
+      "inLibrary": true,
+      "identityClass": "metal",
+      "tags": [
+        "refined",
+        "alloy",
+        "iron-bearing",
+        "carbon",
+        "sharp"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": "steelIngot",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": true,
+      "inInitialEncyclopedia": false,
+      "grantSources": [],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE",
+        "craft_v2_ALLOY_RECIPES"
+      ],
+      "gapFlags": []
+    },
+    {
+      "id": "iron",
+      "inLibrary": true,
+      "identityClass": "metal",
+      "tags": [
+        "natural",
+        "metal",
+        "iron-bearing",
+        "magnetic",
+        "basic"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": "iron",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": true,
+      "grantSources": [
+        "encyclopedia_initial"
+      ],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE",
+        "refining_io"
+      ],
+      "gapFlags": []
+    },
+    {
+      "id": "iron_alloy",
+      "inLibrary": false,
+      "identityClass": null,
+      "tags": [],
+      "stubLevel": "no_node",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": "ironIngot",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE"
+      ],
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "iron_ore",
+      "inLibrary": true,
+      "identityClass": "mineral",
+      "tags": [
+        "natural",
+        "mineral",
+        "iron-bearing",
+        "ore",
+        "common"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": true,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources",
+        "encyclopedia_initial"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "ironIngot",
+      "inLibrary": false,
+      "identityClass": null,
+      "tags": [],
+      "stubLevel": "no_node",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "refining_recipe"
+      ],
+      "spendHints": [
+        "recipe_cost",
+        "refining_io",
+        "workers_produce"
+      ],
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "ironwood",
+      "inLibrary": true,
+      "identityClass": "wood",
+      "tags": [
+        "natural",
+        "wood",
+        "dense",
+        "durable",
+        "rare"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": "wood",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE"
+      ],
+      "gapFlags": []
+    },
+    {
+      "id": "living_ore",
+      "inLibrary": true,
+      "identityClass": "mineral",
+      "tags": [
+        "natural",
+        "mineral",
+        "ore"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "mahogany",
+      "inLibrary": false,
+      "identityClass": null,
+      "tags": [],
+      "stubLevel": "no_node",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": "wood",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE"
+      ],
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "maple",
+      "inLibrary": false,
+      "identityClass": null,
+      "tags": [],
+      "stubLevel": "no_node",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": "wood",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE"
+      ],
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "marble",
+      "inLibrary": false,
+      "identityClass": null,
+      "tags": [],
+      "stubLevel": "no_node",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": "stone",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE"
+      ],
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "memory_leaf",
+      "inLibrary": true,
+      "identityClass": "organic",
+      "tags": [
+        "natural",
+        "organic",
+        "herb"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "mist_herbs",
+      "inLibrary": true,
+      "identityClass": "organic",
+      "tags": [
+        "natural",
+        "organic",
+        "herb"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "mithril",
+      "inLibrary": true,
+      "identityClass": "metal",
+      "tags": [
+        "natural",
+        "metal",
+        "legendary",
+        "lightweight",
+        "magical"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": "mithril",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE",
+        "refining_io"
+      ],
+      "gapFlags": []
+    },
+    {
+      "id": "mithril_alloy",
+      "inLibrary": false,
+      "identityClass": null,
+      "tags": [],
+      "stubLevel": "no_node",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": "mithrilIngot",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE"
+      ],
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "mithril_ore",
+      "inLibrary": true,
+      "identityClass": "mineral",
+      "tags": [
+        "natural",
+        "mineral",
+        "ore",
+        "mithril-bearing"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "mithrilIngot",
+      "inLibrary": false,
+      "identityClass": null,
+      "tags": [],
+      "stubLevel": "no_node",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "refining_recipe"
+      ],
+      "spendHints": [
+        "recipe_cost",
+        "refining_io"
+      ],
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "moonstone_shards",
+      "inLibrary": true,
+      "identityClass": "mineral",
+      "tags": [
+        "natural",
+        "mineral",
+        "gem"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "oak",
+      "inLibrary": true,
+      "identityClass": "wood",
+      "tags": [
+        "natural",
+        "wood",
+        "durable",
+        "dense",
+        "versatile"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": "wood",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": true,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources",
+        "encyclopedia_initial"
+      ],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE"
+      ],
+      "gapFlags": []
+    },
+    {
+      "id": "oak_bark",
+      "inLibrary": true,
+      "identityClass": "organic",
+      "tags": [
+        "natural",
+        "organic",
+        "herb"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "obsidian",
+      "inLibrary": true,
+      "identityClass": "mineral",
+      "tags": [
+        "natural",
+        "stone",
+        "glass",
+        "sharp",
+        "volcanic"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": "stone",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE"
+      ],
+      "gapFlags": []
+    },
+    {
+      "id": "peat",
+      "inLibrary": true,
+      "identityClass": "organic",
+      "tags": [
+        "natural",
+        "organic",
+        "herb",
+        "fuel"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "pine",
+      "inLibrary": true,
+      "identityClass": "wood",
+      "tags": [
+        "natural",
+        "wood"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": "wood",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE"
+      ],
+      "gapFlags": []
+    },
+    {
+      "id": "pine_resin",
+      "inLibrary": true,
+      "identityClass": "organic",
+      "tags": [
+        "natural",
+        "organic",
+        "herb"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "planks",
+      "inLibrary": false,
+      "identityClass": null,
+      "tags": [],
+      "stubLevel": "no_node",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "refining_recipe"
+      ],
+      "spendHints": [
+        "recipe_cost",
+        "refining_io",
+        "material_shop_or_shop_screen",
+        "workers_produce"
+      ],
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "poison_gland",
+      "inLibrary": true,
+      "identityClass": "organic",
+      "tags": [
+        "natural",
+        "organic",
+        "herb"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "primordial_amber",
+      "inLibrary": true,
+      "identityClass": "mineral",
+      "tags": [
+        "natural",
+        "mineral",
+        "gem"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "primordial_ice",
+      "inLibrary": true,
+      "identityClass": "other",
+      "tags": [
+        "exotic",
+        "special"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "processed_stone",
+      "inLibrary": false,
+      "identityClass": null,
+      "tags": [],
+      "stubLevel": "no_node",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": "stoneBlocks",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE"
+      ],
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "processed_wood",
+      "inLibrary": false,
+      "identityClass": null,
+      "tags": [],
+      "stubLevel": "no_node",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": "planks",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE"
+      ],
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "raw_leather",
+      "inLibrary": true,
+      "identityClass": "leather",
+      "tags": [
+        "natural",
+        "leather",
+        "basic",
+        "flexible",
+        "common"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": "leather",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": true,
+      "grantSources": [
+        "expedition_location_table",
+        "encyclopedia_initial"
+      ],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE"
+      ],
+      "gapFlags": []
+    },
+    {
+      "id": "red_stone",
+      "inLibrary": true,
+      "identityClass": "mineral",
+      "tags": [
+        "natural",
+        "mineral",
+        "stone"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "rotten_wood",
+      "inLibrary": true,
+      "identityClass": "wood",
+      "tags": [
+        "natural",
+        "wood"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "shadow_leather",
+      "inLibrary": true,
+      "identityClass": "leather",
+      "tags": [
+        "natural",
+        "leather"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "silver",
+      "inLibrary": false,
+      "identityClass": null,
+      "tags": [],
+      "stubLevel": "no_node",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": "silver",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "adventures_bonusItems",
+        "npc_orders_bonusItems",
+        "refining_recipe"
+      ],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE",
+        "refining_io",
+        "material_shop_or_shop_screen",
+        "workers_produce"
+      ],
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "silver_alloy",
+      "inLibrary": true,
+      "identityClass": "metal",
+      "tags": [
+        "refined",
+        "alloy",
+        "silver-bearing",
+        "magical",
+        "holy"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": "silverIngot",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": true,
+      "inInitialEncyclopedia": false,
+      "grantSources": [],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE",
+        "craft_v2_ALLOY_RECIPES"
+      ],
+      "gapFlags": []
+    },
+    {
+      "id": "silver_bark",
+      "inLibrary": true,
+      "identityClass": "organic",
+      "tags": [
+        "natural",
+        "organic",
+        "herb"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "silver_ore",
+      "inLibrary": true,
+      "identityClass": "mineral",
+      "tags": [
+        "natural",
+        "mineral",
+        "ore",
+        "silver-bearing"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "silvered_pine",
+      "inLibrary": true,
+      "identityClass": "wood",
+      "tags": [
+        "natural",
+        "wood"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "silverIngot",
+      "inLibrary": false,
+      "identityClass": null,
+      "tags": [],
+      "stubLevel": "no_node",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "refining_recipe"
+      ],
+      "spendHints": [
+        "recipe_cost",
+        "refining_io"
+      ],
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "soulEssence",
+      "inLibrary": false,
+      "identityClass": null,
+      "tags": [],
+      "stubLevel": "no_node",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "npc_orders_bonusItems"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "soulforge_ember",
+      "inLibrary": true,
+      "identityClass": "other",
+      "tags": [
+        "exotic",
+        "special"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "spirit_wood",
+      "inLibrary": true,
+      "identityClass": "wood",
+      "tags": [
+        "natural",
+        "wood"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "star_metal",
+      "inLibrary": true,
+      "identityClass": "mineral",
+      "tags": [
+        "natural",
+        "mineral",
+        "ore",
+        "meteoric"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "steel",
+      "inLibrary": true,
+      "identityClass": "metal",
+      "tags": [
+        "refined",
+        "alloy",
+        "iron-bearing",
+        "carbon",
+        "versatile"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": "steelIngot",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": true,
+      "inInitialEncyclopedia": false,
+      "grantSources": [],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE",
+        "craft_v2_ALLOY_RECIPES"
+      ],
+      "gapFlags": []
+    },
+    {
+      "id": "steelIngot",
+      "inLibrary": false,
+      "identityClass": null,
+      "tags": [],
+      "stubLevel": "no_node",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "refining_recipe"
+      ],
+      "spendHints": [
+        "recipe_cost",
+        "refining_io"
+      ],
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "stone",
+      "inLibrary": false,
+      "identityClass": null,
+      "tags": [],
+      "stubLevel": "no_node",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "adventures_bonusItems",
+        "refining_recipe"
+      ],
+      "spendHints": [
+        "refining_io",
+        "material_shop_or_shop_screen",
+        "workers_produce"
+      ],
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "stoneBlocks",
+      "inLibrary": false,
+      "identityClass": null,
+      "tags": [],
+      "stubLevel": "no_node",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "refining_recipe"
+      ],
+      "spendHints": [
+        "recipe_cost",
+        "refining_io"
+      ],
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "sulfur",
+      "inLibrary": true,
+      "identityClass": "mineral",
+      "tags": [
+        "natural",
+        "mineral",
+        "stone"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "swamp_moss",
+      "inLibrary": true,
+      "identityClass": "organic",
+      "tags": [
+        "natural",
+        "organic",
+        "herb"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "tanned_leather",
+      "inLibrary": true,
+      "identityClass": "leather",
+      "tags": [
+        "refined",
+        "leather",
+        "quality",
+        "flexible",
+        "durable"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": "leather",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": true,
+      "grantSources": [
+        "encyclopedia_initial"
+      ],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE"
+      ],
+      "gapFlags": []
+    },
+    {
+      "id": "tin",
+      "inLibrary": false,
+      "identityClass": null,
+      "tags": [],
+      "stubLevel": "no_node",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": "tin",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "refining_recipe"
+      ],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE",
+        "refining_io",
+        "material_shop_or_shop_screen",
+        "workers_produce"
+      ],
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "tin_alloy",
+      "inLibrary": false,
+      "identityClass": null,
+      "tags": [],
+      "stubLevel": "no_node",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": "tinIngot",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE"
+      ],
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "tin_ore",
+      "inLibrary": true,
+      "identityClass": "mineral",
+      "tags": [
+        "natural",
+        "mineral",
+        "tin-bearing",
+        "ore",
+        "alloy-component"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "tinIngot",
+      "inLibrary": false,
+      "identityClass": null,
+      "tags": [],
+      "stubLevel": "no_node",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "refining_recipe"
+      ],
+      "spendHints": [
+        "refining_io"
+      ],
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "toxic_moss",
+      "inLibrary": true,
+      "identityClass": "organic",
+      "tags": [
+        "natural",
+        "organic",
+        "herb"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "void_crystal",
+      "inLibrary": true,
+      "identityClass": "mineral",
+      "tags": [
+        "natural",
+        "mineral",
+        "gem"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "volcanic_glass",
+      "inLibrary": true,
+      "identityClass": "mineral",
+      "tags": [
+        "natural",
+        "mineral",
+        "gem"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "walnut",
+      "inLibrary": false,
+      "identityClass": null,
+      "tags": [],
+      "stubLevel": "no_node",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": "wood",
+      "inCraftExplicitMap": true,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [],
+      "spendHints": [
+        "craft_v2_MATERIAL_TO_RESOURCE"
+      ],
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "whisper_moss",
+      "inLibrary": true,
+      "identityClass": "organic",
+      "tags": [
+        "natural",
+        "organic",
+        "herb"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "wild_herbs",
+      "inLibrary": true,
+      "identityClass": "organic",
+      "tags": [
+        "natural",
+        "organic",
+        "herb"
+      ],
+      "stubLevel": "ok",
+      "inExpeditionLocationLoot": true,
+      "inExpeditionMissionLoot": true,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "expedition_location_table",
+        "expedition_mission_resources"
+      ],
+      "spendHints": [],
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "wood",
+      "inLibrary": false,
+      "identityClass": null,
+      "tags": [],
+      "stubLevel": "no_node",
+      "inExpeditionLocationLoot": false,
+      "inExpeditionMissionLoot": false,
+      "craftMapsToResource": null,
+      "inCraftExplicitMap": false,
+      "inCraftAlloyRecipe": false,
+      "inInitialEncyclopedia": false,
+      "grantSources": [
+        "adventures_bonusItems",
+        "refining_recipe"
+      ],
+      "spendHints": [
+        "refining_io",
+        "material_shop_or_shop_screen",
+        "workers_produce"
+      ],
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    }
+  ],
+  "resourceKeyMeta": [
+    {
+      "key": "gold",
+      "category": "currency",
+      "grantSources": [
+        "npc_orders_bonusItems"
+      ],
+      "spendHints": [],
+      "stageViolationNotes": []
+    },
+    {
+      "key": "soulEssence",
+      "category": "currency",
+      "grantSources": [
+        "npc_orders_bonusItems"
+      ],
+      "spendHints": [],
+      "stageViolationNotes": []
+    },
+    {
+      "key": "wood",
+      "category": "material_aggregate",
+      "grantSources": [
+        "material_shop",
+        "shop_screen_buyPackages",
+        "workers_initialBuildings_produces",
+        "adventures_bonusItems",
+        "refining_io"
+      ],
+      "spendHints": [],
+      "stageViolationNotes": [
+        "Агрегат: все породы дерева в крафте сводятся в wood; брёвна vs доски не разведены по id"
+      ]
+    },
+    {
+      "key": "stone",
+      "category": "material_aggregate",
+      "grantSources": [
+        "material_shop",
+        "shop_screen_buyPackages",
+        "workers_initialBuildings_produces",
+        "adventures_bonusItems",
+        "refining_io"
+      ],
+      "spendHints": [],
+      "stageViolationNotes": []
+    },
+    {
+      "key": "iron",
+      "category": "material_aggregate",
+      "grantSources": [
+        "material_shop",
+        "shop_screen_buyPackages",
+        "workers_initialBuildings_produces",
+        "adventures_bonusItems",
+        "refining_io"
+      ],
+      "spendHints": [],
+      "stageViolationNotes": [
+        "Перегружен: рудник/магазин/маппинг крафта как «железо» при наличии iron_ore в каталоге (§2.7 MATERIALS_UNIFICATION_AUDIT)"
+      ]
+    },
+    {
+      "key": "coal",
+      "category": "material_aggregate",
+      "grantSources": [
+        "material_shop",
+        "shop_screen_buyPackages",
+        "workers_initialBuildings_produces",
+        "adventures_bonusItems"
+      ],
+      "spendHints": [
+        "weapon_recipe_or_v2_recipe_cost"
+      ],
+      "stageViolationNotes": []
+    },
+    {
+      "key": "copper",
+      "category": "material_aggregate",
+      "grantSources": [
+        "material_shop",
+        "workers_initialBuildings_produces",
+        "adventures_bonusItems",
+        "npc_orders_bonusItems",
+        "refining_io"
+      ],
+      "spendHints": [],
+      "stageViolationNotes": [
+        "Рудники выдают сырьевой ключ; в library могут быть только *_ore узлы"
+      ]
+    },
+    {
+      "key": "tin",
+      "category": "material_aggregate",
+      "grantSources": [
+        "material_shop",
+        "workers_initialBuildings_produces",
+        "refining_io"
+      ],
+      "spendHints": [],
+      "stageViolationNotes": [
+        "Рудники выдают сырьевой ключ; в library могут быть только *_ore узлы"
+      ]
+    },
+    {
+      "key": "silver",
+      "category": "material_aggregate",
+      "grantSources": [
+        "material_shop",
+        "workers_initialBuildings_produces",
+        "adventures_bonusItems",
+        "npc_orders_bonusItems",
+        "refining_io"
+      ],
+      "spendHints": [],
+      "stageViolationNotes": [
+        "Рудники выдают сырьевой ключ; в library могут быть только *_ore узлы"
+      ]
+    },
+    {
+      "key": "goldOre",
+      "category": "material_aggregate",
+      "grantSources": [
+        "material_shop",
+        "workers_initialBuildings_produces",
+        "adventures_bonusItems",
+        "refining_io"
+      ],
+      "spendHints": [],
+      "stageViolationNotes": []
+    },
+    {
+      "key": "mithril",
+      "category": "material_aggregate",
+      "grantSources": [
+        "material_shop",
+        "adventures_bonusItems",
+        "npc_orders_bonusItems",
+        "refining_io"
+      ],
+      "spendHints": [],
+      "stageViolationNotes": []
+    },
+    {
+      "key": "ironIngot",
+      "category": "material_aggregate",
+      "grantSources": [
+        "workers_initialBuildings_produces",
+        "refining_io"
+      ],
+      "spendHints": [
+        "weapon_recipe_or_v2_recipe_cost"
+      ],
+      "stageViolationNotes": []
+    },
+    {
+      "key": "copperIngot",
+      "category": "material_aggregate",
+      "grantSources": [
+        "refining_io"
+      ],
+      "spendHints": [],
+      "stageViolationNotes": []
+    },
+    {
+      "key": "tinIngot",
+      "category": "material_aggregate",
+      "grantSources": [
+        "refining_io"
+      ],
+      "spendHints": [],
+      "stageViolationNotes": []
+    },
+    {
+      "key": "bronzeIngot",
+      "category": "material_aggregate",
+      "grantSources": [
+        "refining_io"
+      ],
+      "spendHints": [
+        "weapon_recipe_or_v2_recipe_cost"
+      ],
+      "stageViolationNotes": []
+    },
+    {
+      "key": "steelIngot",
+      "category": "material_aggregate",
+      "grantSources": [
+        "refining_io"
+      ],
+      "spendHints": [
+        "weapon_recipe_or_v2_recipe_cost"
+      ],
+      "stageViolationNotes": []
+    },
+    {
+      "key": "silverIngot",
+      "category": "material_aggregate",
+      "grantSources": [
+        "refining_io"
+      ],
+      "spendHints": [
+        "weapon_recipe_or_v2_recipe_cost"
+      ],
+      "stageViolationNotes": []
+    },
+    {
+      "key": "goldIngot",
+      "category": "material_aggregate",
+      "grantSources": [
+        "refining_io"
+      ],
+      "spendHints": [
+        "weapon_recipe_or_v2_recipe_cost"
+      ],
+      "stageViolationNotes": []
+    },
+    {
+      "key": "mithrilIngot",
+      "category": "material_aggregate",
+      "grantSources": [
+        "refining_io"
+      ],
+      "spendHints": [
+        "weapon_recipe_or_v2_recipe_cost"
+      ],
+      "stageViolationNotes": []
+    },
+    {
+      "key": "planks",
+      "category": "material_aggregate",
+      "grantSources": [
+        "material_shop",
+        "workers_initialBuildings_produces",
+        "refining_io"
+      ],
+      "spendHints": [
+        "weapon_recipe_or_v2_recipe_cost"
+      ],
+      "stageViolationNotes": []
+    },
+    {
+      "key": "stoneBlocks",
+      "category": "material_aggregate",
+      "grantSources": [
+        "refining_io"
+      ],
+      "spendHints": [
+        "weapon_recipe_or_v2_recipe_cost"
+      ],
+      "stageViolationNotes": []
+    },
+    {
+      "key": "leather",
+      "category": "material_aggregate",
+      "grantSources": [],
+      "spendHints": [],
+      "stageViolationNotes": [
+        "Агрегат: виды кожи в MaterialNode сводятся в один ResourceKey leather"
+      ]
+    }
+  ],
+  "stageChains": [
+    {
+      "fromId": "iron_ore",
+      "toId": "iron",
+      "relationship": "ore_to_metal_hint",
+      "note": "По именованию id: руда → металл в каталоге"
+    },
+    {
+      "fromId": "copper_ore",
+      "toId": null,
+      "relationship": "ore_to_metal_hint",
+      "note": "Нет узла без суффикса _ore в library (переработка/слиток могут быть только в ResourceKey)"
+    },
+    {
+      "fromId": "tin_ore",
+      "toId": null,
+      "relationship": "ore_to_metal_hint",
+      "note": "Нет узла без суффикса _ore в library (переработка/слиток могут быть только в ResourceKey)"
+    },
+    {
+      "fromId": "silver_ore",
+      "toId": null,
+      "relationship": "ore_to_metal_hint",
+      "note": "Нет узла без суффикса _ore в library (переработка/слиток могут быть только в ResourceKey)"
+    },
+    {
+      "fromId": "gold_ore",
+      "toId": null,
+      "relationship": "ore_to_metal_hint",
+      "note": "Нет узла без суффикса _ore в library (переработка/слиток могут быть только в ResourceKey)"
+    },
+    {
+      "fromId": "mithril_ore",
+      "toId": "mithril",
+      "relationship": "ore_to_metal_hint",
+      "note": "По именованию id: руда → металл в каталоге"
+    },
+    {
+      "fromId": "cold_iron_ore",
+      "toId": "cold_iron",
+      "relationship": "ore_to_metal_hint",
+      "note": "По именованию id: руда → металл в каталоге"
+    },
+    {
+      "fromId": "living_ore",
+      "toId": null,
+      "relationship": "ore_to_metal_hint",
+      "note": "Нет узла без суффикса _ore в library (переработка/слиток могут быть только в ResourceKey)"
+    },
+    {
+      "fromId": "iron:3",
+      "toId": "ironIngot:1",
+      "relationship": "refining_raw_to_refined",
+      "note": "Железный слиток"
+    },
+    {
+      "fromId": "copper:3",
+      "toId": "copperIngot:1",
+      "relationship": "refining_raw_to_refined",
+      "note": "Медный слиток"
+    },
+    {
+      "fromId": "tin:3",
+      "toId": "tinIngot:1",
+      "relationship": "refining_raw_to_refined",
+      "note": "Оловянный слиток"
+    },
+    {
+      "fromId": "copper:2+tin:1",
+      "toId": "bronzeIngot:2",
+      "relationship": "refining_raw_to_refined",
+      "note": "Бронзовый слиток"
+    },
+    {
+      "fromId": "iron:4",
+      "toId": "steelIngot:1",
+      "relationship": "refining_raw_to_refined",
+      "note": "Стальной слиток"
+    },
+    {
+      "fromId": "silver:3",
+      "toId": "silverIngot:1",
+      "relationship": "refining_raw_to_refined",
+      "note": "Серебряный слиток"
+    },
+    {
+      "fromId": "goldOre:3",
+      "toId": "goldIngot:1",
+      "relationship": "refining_raw_to_refined",
+      "note": "Золотой слиток"
+    },
+    {
+      "fromId": "mithril:2",
+      "toId": "mithrilIngot:1",
+      "relationship": "refining_raw_to_refined",
+      "note": "Мифриловый слиток"
+    },
+    {
+      "fromId": "wood:2",
+      "toId": "planks:1",
+      "relationship": "refining_raw_to_refined",
+      "note": "Доски"
+    },
+    {
+      "fromId": "stone:3",
+      "toId": "stoneBlocks:1",
+      "relationship": "refining_raw_to_refined",
+      "note": "Каменные блоки"
+    }
+  ],
+  "technicalDebt": [
+    "src/types/resources.ts: интерфейс Resources может расходиться с resources-slice (проверить leather и др.).",
+    "Крафт materialId без узла в library: см. referencedNotInLibrary с inCraftExplicitMap.",
+    "materialStash vs resources: начисление экспедиции не соединено со spendResources в craft-container."
+  ],
+  "topGaps": [
+    {
+      "id": "acorns",
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "ancient_coal",
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "ancient_metal",
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "ancient_sap",
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "ash_dust",
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "basic_stone",
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "black_dust",
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "bloodstone",
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "bog_iron",
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "bones",
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "bronze",
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "bronzeIngot",
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "clay",
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "coal",
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "cold_iron_ore",
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "copper",
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "copper_alloy",
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "copper_ore",
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "copperIngot",
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "cryo_fungi",
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "decayed_bones",
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "deep_clay",
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "depth_iron",
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "depth_stone",
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "dragon_bone",
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "dragon_glass",
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "dragon_scale",
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "dream_resin",
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "echo_bark",
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "echo_stone",
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "eternal_ice",
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "fieldstone",
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "fire_stone",
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "flint",
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "forest_moss",
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "frozen_crystals",
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "gold",
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "gold_alloy",
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    },
+    {
+      "id": "gold_ore",
+      "gapFlags": [
+        "expedition_loot_no_craft_resource_map"
+      ]
+    },
+    {
+      "id": "goldIngot",
+      "gapFlags": [
+        "missing_MaterialNode_in_library"
+      ]
+    }
+  ]
+}

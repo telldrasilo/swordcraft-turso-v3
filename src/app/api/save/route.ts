@@ -23,6 +23,11 @@ import {
   mergeCraftV2PersistedFromSave,
   normalizeActiveCraftColumn,
 } from '@/lib/save-craft-normalize'
+import {
+  normalizeRepairBenchWeaponIdFromSave,
+  normalizeRepairTechniqueStageRunFromSave,
+} from '@/lib/normalize-repair-bench-from-save'
+import { normalizeForgottenForgePersistFromSave } from '@/lib/normalize-forgotten-forge-persist'
 
 // Демо-игрок для разработки (если не ENFORCE_SAVE_AUTH и не production)
 const DEMO_PLAYER_ID = 'demo-player'
@@ -199,9 +204,12 @@ export async function POST(request: NextRequest) {
           resources = ?, statistics = ?, workers = ?, buildings = ?,
           maxWorkers = ?, activeCraft = ?, activeRefining = ?,
           weaponInventory = ?, unlockedRecipes = ?, recipeSources = ?,
-          unlockedEnchantments = ?, guild = ?, knownAdventurers = ?,
-          orders = ?, tutorial = ?, materialKnowledge = ?, craftV2Persisted = ?,
-          playTime = ?, saveVersion = ?, updatedAt = ?
+          unlockedEnchantments = ?, unlockedMaterialProcessingTechniqueIds = ?, unlockedRepairTechniqueIds = ?, unlockedReforgeTechniqueIds = ?, guild = ?, knownAdventurers = ?,
+          orders = ?, tutorial = ?, materialKnowledge = ?,
+          materialStudySessions = ?, gameMessages = ?,
+          materialStash = ?, craftV2Persisted = ?,
+          playTime = ?, saveVersion = ?, repairBenchWeaponId = ?, repairTechniqueStageRun = ?,
+          forgottenForgePersist = ?, updatedAt = ?
         WHERE playerId = ?`,
         args: [
           validatedData.player.level,
@@ -218,14 +226,25 @@ export async function POST(request: NextRequest) {
           JSON.stringify(validatedData.unlockedRecipes),
           JSON.stringify(validatedData.recipeSources),
           JSON.stringify(validatedData.unlockedEnchantments),
+          JSON.stringify(validatedData.unlockedMaterialProcessingTechniqueIds),
+          JSON.stringify(validatedData.unlockedRepairTechniqueIds),
+          JSON.stringify(validatedData.unlockedReforgeTechniqueIds),
           JSON.stringify(validatedData.guild),
           JSON.stringify(validatedData.knownAdventurers),
           JSON.stringify(validatedData.orders),
           JSON.stringify(validatedData.tutorial),
           JSON.stringify(validatedData.materialKnowledge),
+          JSON.stringify(validatedData.materialStudySessions),
+          JSON.stringify(validatedData.gameMessages),
+          JSON.stringify(validatedData.materialStash),
           JSON.stringify(validatedData.craftV2Persisted),
           validatedData.playTime,
           validatedData.saveVersion,
+          validatedData.repairBenchWeaponId,
+          validatedData.repairTechniqueStageRun == null
+            ? null
+            : JSON.stringify(validatedData.repairTechniqueStageRun),
+          JSON.stringify(validatedData.forgottenForgePersist),
           now,
           playerId,
         ],
@@ -237,9 +256,12 @@ export async function POST(request: NextRequest) {
           id, playerId, level, experience, fame,
           resources, statistics, workers, buildings, maxWorkers,
           activeCraft, activeRefining, weaponInventory, unlockedRecipes,
-          recipeSources, unlockedEnchantments, guild, knownAdventurers,
-          orders, tutorial, materialKnowledge, craftV2Persisted, playTime, saveVersion, updatedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          recipeSources, unlockedEnchantments, unlockedMaterialProcessingTechniqueIds, unlockedRepairTechniqueIds, unlockedReforgeTechniqueIds, guild, knownAdventurers,
+          orders, tutorial, materialKnowledge,
+          materialStudySessions, gameMessages,
+          materialStash, craftV2Persisted, playTime, saveVersion, repairBenchWeaponId, repairTechniqueStageRun,
+          forgottenForgePersist, updatedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
      
         args: [
           randomUUID(),
@@ -258,14 +280,25 @@ export async function POST(request: NextRequest) {
           JSON.stringify(validatedData.unlockedRecipes),
           JSON.stringify(validatedData.recipeSources),
           JSON.stringify(validatedData.unlockedEnchantments),
+          JSON.stringify(validatedData.unlockedMaterialProcessingTechniqueIds),
+          JSON.stringify(validatedData.unlockedRepairTechniqueIds),
+          JSON.stringify(validatedData.unlockedReforgeTechniqueIds),
           JSON.stringify(validatedData.guild),
           JSON.stringify(validatedData.knownAdventurers),
           JSON.stringify(validatedData.orders),
           JSON.stringify(validatedData.tutorial),
           JSON.stringify(validatedData.materialKnowledge),
+          JSON.stringify(validatedData.materialStudySessions),
+          JSON.stringify(validatedData.gameMessages),
+          JSON.stringify(validatedData.materialStash),
           JSON.stringify(validatedData.craftV2Persisted),
           validatedData.playTime,
           validatedData.saveVersion,
+          validatedData.repairBenchWeaponId,
+          validatedData.repairTechniqueStageRun == null
+            ? null
+            : JSON.stringify(validatedData.repairTechniqueStageRun),
+          JSON.stringify(validatedData.forgottenForgePersist),
           now,
         ],
       })
@@ -352,6 +385,27 @@ export async function DELETE(request: NextRequest) {
 // ================================
 
 function formatSaveData(row: Record<string, unknown>) {
+  const weaponInventory = safeJsonParse(row['weaponInventory'] as string, {
+    weapons: [],
+  }) as { weapons?: { id?: string }[] }
+  const weapons = weaponInventory.weapons ?? []
+  const repairBenchWeaponId = normalizeRepairBenchWeaponIdFromSave(
+    row['repairBenchWeaponId'],
+    weapons
+  )
+  const rawRun = row['repairTechniqueStageRun']
+  const parsedRun =
+    rawRun != null && rawRun !== ''
+      ? typeof rawRun === 'string'
+        ? safeJsonParse(rawRun as string, null)
+        : rawRun
+      : null
+  const repairTechniqueStageRun = normalizeRepairTechniqueStageRunFromSave(
+    parsedRun,
+    repairBenchWeaponId,
+    weapons
+  )
+
   return {
     id: row['id'],
     playerId: row['playerId'],
@@ -365,21 +419,46 @@ function formatSaveData(row: Record<string, unknown>) {
     maxWorkers: row['maxWorkers'],
     activeCraft: safeJsonParse(row['activeCraft'] as string, {}),
     activeRefining: safeJsonParse(row['activeRefining'] as string, {}),
-    weaponInventory: safeJsonParse(row['weaponInventory'] as string, { weapons: [] }),
+    weaponInventory,
     unlockedRecipes: safeJsonParse(row['unlockedRecipes'] as string, {
       weaponRecipes: [],
       refiningRecipes: [],
     }),
     recipeSources: safeJsonParse(row['recipeSources'] as string, []),
     unlockedEnchantments: safeJsonParse(row['unlockedEnchantments'] as string, []),
+    unlockedMaterialProcessingTechniqueIds: safeJsonParse(
+      row['unlockedMaterialProcessingTechniqueIds'] as string,
+      []
+    ),
+    unlockedRepairTechniqueIds: safeJsonParse(row['unlockedRepairTechniqueIds'] as string, []),
+    unlockedReforgeTechniqueIds: safeJsonParse(row['unlockedReforgeTechniqueIds'] as string, []),
     guild: safeJsonParse(row['guild'] as string, {}),
     knownAdventurers: safeJsonParse(row['knownAdventurers'] as string, []),
     orders: safeJsonParse(row['orders'] as string, {}),
     tutorial: safeJsonParse(row['tutorial'] as string, { isActive: true, currentStep: 0 }),
     materialKnowledge: safeJsonParse(row['materialKnowledge'] as string, {}),
+    materialStudySessions: safeJsonParse(row['materialStudySessions'] as string, []),
+    gameMessages: safeJsonParse(row['gameMessages'] as string, []),
+    materialStash: safeJsonParse(row['materialStash'] as string, {}),
     craftV2Persisted: safeJsonParse(row['craftV2Persisted'] as string, defaultCraftV2Persisted),
     playTime: row['playTime'],
     saveVersion: row['saveVersion'],
+    repairBenchWeaponId,
+    repairTechniqueStageRun,
+    forgottenForgePersist: normalizeForgottenForgePersistFromSave(
+      (() => {
+        const raw = row['forgottenForgePersist']
+        if (raw == null || raw === '') return null
+        if (typeof raw === 'string') {
+          try {
+            return JSON.parse(raw) as unknown
+          } catch {
+            return null
+          }
+        }
+        return raw
+      })()
+    ),
     createdAt: row['createdAt'],
     updatedAt: row['updatedAt'],
     serverTimestamp: row['updatedAt'],
@@ -452,9 +531,12 @@ async function createNewSave(db: ReturnType<typeof getDb>, playerId: string) {
       id, playerId, level, experience, fame,
       resources, statistics, workers, buildings, maxWorkers,
       activeCraft, activeRefining, weaponInventory, unlockedRecipes,
-      recipeSources, unlockedEnchantments, guild, knownAdventurers,
-      orders, tutorial, materialKnowledge, craftV2Persisted, playTime, saveVersion, updatedAt
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      recipeSources, unlockedEnchantments, unlockedMaterialProcessingTechniqueIds, unlockedRepairTechniqueIds, unlockedReforgeTechniqueIds, guild, knownAdventurers,
+      orders, tutorial, materialKnowledge,
+      materialStudySessions, gameMessages,
+      materialStash, craftV2Persisted, playTime, saveVersion, repairBenchWeaponId, repairTechniqueStageRun,
+      forgottenForgePersist, updatedAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       id,
       playerId,
@@ -465,14 +547,19 @@ async function createNewSave(db: ReturnType<typeof getDb>, playerId: string) {
       '{}', '{}',
       '{"weapons":[]}',
       '{"weaponRecipes":["sword_iron","dagger_iron","sword_bronze","dagger_bronze","sword_copper","dagger_copper"],"refiningRecipes":[]}',
-      '[]', '[]',
+      '[]', '[]', '[]', '[]', '[]',
       JSON.stringify(initialGuild),
       '[]',
       '{}',
       '{"isActive":true,"currentStep":0}',
       '{}',
+      '[]',
+      '[]',
+      '{}',
       JSON.stringify(defaultCraftV2Persisted),
-      0, 2, now,
+      0, 2, null, null,
+      null,
+      now,
     ],
   })
 
@@ -487,6 +574,20 @@ async function createNewSave(db: ReturnType<typeof getDb>, playerId: string) {
 
 function validateSaveData(data: Record<string, unknown>) {
   const player = data['player'] as Record<string, unknown> | undefined
+
+  const weaponInventoryRaw =
+    (data['weaponInventory'] as { weapons?: { id?: string }[] } | undefined) || { weapons: [] }
+  const weapons = weaponInventoryRaw.weapons ?? []
+
+  const repairBenchWeaponId = normalizeRepairBenchWeaponIdFromSave(
+    data['repairBenchWeaponId'],
+    weapons
+  )
+  const repairTechniqueStageRun = normalizeRepairTechniqueStageRunFromSave(
+    data['repairTechniqueStageRun'],
+    repairBenchWeaponId,
+    weapons
+  )
 
   const craftV2Persisted = mergeCraftV2PersistedFromSave(
     data['craftV2Persisted'],
@@ -508,16 +609,47 @@ function validateSaveData(data: Record<string, unknown>) {
     activeCraft: activeCraftNormalized,
     craftV2Persisted,
     activeRefining: (data['activeRefining'] as Record<string, unknown>) || {},
-    weaponInventory: (data['weaponInventory'] as Record<string, unknown>) || { weapons: [] },
+    weaponInventory: (weaponInventoryRaw as Record<string, unknown>) || { weapons: [] },
+    repairBenchWeaponId,
+    repairTechniqueStageRun,
     unlockedRecipes: (data['unlockedRecipes'] as Record<string, unknown>) || { weaponRecipes: [], refiningRecipes: [] },
     recipeSources: (data['recipeSources'] as unknown[]) || [],
     unlockedEnchantments: (data['unlockedEnchantments'] as unknown[]) || [],
+    unlockedMaterialProcessingTechniqueIds: Array.isArray(
+      data['unlockedMaterialProcessingTechniqueIds']
+    )
+      ? (data['unlockedMaterialProcessingTechniqueIds'] as string[])
+      : [],
+    unlockedRepairTechniqueIds: Array.isArray(data['unlockedRepairTechniqueIds'])
+      ? (data['unlockedRepairTechniqueIds'] as string[])
+      : [],
+    unlockedReforgeTechniqueIds: Array.isArray(data['unlockedReforgeTechniqueIds'])
+      ? (data['unlockedReforgeTechniqueIds'] as string[])
+      : [],
     guild: (data['guild'] as Record<string, unknown>) || {},
     knownAdventurers: (data['knownAdventurers'] as unknown[]) || [],
     orders: (data['orders'] as Record<string, unknown>) || {},
     tutorial: (data['tutorial'] as Record<string, unknown>) || { isActive: true, currentStep: 0 },
     materialKnowledge: (data['materialKnowledge'] as Record<string, unknown>) || {},
+    materialStudySessions: Array.isArray(data['materialStudySessions'])
+      ? data['materialStudySessions']
+      : [],
+    gameMessages: Array.isArray(data['gameMessages']) ? data['gameMessages'] : [],
+    materialStash: normalizeMaterialStashPayload(data['materialStash']),
     playTime: Math.max(0, Number(data['playTime']) || 0),
     saveVersion: Number(data['saveVersion']) || 2,
+    forgottenForgePersist: normalizeForgottenForgePersistFromSave(data['forgottenForgePersist']),
   }
+}
+
+function normalizeMaterialStashPayload(raw: unknown): Record<string, number> {
+  if (raw == null || typeof raw !== 'object' || Array.isArray(raw)) return {}
+  const out: Record<string, number> = {}
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    const n = Number(v)
+    if (!Number.isFinite(n)) continue
+    const q = Math.max(0, Math.floor(n))
+    if (q > 0) out[k] = q
+  }
+  return out
 }

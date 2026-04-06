@@ -4,7 +4,7 @@
 
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Shuffle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -46,9 +46,9 @@ export function ExpeditionLocationMissionBoard({
 }: ExpeditionLocationMissionBoardProps) {
   const [tierFilter, setTierFilter] = useState<LocationTierFilter>(1)
   const [poolNonce, setPoolNonce] = useState(0)
-  const [picked, setPicked] = useState<ExpeditionTemplate[]>([])
 
-  useEffect(() => {
+  const picked = useMemo(() => {
+    void poolNonce
     const locs = getAvailableLocations(guildLevel).filter((l) => l.tier === tierFilter)
     const templates: ExpeditionTemplate[] = []
     for (const loc of locs) {
@@ -56,7 +56,7 @@ export function ExpeditionLocationMissionBoard({
         templates.push(missionModuleToCalculatorTemplate(m))
       }
     }
-    setPicked(shufflePick(templates, 3))
+    return shufflePick(templates, 3)
   }, [guildLevel, tierFilter, poolNonce])
 
   useEffect(() => {

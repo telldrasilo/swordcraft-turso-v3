@@ -12,17 +12,17 @@ import { ChevronDown, ChevronUp } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { allMaterials } from '@/data/materials'
-import { getMaterialsForPart } from '@/data/materials'
+import { getForgePartMaterialCandidates } from '@/lib/materials/forge-part-material-candidates'
 import type { MaterialNode } from '@/types/materials'
 import type { WeaponRecipe } from '@/types/craft-v2'
 import type { Resources } from '@/store/slices/resources-slice'
 import type { MaterialKnowledge } from '@/types/materials/knowledge'
 import { 
-  filterDiscoveredMaterials, 
   smartSortMaterials,
   isMaterialAvailable,
   getMaterialQuantity,
 } from '@/lib/craft/material-sorting'
+import { filterForgeExpertiseMaterials } from '@/lib/craft/material-forge-access'
 import { calculateMaterialComparison } from '@/lib/craft/material-preview'
 import { MaterialPreviewTooltip } from './MaterialPreviewTooltip'
 import { 
@@ -31,6 +31,7 @@ import {
   RARITY_LABELS,
 } from '@/types/materials/material-core'
 import { 
+  canCatalogMaterialSpendInForgeCraft,
   getResourceKeyForMaterial, 
 } from '@/lib/craft/inventory-check'
 import { getMaterialPrice } from '@/data/material-shop'
@@ -47,11 +48,15 @@ interface PartMaterialSelectorProps {
   
   // Новые props:
   inventory: Resources
+  /** Склад экспедиций; учитывается вместе с inventory для отображения и сортировки */
+  materialStash?: Record<string, number>
   playerLevel: number
   recipe: WeaponRecipe
   knowledge: Record<string, MaterialKnowledge>
   materialPrices?: Record<string, number>  // цены покупки
   currentMaterials?: Record<string, string>  // выбранные материалы для других частей
+  /** Только материалы, которых достаточно на складе для этой части (B2) */
+  onlyInStock?: boolean
 }
 
 const categoryIcons: Record<string, string> = {
@@ -98,11 +103,13 @@ export function PartMaterialSelector({
   selectedMaterial,
   onSelect,
   inventory,
+  materialStash = {},
   playerLevel,
   recipe,
   knowledge,
   materialPrices,
   currentMaterials: _currentMaterials = {},
+  onlyInStock = false,
 }: PartMaterialSelectorProps) {
   const [expanded, setExpanded] = useState(false)
   
@@ -112,16 +119,24 @@ export function PartMaterialSelector({
   const secondaryProperty = recipePart?.secondaryProperty
   
   // Фильтруем и сортируем материалы (без useMemo — корректнее для React Compiler при мутабельном recipe)
-  const allFiltered = getMaterialsForPart(partId, allowedCategories)
-  const discovered = filterDiscoveredMaterials(allFiltered, knowledge)
-  const materials = smartSortMaterials(discovered, {
+  const allFiltered = getForgePartMaterialCandidates(partId, allowedCategories)
+  const spendableOnly = allFiltered.filter(m => canCatalogMaterialSpendInForgeCraft(m.identity.id))
+  const forgeUnlocked = filterForgeExpertiseMaterials(spendableOnly, knowledge)
+  const recipePartQty = recipePart?.minQuantity ?? 1
+  const sorted = smartSortMaterials(forgeUnlocked, {
     inventory,
+    materialStash,
     knowledge,
     recipe,
     partId,
     blacksmithLevel: playerLevel,
     dominantProperty,
   })
+  const materials = onlyInStock
+    ? sorted.filter(
+        m => getMaterialQuantity(m, inventory, materialStash) >= recipePartQty
+      )
+    : sorted
   
   // Текущий выбранный материал
   const selected = useMemo(() => {
@@ -165,8 +180,8 @@ export function PartMaterialSelector({
             <div className="p-2 grid grid-cols-2 gap-2 bg-stone-900/50">
               {materials.map((material: MaterialNode) => {
                 const isSelected = selectedMaterial === material.identity.id
-                const isAvailable = isMaterialAvailable(material, inventory)
-                const quantity = getMaterialQuantity(material, inventory)
+                const isAvailable = isMaterialAvailable(material, inventory, materialStash)
+                const quantity = getMaterialQuantity(material, inventory, materialStash)
                 const resourceKey = getResourceKeyForMaterial(material.identity.id)
                 // Используем переданные цены или вычисляем
                 const price = materialPrices?.[material.identity.id] || 

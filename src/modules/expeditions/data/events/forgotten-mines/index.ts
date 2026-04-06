@@ -7,11 +7,12 @@
  * - ancient.ts — древние механизмы и стражи (4 события)
  * - depth.ts — глубины и существа (4 события)
  *
- * Итого: 8 событий для forgotten_mines
+ * Итого: 10 событий для forgotten_mines
  */
 
 import { forgottenAncientEvents } from './ancient';
 import { forgottenDepthEvents } from './depth';
+import { forgottenElementalEvents } from './elemental';
 
 // ============================================================================
 // ЭКСПОРТ ВСЕХ СОБЫТИЙ
@@ -43,11 +44,12 @@ export {
 export const forgottenMinesEvents = [
   ...forgottenAncientEvents,
   ...forgottenDepthEvents,
+  ...forgottenElementalEvents,
 ];
 
 // Статистика событий локации
 export const forgottenMinesEventsStats = {
-  total: 8,
+  total: 10,
   locationId: 'forgotten_mines',
   byType: {
     positive: 0,

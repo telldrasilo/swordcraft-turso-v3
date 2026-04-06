@@ -41,6 +41,9 @@ model GameSave {
   unlockedRecipes      String @default("{\"weaponRecipes\":[\"sword_iron\",\"dagger_iron\",\"sword_bronze\",\"dagger_bronze\",\"sword_copper\",\"dagger_copper\"],\"refiningRecipes\":[]}")
   recipeSources        String @default("[]")
   unlockedEnchantments String @default("[]")
+  unlockedMaterialProcessingTechniqueIds String @default("[]")
+  unlockedRepairTechniqueIds String @default("[]")
+  unlockedReforgeTechniqueIds String @default("[]")
 
   // === ГИЛЬДИЯ ===
   guild             String @default("{}")
@@ -55,8 +58,23 @@ model GameSave {
   // === ЗНАНИЯ МАТЕРИАЛОВ (энциклопедия / крафт) ===
   materialKnowledge String @default("{}")
 
+  // === B1: сессии изучения и лента (синхрон с Turso ALTER) ===
+  materialStudySessions String @default("[]")
+  gameMessages          String @default("[]")
+
+  // === Склад материалов по MaterialId (фаза унификации) — синхрон с Turso ALTER materialStash ===
+  materialStash String @default("{}")
+
   // === КРАФТ V2 (план, этапы, превью) — синхрон с Turso ALTER craftV2Persisted ===
   craftV2Persisted String @default("{}")
+
+  // === Ремонт: слот верстака (id оружия) — синхрон с Turso ALTER repairBenchWeaponId ===
+  repairBenchWeaponId String?
+  // JSON активного прогона этапов ремонта — синхрон с Turso ALTER repairTechniqueStageRun ===
+  repairTechniqueStageRun String?
+
+  /// JSON: квест «Эхо забытой кузни» + архивариус + флаг алтаря (синхрон с Turso ALTER forgottenForgePersist)
+  forgottenForgePersist String?
 
   // === МЕТАДАННЫЕ ===
   createdAt   DateTime @default(now())

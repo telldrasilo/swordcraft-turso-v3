@@ -13,19 +13,19 @@
  *   - combat.ts — боевые (3)
  *   - rest.ts — отдых (3)
  *   - supernatural.ts — сверхъестественное (4)
- * - oak-grove-outskirts/ — Окраины Дубовой Рощи, Tier 1 (8 событий)
- * - red-stone-mines/ — Рудники Красного Камня, Tier 1 (8 событий)
- * - misty-lowlands/ — Туманные Низины, Tier 1 (8 событий)
- * - silver-grove/ — Серебряный Бор, Tier 2 (8 событий)
- * - forgotten-mines/ — Забытые Шахты, Tier 2 (8 событий)
- * - rotten-swamp/ — Гнилое Болото, Tier 2 (8 событий)
- * - frost-iron-ridge/ — Кряж Морозного Железа, Tier 3 (4 события)
- * - ash-wastes/ — Пепельные Пустоши, Tier 3 (4 события)
- * - whispering-forest/ — Шепчущий Лес, Tier 3 (4 события)
- * - dragon-scars/ — Драконьи Шрамы, Tier 4 (4 события)
- * - depths-of-the-world/ — Глубины Подземелий, Tier 4 (4 события)
+ * - oak-grove-outskirts/ — Окраины Дубовой Рощи, Tier 1 (10 событий)
+ * - red-stone-mines/ — Рудники Красного Камня, Tier 1 (11 событий)
+ * - misty-lowlands/ — Туманные Низины, Tier 1 (11 событий)
+ * - silver-grove/ — Серебряный Бор, Tier 2 (10 событий)
+ * - forgotten-mines/ — Забытые Шахты, Tier 2 (10 событий)
+ * - rotten-swamp/ — Гнилое Болото, Tier 2 (11 событий)
+ * - frost-iron-ridge/ — Кряж Морозного Железа, Tier 3 (5 событий)
+ * - ash-wastes/ — Пепельные Пустоши, Tier 3 (7 событий)
+ * - whispering-forest/ — Шепчущий Лес, Tier 3 (6 событий)
+ * - dragon-scars/ — Драконьи Шрамы, Tier 4 (6 событий)
+ * - depths-of-the-world/ — Глубины Подземелий, Tier 4 (6 событий)
  *
- * Итого: 108 событий
+ * Итого: 133 событий
  */
 
 import type { LocationType } from '../../types';

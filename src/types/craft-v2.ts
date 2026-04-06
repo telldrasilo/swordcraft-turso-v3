@@ -7,6 +7,17 @@
 
 import type { QualityGrade } from './shared/quality'
 import type { WeaponEnchantment } from './shared/enchantment'
+import type {
+  EnchantmentSecondBranchMode,
+  EnchantmentThirdBranchMode,
+  EnchantmentTreeStep,
+  WeaponAwakeningLevel,
+} from './weapon-enchantment-tree'
+import type {
+  ActiveDamageTagEntry,
+  WeaponLegacy,
+  WeaponRepairCondition,
+} from './weapon-damage'
 import {
   QUALITY_GRADES_V2 as QUALITY_GRADES_CONFIG,
   getQualityGradeV2 as getQualityGrade,
@@ -186,6 +197,11 @@ export interface CraftStageInstance {
   // Материал и цель
   materialId?: string             // какой материал обрабатывается
   target?: string                 // 'blade', 'guard', 'grip', 'pommel', 'all'
+  /** §6.13: привязка к части плана и каноническому materialId */
+  primaryPartId?: string
+  primaryMaterialId?: string
+  stageSource?: CraftStageSource
+  techniqueId?: string
   
   // Время
   baseDuration: number
@@ -337,11 +353,21 @@ export interface WeaponRecipe {
   cost?: Record<string, number>
 }
 
+/** Источник этапа в таймлайне Craft v2 (§6.13). */
+export type CraftStageSource = 'recipe' | 'processing_technique' | 'global'
+
 /** Конфигурация этапа в рецепте */
 export interface RecipeStageConfig {
   stageType: string               // ID из библиотеки этапов
-  material?: string               // какой материал используется
+  material?: string               // какой материал используется (id части)
   target?: string                 // над какой частью
+  /** Подмена базовой длительности (сек), напр. от техники обработки в process-generator */
+  baseDurationOverride?: number
+  /** §6.13: часть и материал плана для времени/метаданных экземпляра */
+  primaryPartId?: string
+  primaryMaterialId?: string
+  stageSource?: CraftStageSource
+  techniqueId?: string
 }
 
 // ================================
@@ -356,12 +382,27 @@ export interface MaterialAssignment {
   }
 }
 
+/** Режим снабжения части: слиток со склада или руда + плавка в кузне (фаза C). */
+export type PartMaterialSupplyMode = 'direct' | 'ore_smelt'
+
+export interface PartMaterialSupplyEntry {
+  mode: PartMaterialSupplyMode
+  /** ID из реестра `material-processing-techniques` */
+  processingTechniqueId?: string
+}
+
 /** План крафта (перед запуском) */
 export interface CraftPlan {
   recipeId: string
   materials: MaterialAssignment
   techniques: string[]            // ID выбранных техник
   shouldPurchaseMaterials: boolean // Нужно ли закупать материалы
+
+  /**
+   * Для части: явный путь материала (например плавка железа из руды).
+   * Нет ключа → `direct` (как выбранный каталожный материал).
+   */
+  partMaterialSupply?: Record<string, PartMaterialSupplyEntry>
 
   // Предварительный расчёт
   estimatedTime: number
@@ -377,6 +418,8 @@ export interface WeaponStats {
   weight: number
   balance: number
   soulCapacity: number
+  /** Множитель награды души войны (Soul Potential); опционально в прогнозе/крафте. */
+  soulPotential?: number
   repairPotential: number
   enchantSlots: number
   enchantPower: number
@@ -489,11 +532,26 @@ export interface CraftedWeaponV2 {
   
   // Душа Войны
   warSoul: number
+  /** Legacy: раньше — потолок пула; при неограниченном пуле — очень большое число. */
   maxWarSoul: number
-  
+  /** Множитель награды души войны за миссию (Soul Potential). Старые сейвы: по умолчанию 1. */
+  soulPotential?: number
+
   // Зачарования
   enchantments?: WeaponEnchantment[]
-  
+
+  /**
+   * Новый модуль зачарований (канон: ENCHANTMENT_AWAKENING_CONCEPT).
+   * До первого пробуждения поля отсутствуют или `awakeningLevel === 0`.
+   */
+  awakeningLevel?: WeaponAwakeningLevel
+  /** Шаги древа перков (после алтаря и пробуждений). */
+  enchantmentTreeSteps?: EnchantmentTreeStep[]
+  /** Зафиксировано при втором пробуждении (один раз на экземпляр). */
+  secondBranchMode?: EnchantmentSecondBranchMode
+  /** Зафиксировано при третьем пробуждении (один раз на экземпляр). */
+  thirdBranchMode?: EnchantmentThirdBranchMode
+
   // История
   createdAt: number
   adventureCount: number
@@ -523,6 +581,58 @@ export interface CraftedWeaponV2 {
 
   /** Список использованных техник при создании оружия */
   techniquesUsed: string[]
+
+  // ================================
+  // ПОВРЕЖДЕНИЯ И НАСЛЕДИЕ КЛИНКА (фаза 6)
+  // ================================
+
+  /** Активные видимые повреждения (снимаются полноценной починкой) */
+  activeDamageTags: ActiveDamageTagEntry[]
+
+  /** Скрытое наследие для зачарований; не показывается как список «поломок» */
+  weaponLegacy: WeaponLegacy
+
+  /** Для заказов NPC и валидации экспедиции (дефолт ok) */
+  repairCondition: WeaponRepairCondition
+
+  /**
+   * Авто-ремонт (фаза 3): после этого времени можно забрать результат со «слабой» починкой.
+   * Без поля — очереди нет.
+   */
+  autoRepairReadyAt?: number
+  /**
+   * Режим «готово при заходе в кузницу»: до `settleAutoRepairForgeVisitReady` на экране кузницы.
+   */
+  autoRepairAwaitingForgeVisit?: boolean
+
+  /**
+   * Перековка (вкладка «Перековка»): баффы от души и пробуждение шрамов.
+   * @see docs/systems/ENCHANTMENT_MODULE_PHASE1.md
+   */
+  weaponReforge?: WeaponReforgeState
+}
+
+/**
+ * Состояние перековки на экземпляре (пре-алтарь, фаза 1).
+ */
+export interface WeaponReforgeState {
+  /**
+   * Базовая атака до накопленных баффов перековки (снимок при первом стаке buff attack).
+   * Используется для линейной лестницы % без дрейфа от округлений.
+   */
+  attackRefBase?: number
+  /** Стаки баффа к атаке (каждый стак +N% к `attackRefBase`). */
+  attackBonusStacks?: number
+  /** Аналогично для max прочности. */
+  maxDurabilityRefBase?: number
+  maxDurabilityBonusStacks?: number
+  /** Помеченные пробуждением шрамы (ключи вида `physical:tagId` / `elemental:axis`). */
+  awakenedScarKeys?: Record<string, boolean>
+  /**
+   * Фаза 1: после **одного** успешного пробуждения шрама перековкой — дальнейшие техники
+   * `awakenScar` на этом экземпляре заблокированы (канон ENCHANTMENT_MODULE_PHASE1 §3.2–3.3).
+   */
+  scarAwakeningCompleted?: boolean
 }
 
 // ================================

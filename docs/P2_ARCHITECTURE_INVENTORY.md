@@ -3,7 +3,7 @@
 **Статус:** справочный документ для планирования; не подменяет [PROJECT_AUDIT.md](PROJECT_AUDIT.md).  
 **Связь с аудитом:** раздел «P2 — архитектура» в [PROJECT_AUDIT.md](PROJECT_AUDIT.md).
 
-Цель файла — зафиксировать **где** сидит техдолг и **какие задачи** логично ставить в работу, без выполнения рефакторинга в этом изменении.
+**Стратегия рецептов (2026-04, обновлено):** **allRecipes** — только **формы** (`basic_sword`, `long_sword`, `basic_mace`, …). Шаблоны заказов `iron_sword`, `bronze_axe`, … живут в [legacy-recipe-rows.ts](../src/data/recipes/legacy-recipe-rows.ts) и в массиве [weapon-recipes.ts](../src/data/weapon-recipes.ts) (`shapeRecipeId` → id формы v2). Миграция сейва: `STORE_VERSION` 5, [recipe-id-migrate.ts](../src/lib/recipe-id-migrate.ts).
 
 ---
 
@@ -14,7 +14,7 @@
 | Источник | Файл | Тип рецепта | Потребители (ориентир) |
 |----------|------|-------------|-------------------------|
 | **V2** | [src/data/recipes/index.ts](../src/data/recipes/index.ts) | `WeaponRecipe` из `@/types/craft-v2` | `use-craft-v2`, `craft-planner`, `craft-container`, `forge-screen`, `process-generator`, калькуляторы/тесты в `src/lib/craft/` |
-| **Legacy v1** | [src/data/weapon-recipes.ts](../src/data/weapon-recipes.ts) | свой `WeaponRecipe`, `weaponRecipes[]`, константы `qualityGrades`, `weaponTypeStats` | заказы, часть UI, ремонт/стоимости, генератор искателей |
+| **Шаблоны заказов (легаси-строка + shapeRecipeId)** | [src/data/weapon-recipes.ts](../src/data/weapon-recipes.ts) | тип `WeaponRecipe` (другое имя, чем v2): `weaponRecipes[]` из [legacy-recipe-rows.ts](../src/data/recipes/legacy-recipe-rows.ts); метаданные отображения — [`weapon-display-meta`](../src/lib/craft/weapon-display-meta.ts) | заказы, часть UI, ремонт/стоимости |
 
 ### 1.2 Файлы с импортом `@/data/weapon-recipes` (уникальный список)
 
@@ -36,21 +36,15 @@
 - [src/lib/store-utils/repair-utils.ts](../src/lib/store-utils/repair-utils.ts) — `CraftingCost`
 - Тесты: [src/lib/store-utils/order-utils.test.ts](../src/lib/store-utils/order-utils.test.ts), [src/lib/store-utils/order-achievable-utils.test.ts](../src/lib/store-utils/order-achievable-utils.test.ts), [src/lib/craft/inventory-check.test.ts](../src/lib/craft/inventory-check.test.ts)
 
-### 1.2a P2-Craft-01 — матрица ID рецептов (снимок)
+### 1.2a P2-Craft-01 — матрица ID (формы v2 vs шаблоны заказов, 2026-04)
 
-| ID | [initialUnlockedRecipes](../src/store/slices/craft-slice.ts) | [weaponRecipes](../src/data/weapon-recipes.ts) (legacy) | [allRecipes / getRecipeById](../src/data/recipes/index.ts) (v2) | Заметка |
+| ID | [initialUnlockedRecipes](../src/store/slices/craft-slice.ts) | [weaponRecipes](../src/data/weapon-recipes.ts) | [allRecipes / getRecipeById](../src/data/recipes/index.ts) | Заметка |
 |----|:---:|:---:|:---:|---|
-| `basic_sword` | ✅ | ❌ | ✅ | Старт v2; заказы/легаси не содержат железный набор для этого id |
-| `basic_dagger` | ✅ | ❌ | ✅ | То же |
-| `basic_axe` | ✅ | ❌ | ✅ | То же |
-| `iron_sword` … `iron_hammer` (6 шт.) | ✅ | ✅ | ❌ | Только legacy: баланс заказов и `calculateAttack`; в v2 нет зеркальных id |
-| `bronze_sword`, `bronze_axe` | ❌ | ✅ | ❌ | Только legacy |
-| `steel_sword`, `steel_dagger`, `steel_spear` | ❌ | ✅ | ❌ | Только legacy |
-| `silver_sword`, `silver_dagger` | ❌ | ✅ | ❌ | Только legacy |
-| `gold_sword`, `mithril_sword`, `mithril_dagger` | ❌ | ✅ | ❌ | Только legacy |
-| `long_sword`, `battle_axe` | ❌ | ❌ | ✅ | v2 без автоматической разблокировки в стартовом списке |
+| `basic_sword` … `basic_hammer` (6 форм) | ✅ | `shapeRecipeId` у шаблонов | ✅ | Стартовые формы; заказы требуют ту же форму + материал из строки |
+| `iron_*`, `bronze_*`, `steel_*`, … | ❌ | ✅ (`id` строки заказа) | ❌ | Только стоимость/NPC; не существуют в `getRecipeById` |
+| `long_sword`, `battle_axe` | ❌ (магазин / прогресс) | при необходимости — тот же `shapeRecipeId` | ✅ | Доп. формы |
 
-**Вывод:** пересечение по id между стартом и v2 — только `basic_*`. Расхождение с `initialUnlockedRecipes` — набор `iron_*` и др. существует только в legacy; заказы и достижимость пока опираются на [weaponRecipes](src/data/weapon-recipes.ts). Облако/БД по умолчанию наследует те же поля, что и клиентский persist (см. [db.ts](../src/lib/db.ts)); отдельный дефолтный набор рецептов в SQL не дублируется.
+**Вывод:** `getRecipeById` — **только** формы; строки заказов не дублируют v2-рецепты в каталоге.
 
 ---
 
@@ -70,7 +64,7 @@
 
 ## 2. Composed store
 
-- **Файл:** [src/store/game-store-composed.ts](../src/store/game-store-composed.ts) — **~1175 строк** (оценка по состоянию репозитория).
+- **Файл:** [src/store/game-store-composed.ts](../src/store/game-store-composed.ts) — **~1150 строк** (апр. 2026).
 - **Уже вынесено в cross-slice:** [repair-cross-slice.ts](../src/store/cross-slice/repair-cross-slice.ts), [guild-expedition-cross-slice.ts](../src/store/cross-slice/guild-expedition-cross-slice.ts), [order-cross-slice.ts](../src/store/cross-slice/order-cross-slice.ts) (завершение заказа, аванс, истечение).
 - **Жёсткие приведения типов в composed (точки для последующей типизации):** `set as any` / `get as any` при создании slices (~298–317), `set as never` / `get as never` для cross-slice (~545–546), фрагменты с `as any` при сбросе/мердже состояния (~960, 1022, 1067).
 
@@ -89,7 +83,17 @@
 | [lib/loot-integration.ts](../lib/loot-integration.ts) | Корневая заготовка; не в `src/`. |
 | [docs/Random_gen/](../docs/Random_gen/) | Черновики; самодостаточные относительные импорты внутри каталога. |
 
-**P2-Repo-01 (итог):** приложение не должно импортировать эти пути как `@/`; консолидация — перенос в `src/` при подключении лута к рантайму или удаление дубликатов после миграции.
+**P2-Repo-01 (инвентаризация импортов, 2026-04):** ниже — кто тянет корень **вне `src/`** (не через `@/`).
+
+| Путь | Кто импортирует (вне `src/`) |
+|------|------------------------------|
+| [data/knowledge-discoveries.ts](../data/knowledge-discoveries.ts) | сам файл тянет [types/expedition-loot.types.ts](../types/expedition-loot.types.ts) |
+| [types/expedition-loot.types.ts](../types/expedition-loot.types.ts) | [data/knowledge-discoveries.ts](../data/knowledge-discoveries.ts), [lib/loot-integration.ts](../lib/loot-integration.ts), [examples/loot-usage.ts](../examples/loot-usage.ts), дерево [docs/Random_gen/](../docs/Random_gen/), [src/backup/unused-root-files/](../src/backup/unused-root-files/) |
+| [lib/loot-integration.ts](../lib/loot-integration.ts) | только типы из корневого `types/` |
+
+**Итог:** в **runtime приложения** (`src/app`, `src/components`, …) импортов на эти корневые пути **нет**; живая игра — `src/types` + калькуляторы. Консолидация — по мере подключения лута или удаление бэкапов/`examples`.
+
+**P2-Repo-01 (цель):** приложение не должно импортировать эти пути как `@/`; перенос в `src/` при подключении лута к рантайму или удаление дубликатов после миграции.
 
 ---
 
@@ -110,16 +114,34 @@
 
 ### Крафт и типы
 
-- **P2-Craft-01** — Матрица соответствия ID рецептов: `initialUnlockedRecipes` / облако / `weaponRecipes` (v1) vs `allRecipes` (v2); устранить противоречия и мёртвые id.
-- **P2-Craft-02** — Заказы: [order-achievable-utils.ts](../src/lib/store-utils/order-achievable-utils.ts), [order-utils.ts](../src/lib/store-utils/order-utils.ts) — миграция с legacy `WeaponRecipe` на v2 или явный адаптер v1↔v2.
-- **P2-Craft-03** — Вынести `qualityGrades`, `weaponTypeStats`, `getQualityGrade` из legacy в нейтральный модуль (`src/types` или `src/lib/craft`) и подключать UI без `weapon-recipes.ts` где возможно.
+- **План развития крафта (материалы, экспертиза, техники):** [CRAFT_SYSTEM_ROADMAP.md](systems/CRAFT_SYSTEM_ROADMAP.md) — фазы **A–E**, порядок внедрения и промежуточное видение — **§5.1**.
+
+#### Чеклист CRAFT_SYSTEM_ROADMAP (идентификаторы для трекинга)
+
+Рекомендуемая цепочка: **A → B1 → B2 → C → D → E** (подробности — в roadmap §5.1). Статусы в таблице не ведутся в этом файле; галочки — в Issue/PR или у команды.
+
+| ID | Ссылка на roadmap | Итог / критерий (кратко) |
+|----|-------------------|---------------------------|
+| **P2-CraftRm-A** | Фаза A | Селектор части: только каноничные `materialId` нужной **стадии**; сырьё не как финал части (см. §6.10). |
+| **P2-CraftRm-B1** | Фаза B1 | Ворота экспертизы; энциклопедия «Изучить»; туториал → 10% на набор §6.1; слоты/рабочие/риск/сообщения; заготовка событий под чат §6.8. |
+| **P2-CraftRm-B2** | Фаза B2 | Экспертиза от крафта + DR; вехи 80/100; попап при заборе §6.5; переключатель списка §6.2; ролевые правила материалов. |
+| **P2-CraftRm-C** | Фаза C | MVP цепочки техники (руда→слиток **или** слиток со склада §6.6); `CraftPlan` + cost; **без E** — только логистика расхода, без этапов техник в UI процесса. |
+| **P2-CraftRm-D** | Фаза D | Реестр техник, разблокировки; **валидатор совместимости** §6.4 п. 10. |
+| **P2-CraftRm-E** | Фаза E | Этапы техник в «Крафт в процессе» + время; `outcomeModifiers` и слияние с прогнозом §6.12. |
+| **P2-CraftRm-X** | Вне A–E | Отложено: полный UI глобального чата §6.8; кожа `raw_leather` в рецептах частей §6.1; доработка заказов §6.7. |
+
+Связь с облаком и сейвом при очереди изучения / расширении плана — **P2-Save-01** + чеклист [`cloud-save-feature`](../src/lib/cloud-save-feature.ts).
+
+- **P2-Craft-01** — **обновлено 2026-04:** формы только в `allRecipes`; шаблоны заказов — `weaponRecipes` + §1.2a; дальше — баланс/уникальные `recipeId` в [`recipe-shop.ts`](../src/data/recipe-shop.ts).
+- **P2-Craft-02** — Заказы: строки `iron_*` / материал в шаблоне; крафт — `shapeRecipeId` + план v2 (см. [`order-achievable-utils.ts`](../src/lib/store-utils/order-achievable-utils.ts)).
+- **P2-Craft-03** — **`qualityGrades` / weaponTypeStats** — см. [weapon-display-meta.ts](../src/lib/craft/weapon-display-meta.ts); дальше — убрать лишние импорты `weapon-recipes` в UI, где нужны только метаданные.
 - **P2-Craft-04** — Упростить модель **активного крафта**: единый источник правды (`ActiveCraftV2` + slice/cleanup legacy `ActiveCraft` в persist и API save).
 - **P2-Craft-05** — Зафиксировать в [docs/04_TYPES_SYSTEM.md](04_TYPES_SYSTEM.md) статус [src/types/craft.ts](../src/types/craft.ts) vs [craft-v2.ts](../src/types/craft-v2.ts) (deprecated / зона только orders / и т.д.).
 - **P2-Craft-06** — [weapon-card.tsx](../src/components/ui/weapon-card.tsx): тип `WeaponCardWeapon` (legacy + v2 поля) — свести к `CraftedWeaponV2` + узкие расширения для UI.
 
 ### Store и архитектура
 
-- **P2-Store-01** — Вынести из `game-store-composed` координацию **заказов** (как минимум то, что трогает несколько слайсов и ресурсы) в `src/store/cross-slice/` по аналогии с ремонтом/экспедицией.
+- **P2-Store-01** — ~~Вынести координацию заказов~~ **сделано:** [order-cross-slice.ts](../src/store/cross-slice/order-cross-slice.ts); остаточная склейка в composed.
 - **P2-Store-02** — Исследование: типизированная сборка Zustand-слайсов без `set as any` / `get as any` (может потребовать общий тип `GameStore` до объявления slices).
 - **P2-Store-03** — Точечный smoke/integration: «инициализация store → одно cross-slice действие → инварианты» (можно позже связать с P3 E2E).
 
@@ -130,11 +152,12 @@
 
 ### Персистентность и сейв
 
-- **P2-Save-01** — Согласовать схему `activeCraft` в [save-payload-schema.ts](../src/lib/save-payload-schema.ts), [api/save/route.ts](../src/app/api/save/route.ts) и клиентском зеркале [use-cloud-save.ts](../src/hooks/use-cloud-save.ts) с финальной моделью v2.
+- **P2-Save-01** — Согласовать схему `activeCraft` в [save-payload-schema.ts](../src/lib/save-payload-schema.ts), [api/save/route.ts](../src/app/api/save/route.ts) и клиентском зеркале [use-cloud-save.ts](../src/hooks/use-cloud-save.ts) с финальной моделью v2. (**2026-04:** расширение каталога id рецептов в `unlockedRecipes` **без** смены формы полей Zod не потребовало правок.)
 
 ---
 
 ## 6. Следующий шаг
 
-1. Выбрать 1–2 задачи из бэклога (часто первыми идут **P2-Craft-01** + **P2-Save-01** или **P2-Craft-02**).  
-2. После выполнения крупного шага — строка в журнал [PROJECT_AUDIT.md](PROJECT_AUDIT.md) и при необходимости обновление этого файла (счётчики файлов / новые находки).
+1. Дальше по бэклогу: **P2-Save-01** (финальная схема сейва), **P2-Store-02**, вынос refining; рецепты — см. §1.2a и тесты интеграции.  
+2. По системе материалов/экспертизы/техник — последовательность **P2-CraftRm-A** … **E** (таблица выше); **P2-CraftRm-X** не блокирует эту цепочку.
+3. После выполнения крупного шага — строка в журнал [PROJECT_AUDIT.md](PROJECT_AUDIT.md) и при необходимости обновление этого файла (счётчики файлов / новые находки).

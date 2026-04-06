@@ -38,8 +38,13 @@ export function ModifierBreakdown({
 }: ModifierBreakdownProps) {
   // Фильтруем неприменённые модификаторы
   const activeModifiers = modifiers.filter(m => m.value !== 0)
-  
-  if (activeModifiers.length === 0 && !showEmpty) return null
+
+  const hasShell =
+    showEmpty ||
+    activeModifiers.length > 0 ||
+    baseValue !== undefined ||
+    finalValue !== undefined
+  if (!hasShell) return null
   
   const positiveModifiers = activeModifiers.filter(m => m.type === 'positive')
   const negativeModifiers = activeModifiers.filter(m => m.type === 'negative')
@@ -218,6 +223,16 @@ export function FullModifierBreakdown({ calculation, compact = false }: FullModi
           icon="⚔️"
           modifiers={calculation.warSoulModifiers}
           finalValue={calculation.warSoul}
+          compact={compact}
+        />
+      )}
+
+      {calculation.gloryModifiers.length > 0 && (
+        <ModifierBreakdown
+          title="Слава гильдии (при успехе)"
+          icon="🏆"
+          modifiers={calculation.gloryModifiers}
+          finalValue={calculation.guildGloryOnSuccess}
           compact={compact}
         />
       )}

@@ -21,17 +21,16 @@ export const redStoneMines: Location = {
   },
 
   resources: [
-    // Базовые материалы
-    { materialId: 'iron_ore', baseWeight: 100, rarity: 'common', minQuantity: 4, maxQuantity: 10 },
-    { materialId: 'copper_ore', baseWeight: 90, rarity: 'common', minQuantity: 3, maxQuantity: 8 },
+    // Базовые материалы (железо/уголь — приоритет добычи для стартовой шахты)
+    { materialId: 'iron_ore', baseWeight: 130, rarity: 'common', minQuantity: 4, maxQuantity: 10 },
+    { materialId: 'coal', baseWeight: 115, rarity: 'common', minQuantity: 2, maxQuantity: 6 },
+    { materialId: 'copper_ore', baseWeight: 95, rarity: 'common', minQuantity: 3, maxQuantity: 8 },
     { materialId: 'tin_ore', baseWeight: 50, rarity: 'common', minQuantity: 1, maxQuantity: 4 },
-    { materialId: 'coal', baseWeight: 80, rarity: 'common', minQuantity: 2, maxQuantity: 6 },
-    { materialId: 'fieldstone', baseWeight: 120, rarity: 'common', minQuantity: 5, maxQuantity: 15 },
+    { materialId: 'fieldstone', baseWeight: 100, rarity: 'common', minQuantity: 5, maxQuantity: 15 },
     // Новые материалы
     { materialId: 'red_stone', baseWeight: 85, rarity: 'common', minQuantity: 2, maxQuantity: 7 },
     { materialId: 'flint', baseWeight: 70, rarity: 'common', minQuantity: 1, maxQuantity: 5 },
     { materialId: 'clay', baseWeight: 60, rarity: 'common', minQuantity: 2, maxQuantity: 6 },
-    { materialId: 'copper_nuggets', baseWeight: 25, rarity: 'uncommon', minQuantity: 1, maxQuantity: 3 },
   ],
 
   rarityDistribution: { common: 90, uncommon: 10, rare: 0, epic: 0, legendary: 0 },
@@ -85,6 +84,8 @@ export const redStoneMines: Location = {
 Рабочие пробили стену и обнаружили древний туннель, явно не естественного происхождения.
 Стены там гладкие, как полированное стекло, а воздух холодный, как в могиле.
 Двое рабочих уже пропали, когда попытались исследовать проход.`,
+
+  presentElements: ['earth', 'fire', 'air'],
 
   dungeonHook: {
     name: 'Зеркальные залы',

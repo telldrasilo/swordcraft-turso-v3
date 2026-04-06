@@ -11,7 +11,11 @@ import type { ExpeditionEvent } from '@/types/expedition-events'
 import type { ExpeditionDevBalanceTweaks } from '@/types/guild'
 import type { ContractType } from '@/modules/expeditions/data/missions/_mission-template'
 import { getEventById, getLocationById, getMaterialName } from '@/modules/expeditions'
-import { resolveTemplateLoot, applyExpeditionModuleLootMultipliers } from '@/lib/expedition-event-loot'
+import {
+  resolveTemplateLoot,
+  applyExpeditionModuleLootMultipliers,
+  mergeMaterialGrantList,
+} from '@/lib/expedition-event-loot'
 
 interface ExpeditionEventLogProps {
   events: ExpeditionEvent[]
@@ -25,17 +29,9 @@ interface ExpeditionEventLogProps {
   devBalanceTweaks?: ExpeditionDevBalanceTweaks
 }
 
-const EVENT_TYPE_COLORS: Record<string, { bg: string; border: string; text: string }> = {
-  combat: { bg: 'bg-red-900/30', border: 'border-red-700/50', text: 'text-red-300' },
-  discovery: { bg: 'bg-blue-900/30', border: 'border-blue-700/50', text: 'text-blue-300' },
-  social: { bg: 'bg-green-900/30', border: 'border-green-700/50', text: 'text-green-300' },
-  travel: { bg: 'bg-amber-900/30', border: 'border-amber-700/50', text: 'text-amber-300' },
-  danger: { bg: 'bg-orange-900/30', border: 'border-orange-700/50', text: 'text-orange-300' },
-  rest: { bg: 'bg-slate-800/50', border: 'border-slate-600/50', text: 'text-slate-300' },
-  mystery: { bg: 'bg-purple-900/30', border: 'border-purple-700/50', text: 'text-purple-300' },
-  weather: { bg: 'bg-cyan-900/30', border: 'border-cyan-700/50', text: 'text-cyan-300' },
-  treasure: { bg: 'bg-yellow-900/30', border: 'border-yellow-700/50', text: 'text-yellow-300' },
-}
+/** Единый нейтральный стиль строки журнала (SPEC §3.4: одна колонка, без «радуги» по типу). */
+const LOG_ROW_CLASS =
+  'rounded-lg border border-slate-700/70 bg-slate-800/35 hover:bg-slate-800/50'
 
 const EVENT_TYPE_NAMES: Record<string, string> = {
   combat: 'Бой',
@@ -52,11 +48,36 @@ const EVENT_TYPE_NAMES: Record<string, string> = {
 function mergeGrants(
   list: Array<{ materialId: string; quantity: number }>
 ): Array<{ materialId: string; quantity: number }> {
-  const m = new Map<string, number>()
-  for (const g of list) {
-    m.set(g.materialId, (m.get(g.materialId) ?? 0) + g.quantity)
+  return mergeMaterialGrantList(list)
+}
+
+function getAdjustedLootForEvent(
+  event: ExpeditionEvent,
+  location: ReturnType<typeof getLocationById> | undefined,
+  seed0: number,
+  contractType: ContractType | undefined,
+  devBalanceTweaks: ExpeditionDevBalanceTweaks | undefined
+): { materials: Array<{ materialId: string; quantity: number }>; gold: number } | null {
+  const tpl = getEventById(event.id)
+  let bonusGold = 0
+  let materials: Array<{ materialId: string; quantity: number }> = []
+
+  if (event.moduleLootPreview) {
+    materials = event.moduleLootPreview.materialGrants
+    bonusGold = event.moduleLootPreview.bonusGold
+  } else if (location && tpl) {
+    const loot = resolveTemplateLoot(tpl, location, seed0 + event.order)
+    materials = mergeGrants(loot.materialGrants)
+    bonusGold = loot.bonusGold
+  } else {
+    return null
   }
-  return [...m.entries()].map(([materialId, quantity]) => ({ materialId, quantity }))
+
+  if (contractType) {
+    const adj = applyExpeditionModuleLootMultipliers(materials, bonusGold, contractType, devBalanceTweaks)
+    return { materials: adj.materialGrants, gold: adj.bonusGold }
+  }
+  return { materials, gold: bonusGold }
 }
 
 export function ExpeditionEventLog({
@@ -95,23 +116,15 @@ export function ExpeditionEventLog({
   const seed0 = Math.floor(startedAt % 2147483647)
 
   const runLootForVisible = useMemo(() => {
-    if (!location) {
-      return { materials: [] as Array<{ materialId: string; quantity: number }>, gold: 0 }
-    }
     let gold = 0
     const mats: Array<{ materialId: string; quantity: number }> = []
     for (const e of visibleEvents) {
-      const tpl = getEventById(e.id)
-      const loot = resolveTemplateLoot(tpl, location, seed0 + e.order)
-      gold += loot.bonusGold
-      mats.push(...loot.materialGrants)
+      const adj = getAdjustedLootForEvent(e, location, seed0, contractType, devBalanceTweaks)
+      if (!adj) continue
+      gold += adj.gold
+      mats.push(...adj.materials)
     }
-    const merged = mergeGrants(mats)
-    if (contractType) {
-      const adj = applyExpeditionModuleLootMultipliers(merged, gold, contractType, devBalanceTweaks)
-      return { materials: adj.materialGrants, gold: adj.bonusGold }
-    }
-    return { materials: merged, gold }
+    return { materials: mergeGrants(mats), gold }
   }, [visibleEvents, location, seed0, contractType, devBalanceTweaks])
 
   const formatTime = (timestamp: number): string => {
@@ -130,14 +143,14 @@ export function ExpeditionEventLog({
     return (
       <div className="flex flex-wrap gap-1.5">
         {gold > 0 && (
-          <span className="inline-flex items-center gap-1 rounded-md bg-amber-900/40 border border-amber-700/40 px-2 py-0.5 text-amber-200/90">
-            💰 +{gold}
+          <span className="inline-flex items-center gap-1 rounded-md border border-slate-600/60 bg-slate-800/60 px-2 py-0.5 text-slate-200/90 text-[11px]">
+            +{gold} зол.
           </span>
         )}
         {materials.map((g) => (
           <span
             key={g.materialId}
-            className="inline-flex items-center gap-1 rounded-md bg-emerald-900/35 border border-emerald-700/35 px-2 py-0.5 text-emerald-200/90 text-[11px]"
+            className="inline-flex items-center gap-1 rounded-md border border-slate-600/50 bg-slate-800/50 px-2 py-0.5 text-slate-200/90 text-[11px]"
           >
             <Gem className="w-3 h-3 flex-shrink-0 opacity-80" />
             {getMaterialName(g.materialId)} ×{g.quantity}
@@ -218,12 +231,14 @@ export function ExpeditionEventLog({
       <div className="max-h-64 overflow-y-auto p-2 space-y-2">
         <AnimatePresence mode="popLayout">
           {visibleEvents.map((event, index) => {
-            const colors = EVENT_TYPE_COLORS[event.type] || EVENT_TYPE_COLORS.travel
-            if (!colors) return null
-            const { bg, border, text } = colors
             const tpl = getEventById(event.id)
-            const eventLoot =
-              location && tpl ? resolveTemplateLoot(tpl, location, seed0 + event.order) : null
+            const eventLootDisplay = getAdjustedLootForEvent(
+              event,
+              location,
+              seed0,
+              contractType,
+              devBalanceTweaks
+            )
 
             return (
               <motion.div
@@ -235,7 +250,7 @@ export function ExpeditionEventLog({
                 onClick={() =>
                   setExpandedEvent(expandedEvent === event.instanceId ? null : event.instanceId)
                 }
-                className={`rounded-lg border p-2.5 cursor-pointer transition-all ${bg} ${border} hover:brightness-110`}
+                className={`${LOG_ROW_CLASS} p-2.5 cursor-pointer transition-colors`}
               >
                 <div className="flex items-start gap-3">
                   <div className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-900/50 text-lg flex-shrink-0">
@@ -244,7 +259,7 @@ export function ExpeditionEventLog({
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
-                      <p className={`text-sm font-medium ${text} leading-snug`}>{event.text}</p>
+                      <p className="text-sm font-medium text-slate-200 leading-snug">{event.text}</p>
                       <span className="text-xs text-slate-500 flex-shrink-0">#{event.order}</span>
                     </div>
 
@@ -254,6 +269,13 @@ export function ExpeditionEventLog({
                         {EVENT_TYPE_NAMES[event.type]}
                       </span>
                     </div>
+                    {eventLootDisplay &&
+                      (eventLootDisplay.materials.length > 0 || eventLootDisplay.gold > 0) && (
+                        <div className="mt-2 pt-2 border-t border-slate-700/40">
+                          <p className="text-[10px] text-slate-500 mb-1">Находки</p>
+                          {renderLootChips(eventLootDisplay.materials, eventLootDisplay.gold)}
+                        </div>
+                      )}
                   </div>
                 </div>
 
@@ -274,32 +296,10 @@ export function ExpeditionEventLog({
                             {tpl.description}
                           </p>
                         )}
-                        {eventLoot &&
-                          (eventLoot.materialGrants.length > 0 || eventLoot.bonusGold > 0) && (
-                            <div>
-                              <p className="text-[11px] text-slate-500 mb-1">
-                                Вклад события (до договора)
-                              </p>
-                              {renderLootChips(
-                                mergeGrants(eventLoot.materialGrants),
-                                eventLoot.bonusGold
-                              )}
-                            </div>
-                          )}
                         {tpl.choices?.length ? (
-                          <div className="space-y-1.5">
-                            <p className="text-slate-500 font-medium text-[11px]">Варианты (итог выбирается при разрешении)</p>
-                            <ul className="space-y-1 pl-1">
-                              {tpl.choices.map((c) => (
-                                <li
-                                  key={c.id}
-                                  className="border-l-2 border-amber-700/50 pl-2 text-slate-400"
-                                >
-                                  {c.text}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
+                          <p className="text-slate-500 text-[11px] leading-relaxed">
+                            Итог ветки выбирает искатель; кузнец варианты не выбирает.
+                          </p>
                         ) : null}
                         {event.flags?.bossOnly && (
                           <p className="flex items-center gap-1 text-yellow-400">

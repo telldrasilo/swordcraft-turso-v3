@@ -3,7 +3,58 @@
  * Не зависят от legacy weapon-recipes.ts; импортируйте отсюда UI и новый код.
  */
 
-import type { QualityGrade } from '@/store/slices/craft-slice'
+import type { QualityGrade, WeaponMaterial } from '@/store/slices/craft-slice'
+
+/** Мост заказов/NPC: тег материала шаблона → канонический `materialId` боевой части Craft v2 (фаза A). */
+const ORDER_WEAPON_MATERIAL_TO_CATALOG_ID: Record<WeaponMaterial, string> = {
+  iron: 'iron_alloy',
+  bronze: 'bronze',
+  steel: 'steel',
+  silver: 'silver_alloy',
+  gold: 'gold_alloy',
+  mithril: 'mithril_alloy',
+}
+
+const CANONICAL_ORDER_MATERIAL_IDS = new Set(Object.values(ORDER_WEAPON_MATERIAL_TO_CATALOG_ID))
+
+/** Нормализация для §6.7: `WeaponMaterial` или уже канонический боевой id → один ключ сравнения. */
+function canonicalOrderMaterialIdForLookup(tag: string): string | null {
+  if (tag in ORDER_WEAPON_MATERIAL_TO_CATALOG_ID) {
+    return ORDER_WEAPON_MATERIAL_TO_CATALOG_ID[tag as WeaponMaterial]
+  }
+  if (CANONICAL_ORDER_MATERIAL_IDS.has(tag)) return tag
+  return null
+}
+
+export function catalogMaterialIdFromOrderWeaponMaterial(material: WeaponMaterial): string {
+  return ORDER_WEAPON_MATERIAL_TO_CATALOG_ID[material]
+}
+
+/**
+ * Заказ и легаси-строка рецепта (`weapon-recipes`): одно и то же оружие по материалу, если совпадают канонические id.
+ */
+export function weaponMaterialTagsAlignForOrders(a: string | undefined, b: string | undefined): boolean {
+  if (a === b) return true
+  if (a === undefined || b === undefined) return false
+  const ia = canonicalOrderMaterialIdForLookup(a)
+  const ib = canonicalOrderMaterialIdForLookup(b)
+  if (ia !== null && ib !== null) return ia === ib
+  return false
+}
+
+/**
+ * Заказы хранят тег `WeaponMaterial`; Craft v2 кладёт в `hiddenTags` канонические `materialId` частей (напр. `iron_alloy`).
+ */
+export function hiddenTagsSatisfyOrderMaterial(
+  hiddenTags: readonly string[],
+  orderMaterial: string | undefined
+): boolean {
+  if (!orderMaterial) return true
+  if (hiddenTags.includes(orderMaterial)) return true
+  const canon = canonicalOrderMaterialIdForLookup(orderMaterial)
+  if (canon && hiddenTags.includes(canon)) return true
+  return false
+}
 
 export const qualityGrades: Record<
   QualityGrade,

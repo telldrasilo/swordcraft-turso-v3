@@ -78,6 +78,8 @@ export interface EventEffect {
   // Материал выбирается ИЗ ресурсов локации с этой редкостью
   materialRarity?: Rarity;
   materialQuantity?: ScalableValue;
+  /** Дополнительные независимые выборы материала той же редкости (0–6); итого 1 + extra */
+  extraMaterialRolls?: number;
 
   // === ДЛЯ модификаторов ===
   modifier?: number;           // Значение: +10, -20 и т.д.
@@ -247,9 +249,9 @@ export interface ResolvedEffect {
 
 export const EVENT_COUNT_CONFIG = {
   baseCount: 2,
-  perMinuteDuration: 0.03,       // +1 событие на ~33 минуты
+  perMinuteDuration: 0.05,       // чуть больше событий на длинном маршруте
   minCount: 2,
-  maxCount: 6,
+  maxCount: 8,
 
   // Модификаторы
   perLocationTier: 0.3,          // +0.3 за tier локации
@@ -310,8 +312,8 @@ const PRIMARY_LOOT_MATERIAL_IDS = new Set<string>([
   'pine',
 ])
 
-const PRIMARY_LOOT_WEIGHT_MULT = 3.25
-const SECONDARY_LOOT_WEIGHT_MULT = 0.55
+const PRIMARY_LOOT_WEIGHT_MULT = 5.25
+const SECONDARY_LOOT_WEIGHT_MULT = 0.5
 
 function effectiveLootSelectionWeight(resource: LocationResource): number {
   const tier =
@@ -336,15 +338,19 @@ export function selectMaterialFromLocation(
 
   if (candidates.length === 0) return null;
 
-  const totalWeight = candidates.reduce((sum, r) => sum + effectiveLootSelectionWeight(r), 0);
+  const rawWeights = candidates.map((r) => effectiveLootSelectionWeight(r));
+  const maxW = Math.max(...rawWeights, 1e-9);
+  const minW = maxW * 0.05;
+  const weights = rawWeights.map((w) => Math.max(w, minW));
+  const totalWeight = weights.reduce((sum, w) => sum + w, 0);
   let random = (seed ? seededRandom(seed) : Math.random()) * totalWeight;
 
-  for (const resource of candidates) {
-    random -= effectiveLootSelectionWeight(resource);
-    if (random <= 0) return resource;
+  for (let i = 0; i < candidates.length; i++) {
+    random -= weights[i]!;
+    if (random <= 0) return candidates[i]!;
   }
 
-  return candidates[0];
+  return candidates[0]!;
 }
 
 /**

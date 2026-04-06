@@ -3,11 +3,12 @@ import {
   defaultCraftV2Persisted,
   isActiveCraftV2Shape,
   isLegacySliceActiveCraftShape,
+  mergeActiveRefiningFromSave,
   mergeCraftV2PersistedFromSave,
   mergeLegacyActiveCraftForSlice,
   normalizeActiveCraftColumn,
 } from '@/lib/save-craft-normalize'
-import { initialActiveCraft } from '@/store/slices/craft-slice'
+import { initialActiveCraft, initialActiveRefining } from '@/store/slices/craft-slice'
 
 describe('save-craft-normalize', () => {
   it('detects ActiveCraftV2 shape', () => {
@@ -60,5 +61,30 @@ describe('save-craft-normalize', () => {
 
   it('mergeLegacyActiveCraftForSlice returns initial for non-legacy', () => {
     expect(mergeLegacyActiveCraftForSlice(null)).toEqual(initialActiveCraft)
+  })
+
+  it('mergeActiveRefiningFromSave returns initial when payload empty or invalid', () => {
+    expect(mergeActiveRefiningFromSave(undefined)).toEqual(initialActiveRefining)
+    expect(mergeActiveRefiningFromSave({})).toMatchObject({
+      recipeId: null,
+      amount: 0,
+      progress: 0,
+    })
+  })
+
+  it('mergeActiveRefiningFromSave preserves in-progress refining', () => {
+    const out = mergeActiveRefiningFromSave({
+      recipeId: 'iron_ingot',
+      resourceName: 'Железо',
+      progress: 40,
+      startTime: 1000,
+      endTime: null,
+      amount: 2,
+      smeltingOutputMultiplier: 1.05,
+    })
+    expect(out.recipeId).toBe('iron_ingot')
+    expect(out.amount).toBe(2)
+    expect(out.progress).toBe(40)
+    expect(out.smeltingOutputMultiplier).toBe(1.05)
   })
 })

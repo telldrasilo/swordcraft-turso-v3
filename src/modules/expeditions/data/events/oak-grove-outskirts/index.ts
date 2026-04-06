@@ -7,11 +7,12 @@
  * - forest.ts — лесные явления (4 события)
  * - wildlife.ts — дикая природа (4 события)
  *
- * Итого: 8 событий для oak_grove_outskirts
+ * Итого: 10 событий для oak_grove_outskirts
  */
 
 import { oakGroveForestEvents } from './forest';
 import { oakGroveWildlifeEvents } from './wildlife';
+import { oakGroveElementalEvents } from './elemental';
 
 // ============================================================================
 // ЭКСПОРТ ВСЕХ СОБЫТИЙ
@@ -43,11 +44,12 @@ export {
 export const oakGroveEvents = [
   ...oakGroveForestEvents,
   ...oakGroveWildlifeEvents,
+  ...oakGroveElementalEvents,
 ];
 
 // Статистика событий локации
 export const oakGroveEventsStats = {
-  total: 8,
+  total: 10,
   locationId: 'oak_grove_outskirts',
   byType: {
     positive: 2,

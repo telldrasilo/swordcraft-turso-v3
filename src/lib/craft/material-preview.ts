@@ -7,6 +7,14 @@ import type { MaterialNode } from '@/types/materials/material-core'
 import type { WeaponRecipe } from '@/types/craft-v2'
 import { getMaterialAsLegacy } from '@/data/materials'
 import { getMaterialById } from '@/data/materials'
+import {
+  SOUL_MATERIAL_SCORE_SCALE,
+  SOUL_PART_WEIGHT,
+  SOUL_POTENTIAL_BASE,
+  SOUL_POTENTIAL_MAX,
+  SOUL_POTENTIAL_MIN,
+} from '@/data/war-soul-balance'
+import { normalizeSoulWeaponEffect } from '@/lib/war-soul-potential'
 
 // ================================
 // ТИПЫ
@@ -17,7 +25,8 @@ export interface MaterialPreview {
   attack: { min: number; max: number; base: number }
   durability: { min: number; max: number; base: number }
   weight: number
-  soulCapacity: { min: number; max: number; base: number }
+  /** Оценка вклада части в Soul Potential (множитель ×). */
+  soulPotential: { min: number; max: number; base: number }
   quality: { min: number; max: number }
   predictionAccuracy: number // 50-100%
 }
@@ -66,20 +75,23 @@ export function calculateMaterialPreview(
   // 4. Рассчитываем базовые характеристики
   const baseAttack = recipe.baseStats.attackBase
   const baseDurability = recipe.baseStats.durabilityBase
-  const baseSoul = recipe.baseStats.soulCapacityBase
   const baseWeight = recipe.baseStats.weightBase
   
   // Бонусы от материала
   const attackBonus = baseAttack * (legacyMaterial.weaponEffects.attackBonus / 100) * (partQuantity / 2)
   const durabilityBonus = baseDurability * (legacyMaterial.weaponEffects.durabilityBonus / 100) * (partQuantity / 2)
-  const soulBonus = legacyMaterial.weaponEffects.soulCapacity * partQuantity * 0.5
   const weightBonus = legacyMaterial.properties.weight * partQuantity * 0.1
   
   // Базовые значения с бонусами
   const attackBase = Math.round(baseAttack + attackBonus)
   const durabilityBase = Math.round(baseDurability + durabilityBonus)
-  const soulBase = Math.round(baseSoul + soulBonus)
   const weightValue = Math.round((baseWeight + weightBonus) * 10) / 10
+
+  const partW = SOUL_PART_WEIGHT[partId] ?? 0.25
+  const soulCenterRaw =
+    SOUL_POTENTIAL_BASE +
+    normalizeSoulWeaponEffect(legacyMaterial.weaponEffects.soulCapacity) * partW * SOUL_MATERIAL_SCORE_SCALE
+  const soulCenter = Math.min(SOUL_POTENTIAL_MAX, Math.max(SOUL_POTENTIAL_MIN, soulCenterRaw))
   
   // 5. Асимметричный разброс от экспертизы
   // При 0% экспертизы: min = base - 75%, max = base + 15%
@@ -97,8 +109,7 @@ export function calculateMaterialPreview(
   const attackUp = Math.round(attackBase * upVarianceFactor)
   const durabilityDown = Math.round(durabilityBase * downVarianceFactor)
   const durabilityUp = Math.round(durabilityBase * upVarianceFactor)
-  const soulDown = Math.round(soulBase * downVarianceFactor)
-  const soulUp = Math.round(soulBase * upVarianceFactor)
+  const soulSpread = 0.12 * (1 - expertiseFactor)
   const qualityVariance = Math.round(10 * (1 - expertiseFactor))
   
   // 6. Точность прогноза - УСИЛЕНА зависимость от экспертизы
@@ -126,10 +137,10 @@ export function calculateMaterialPreview(
       max: durabilityBase + durabilityUp,
     },
     weight: weightValue,
-    soulCapacity: {
-      base: soulBase,
-      min: Math.max(0, soulBase - soulDown),
-      max: soulBase + soulUp,
+    soulPotential: {
+      base: soulCenter,
+      min: Math.max(SOUL_POTENTIAL_MIN, soulCenter - soulSpread),
+      max: Math.min(SOUL_POTENTIAL_MAX, soulCenter + soulSpread),
     },
     quality: {
       min: Math.max(0, baseQualityValue - qualityVariance),

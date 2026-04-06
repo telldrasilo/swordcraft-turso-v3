@@ -52,6 +52,32 @@ describe('calculateWeaponForecast', () => {
     expect(fc.quality.max).toBeGreaterThanOrEqual(fc.quality.value)
     expect(fc.attack.min).toBeLessThanOrEqual(fc.attack.max)
     expect(fc.durability.min).toBeLessThanOrEqual(fc.durability.max)
+    expect(fc.soulPotential.min).toBe(1)
+    expect(fc.soulPotential.max).toBe(1)
+  })
+
+  it('uses craftContext for soulPotential when provided', () => {
+    const recipe = getRecipeById('basic_sword')
+    const iron = getMaterialById('iron')
+    expect(recipe).toBeDefined()
+    expect(iron).toBeDefined()
+    if (!recipe || !iron) return
+    const input: ForecastInput = {
+      ...baseInput(),
+      craftContext: {
+        recipe,
+        materials: {
+          blade: { materialId: 'iron', quantity: 3 },
+          guard: { materialId: 'iron', quantity: 1 },
+          grip: { materialId: 'oak', quantity: 1 },
+          pommel: { materialId: 'iron', quantity: 1 },
+        },
+        techniques: [],
+      },
+    }
+    const fc = calculateWeaponForecast(input)
+    expect(fc.soulPotential.min).toBeGreaterThan(1)
+    expect(fc.soulPotential.max).toBe(fc.soulPotential.min)
   })
 })
 

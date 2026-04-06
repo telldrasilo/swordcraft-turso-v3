@@ -51,7 +51,7 @@ export {
 export {
   gatherIronOreCommon,
   gatherCoalCopperCommon,
-  gatherCopperNuggetsUncommon,
+  gatherRichCopperVeinUncommon,
 } from './gather';
 
 // Спасение

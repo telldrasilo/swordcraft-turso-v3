@@ -39,7 +39,7 @@ const navItems: { id: GameScreen; label: string; icon: typeof Flame }[] = [
   { id: 'shop', label: 'Магазин', icon: Coins },
   { id: 'guild', label: 'Гильдия', icon: Sword },
   { id: 'dungeons', label: 'Подземелья', icon: Map },
-  { id: 'altar', label: 'Алтарь', icon: Sparkles },
+  { id: 'altar', label: 'Зачарования', icon: Sparkles },
   { id: 'encyclopedia', label: 'Энциклопедия', icon: BookOpen },
 ]
 
@@ -355,6 +355,7 @@ import { DungeonsScreen } from '@/components/screens/dungeons-screen'
 import { AltarScreen } from '@/components/screens/altar-screen'
 import { EncyclopediaScreen } from '@/components/screens/encyclopedia-screen'
 import { TutorialOverlay } from '@/components/tutorial-overlay'
+import { GameMessagesDock } from '@/components/layout/game-messages-dock'
 
 // Маппинг экранов
 const screens: Record<GameScreen, typeof ForgeScreen> = {
@@ -375,7 +376,15 @@ function resolveScreen(key: GameScreen): GameScreen {
 export function GameLayout() {
   // Запуск игрового цикла
   useGameLoop()
-  
+
+  const tickForgottenForgeQuestAvailability = useGameStore(
+    (state) => state.tickForgottenForgeQuestAvailability
+  )
+  const guildLevel = useGameStore((state) => state.guild.level)
+  useEffect(() => {
+    tickForgottenForgeQuestAvailability()
+  }, [tickForgottenForgeQuestAvailability, guildLevel])
+
   // Облачное сохранение
   const {
     isLoading: isLoadingSave,
@@ -417,29 +426,31 @@ export function GameLayout() {
       {/* Боковое меню только для десктопа */}
       {!isMobile && <SideNav onSave={saveGame} isSaving={isSaving} />}
       
-      {/* Основной контент */}
-      <div className="flex-1 flex flex-col min-h-screen">
-        {/* Панель ресурсов сверху */}
-        <ResourceBar saveStatus={{ isSaving, lastSavedAt, error: saveError }} />
-        
-        {/* Область контента */}
-        <main className={cn(
-          'flex-1 overflow-y-auto scrollbar-medieval',
-          isMobile && 'pb-20' // Отступ для нижней навигации
-        )}>
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={safeScreen}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-              className="h-full"
-            >
-              <CurrentScreen />
-            </motion.div>
-          </AnimatePresence>
-        </main>
+      {/* Основной контент + лента сообщений; min-h-0 — иначе flex-1 + h-full схлопывают высоту контента */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col md:flex-row">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {/* Панель ресурсов сверху */}
+          <ResourceBar saveStatus={{ isSaving, lastSavedAt, error: saveError }} />
+          
+          {/* Область контента */}
+          <main className={cn(
+            'min-h-0 flex-1 overflow-y-auto scrollbar-medieval',
+            isMobile && 'pb-20' // Отступ для нижней навигации
+          )}>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={safeScreen}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+              >
+                <CurrentScreen />
+              </motion.div>
+            </AnimatePresence>
+          </main>
+        </div>
+        <GameMessagesDock />
       </div>
       
       {/* Нижнее меню только для мобильных */}

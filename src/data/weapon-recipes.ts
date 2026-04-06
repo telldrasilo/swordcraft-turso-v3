@@ -20,6 +20,7 @@ import {
   getQualityGrade,
   weaponTypeStats,
 } from '@/lib/craft/weapon-display-meta'
+import { LEGACY_WEAPON_RECIPE_ROWS, type LegacyRecipeRow } from '@/data/recipes/legacy-recipe-rows'
 
 // Реэкспорт для совместимости
 export type { CraftedWeapon, WeaponType, WeaponTier, WeaponMaterial, QualityGrade }
@@ -54,9 +55,11 @@ export interface CraftingCost {
   stoneBlocks?: number
 }
 
-// Рецепт оружия (legacy v1 в `weapon-recipes.ts`; V2 — `@/types/craft-v2`)
+// Рецепт оружия — легаси-форма для заказов и оценки cost; id строки = шаблон заказа (material×tier×форма)
 export interface WeaponRecipe {
   id: string
+  /** id рецепта формы в v2 (`allRecipes`), тот же что выбирается в кузнице */
+  shapeRecipeId: string
   name: string
   type: WeaponType
   tier: WeaponTier
@@ -91,242 +94,53 @@ export interface ActiveCrafting {
 }
 
 // ================================
-// ДАННЫЕ РЕЦЕПТОВ
+// ДАННЫЕ РЕЦЕПТОВ (шаблоны заказов; формы крафта — отдельно в allRecipes)
 // ================================
 
-export const weaponRecipes: WeaponRecipe[] = [
-  // === ЖЕЛЕЗНОЕ ОРУЖИЕ (Начальное) - требует слитки ===
-  {
-    id: 'iron_sword',
-    name: 'Железный меч',
-    type: 'sword',
-    tier: 'common',
-    material: 'iron',
-    cost: { ironIngot: 3, coal: 5, planks: 2 },
-    baseCraftTime: 30, // 30 секунд
-    baseSellPrice: 25,
-    requiredLevel: 1,
-    description: 'Простой железный меч. Надёжный, но без изысков.',
-    unlocked: true
-  },
-  {
-    id: 'iron_dagger',
-    name: 'Железный кинжал',
-    type: 'dagger',
-    tier: 'common',
-    material: 'iron',
-    cost: { ironIngot: 2, coal: 3, planks: 1 },
-    baseCraftTime: 15,
-    baseSellPrice: 12,
-    requiredLevel: 1,
-    description: 'Лёгкий кинжал для ближнего боя.',
-    unlocked: true
-  },
-  {
-    id: 'iron_axe',
-    name: 'Железный топор',
-    type: 'axe',
-    tier: 'common',
-    material: 'iron',
-    cost: { ironIngot: 4, coal: 6, planks: 2 },
-    baseCraftTime: 35,
-    baseSellPrice: 30,
-    requiredLevel: 1,
-    description: 'Тяжёлый топор с железным лезвием.',
-    unlocked: true
-  },
-  {
-    id: 'iron_mace',
-    name: 'Железная булава',
-    type: 'mace',
-    tier: 'common',
-    material: 'iron',
-    cost: { ironIngot: 5, coal: 7, stoneBlocks: 2 },
-    baseCraftTime: 40,
-    baseSellPrice: 35,
-    requiredLevel: 1,
-    description: 'Массивная булава для сокрушительных ударов.',
-    unlocked: true
-  },
-  
-  // === ЖЕЛЕЗНОЕ ОРУЖИЕ (Продвинутое) ===
-  {
-    id: 'iron_spear',
-    name: 'Железное копьё',
-    type: 'spear',
-    tier: 'uncommon',
-    material: 'iron',
-    cost: { ironIngot: 5, coal: 8, planks: 3 },
-    baseCraftTime: 45,
-    baseSellPrice: 45,
-    requiredLevel: 3,
-    description: 'Длинное копьё с железным наконечником.',
-    unlocked: true
-  },
-  {
-    id: 'iron_hammer',
-    name: 'Боевой молот',
-    type: 'hammer',
-    tier: 'uncommon',
-    material: 'iron',
-    cost: { ironIngot: 7, coal: 10, planks: 3 },
-    baseCraftTime: 50,
-    baseSellPrice: 55,
-    requiredLevel: 3,
-    description: 'Тяжёлый боевой молот.',
-    unlocked: true
-  },
-  
-  // === БРОНЗОВОЕ ОРУЖИЕ (Уровень 5+) ===
-  {
-    id: 'bronze_sword',
-    name: 'Бронзовый меч',
-    type: 'sword',
-    tier: 'uncommon',
-    material: 'bronze',
-    cost: { bronzeIngot: 4, coal: 6, planks: 2 },
-    baseCraftTime: 40,
-    baseSellPrice: 50,
-    requiredLevel: 5,
-    description: 'Меч из бронзового сплава. Прочнее железного.',
-    unlocked: false,
-    unlockCondition: 'Купить рецепт у торговца'
-  },
-  {
-    id: 'bronze_axe',
-    name: 'Бронзовый топор',
-    type: 'axe',
-    tier: 'uncommon',
-    material: 'bronze',
-    cost: { bronzeIngot: 5, coal: 8, planks: 3 },
-    baseCraftTime: 50,
-    baseSellPrice: 60,
-    requiredLevel: 5,
-    description: 'Топор из бронзы. Отлично держит заточку.',
-    unlocked: false,
-    unlockCondition: 'Купить рецепт у торговца'
-  },
-  
-  // === СТАЛЬНОЕ ОРУЖИЕ (Уровень 8+) ===
-  {
-    id: 'steel_sword',
-    name: 'Стальной меч',
-    type: 'sword',
-    tier: 'rare',
-    material: 'steel',
-    cost: { steelIngot: 5, coal: 12, planks: 3 },
-    baseCraftTime: 60,
-    baseSellPrice: 80,
-    requiredLevel: 8,
-    description: 'Меч из закалённой стали. Острый и прочный.',
-    unlocked: false,
-    unlockCondition: 'Получить за заказ гвардии'
-  },
-  {
-    id: 'steel_dagger',
-    name: 'Стальной кинжал',
-    type: 'dagger',
-    tier: 'rare',
-    material: 'steel',
-    cost: { steelIngot: 3, coal: 6, planks: 1 },
-    baseCraftTime: 35,
-    baseSellPrice: 45,
-    requiredLevel: 8,
-    description: 'Изящный стальной кинжал.',
-    unlocked: false,
-    unlockCondition: 'Награда от воровской гильдии'
-  },
-  {
-    id: 'steel_spear',
-    name: 'Стальное копьё',
-    type: 'spear',
-    tier: 'rare',
-    material: 'steel',
-    cost: { steelIngot: 6, coal: 10, planks: 4 },
-    baseCraftTime: 70,
-    baseSellPrice: 95,
-    requiredLevel: 8,
-    description: 'Копьё со стальным наконечником.',
-    unlocked: false,
-    unlockCondition: 'Заказ от наёмников'
-  },
-  
-  // === СЕРЕБРЯНОЕ ОРУЖИЕ (Уровень 10+) ===
-  {
-    id: 'silver_sword',
-    name: 'Серебряный меч',
-    type: 'sword',
-    tier: 'epic',
-    material: 'silver',
-    cost: { silverIngot: 4, ironIngot: 2, coal: 8, planks: 2 },
-    baseCraftTime: 90,
-    baseSellPrice: 180,
-    requiredLevel: 10,
-    description: 'Меч из серебра. Эффективен против нечисти.',
-    unlocked: false,
-    unlockCondition: 'Найти в экспедиции'
-  },
-  {
-    id: 'silver_dagger',
-    name: 'Серебряный кинжал',
-    type: 'dagger',
-    tier: 'epic',
-    material: 'silver',
-    cost: { silverIngot: 3, ironIngot: 1, coal: 5, planks: 1 },
-    baseCraftTime: 60,
-    baseSellPrice: 120,
-    requiredLevel: 10,
-    description: 'Кинжал для охотников на нечисть.',
-    unlocked: false,
-    unlockCondition: 'Награда за охоту на нечисть'
-  },
-  
-  // === ЗОЛОТОЕ ОРУЖИЕ (Уровень 15+) ===
-  {
-    id: 'gold_sword',
-    name: 'Золотой меч',
-    type: 'sword',
-    tier: 'epic',
-    material: 'gold',
-    cost: { goldIngot: 5, ironIngot: 3, coal: 10, planks: 3 },
-    baseCraftTime: 120,
-    baseSellPrice: 350,
-    requiredLevel: 15,
-    description: 'Роскошный золотой меч. Символ статуса.',
-    unlocked: false,
-    unlockCondition: 'Королевский заказ'
-  },
-  
-  // === МИФРИЛОВОЕ ОРУЖИЕ (Уровень 20+) ===
-  {
-    id: 'mithril_sword',
-    name: 'Мифриловый меч',
-    type: 'sword',
-    tier: 'legendary',
-    material: 'mithril',
-    cost: { mithrilIngot: 5, ironIngot: 2, coal: 15, planks: 3 },
-    baseCraftTime: 180,
-    baseSellPrice: 800,
-    requiredLevel: 20,
-    description: 'Легендарный меч из мифрила. Лёгкий и неразрушимый.',
-    unlocked: false,
-    unlockCondition: 'Найти в эльфийских руинах'
-  },
-  {
-    id: 'mithril_dagger',
-    name: 'Мифриловый кинжал',
-    type: 'dagger',
-    tier: 'legendary',
-    material: 'mithril',
-    cost: { mithrilIngot: 3, ironIngot: 1, coal: 8, planks: 1 },
-    baseCraftTime: 100,
-    baseSellPrice: 500,
-    requiredLevel: 20,
-    description: 'Эльфийский кинжал из мифрила.',
-    unlocked: false,
-    unlockCondition: 'Найти в глубинах'
-  },
-]
+/** Базовая форма v2 по типу оружия (один рецепт на форму, без материала в id). */
+export function defaultShapeRecipeIdForWeaponType(type: string): string {
+  switch (type) {
+    case 'sword':
+      return 'basic_sword'
+    case 'dagger':
+      return 'basic_dagger'
+    case 'axe':
+      return 'basic_axe'
+    case 'mace':
+      return 'basic_mace'
+    case 'spear':
+      return 'basic_spear'
+    case 'hammer':
+      return 'basic_hammer'
+    default:
+      return 'basic_sword'
+  }
+}
+
+function legacyOrderRowFromData(row: LegacyRecipeRow): WeaponRecipe {
+  return {
+    id: row.id,
+    shapeRecipeId: defaultShapeRecipeIdForWeaponType(row.type),
+    name: row.name,
+    type: row.type,
+    tier: row.tier,
+    material: row.material,
+    cost: row.cost as CraftingCost,
+    baseCraftTime: row.baseCraftTime,
+    baseSellPrice: row.baseSellPrice,
+    requiredLevel: row.requiredLevel,
+    description: row.description,
+    unlocked: row.unlocked,
+    unlockCondition: row.unlockCondition,
+  }
+}
+
+/** Шаблоны заказов (iron_sword, bronze_axe, …): cost / tier / material для NPC; крафт — по shapeRecipeId */
+export const weaponRecipes: WeaponRecipe[] = LEGACY_WEAPON_RECIPE_ROWS.map(legacyOrderRowFromData)
+
+export const legacyWeaponRecipeRowIds: Set<string> = new Set(
+  LEGACY_WEAPON_RECIPE_ROWS.map((r) => r.id),
+)
 
 // qualityGrades / getQualityGrade / weaponTypeStats — @/lib/craft/weapon-display-meta
 
@@ -415,6 +229,44 @@ export function getRecipe(id: string): WeaponRecipe | undefined {
 
 export function getAvailableRecipes(playerLevel: number): WeaponRecipe[] {
   return weaponRecipes.filter(r => r.requiredLevel <= playerLevel)
+}
+
+const ORDER_MATERIAL_TAGS = new Set([
+  'iron',
+  'bronze',
+  'steel',
+  'silver',
+  'gold',
+  'mithril',
+])
+
+/** Строка заказа для UI (тир/материал), если recipeId оружия — форма v2 (basic_*). */
+export function legacyRecipeRowForCraftedWeapon(weapon: {
+  recipeId: string
+  type: string
+  combatMaterialId?: string
+  hiddenTags?: string[]
+}): WeaponRecipe | undefined {
+  const byOrderId = weaponRecipes.find((r) => r.id === weapon.recipeId)
+  if (byOrderId) return byOrderId
+
+  const tagMat = weapon.hiddenTags?.find((t) => ORDER_MATERIAL_TAGS.has(t))
+  const materialHint = tagMat ?? weapon.combatMaterialId
+  if (materialHint) {
+    const byShape =
+      weaponRecipes.find(
+        (r) =>
+          r.shapeRecipeId === weapon.recipeId &&
+          r.type === weapon.type &&
+          r.material === materialHint
+      ) ?? weaponRecipes.find(
+        (r) => r.shapeRecipeId === weapon.recipeId && r.type === weapon.type
+      )
+    return byShape
+  }
+  return weaponRecipes.find(
+    (r) => r.shapeRecipeId === weapon.recipeId && r.type === weapon.type
+  )
 }
 
 export function canCraft(recipe: WeaponRecipe, resources: CraftingCost): boolean {

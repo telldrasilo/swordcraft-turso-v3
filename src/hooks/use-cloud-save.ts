@@ -8,12 +8,24 @@
 import { useEffect, useCallback, useRef, useState } from 'react'
 import { signIn, getSession } from 'next-auth/react'
 import { useGameStore } from '@/store'
+import { normalizeForgottenForgePersistFromSave } from '@/lib/normalize-forgotten-forge-persist'
 import { isSaveAuthEnforcedClient } from '@/lib/save-auth'
 import { isCloudSaveEnabled } from '@/lib/cloud-save-feature'
+import { migrateLegacyMaterialResourcesToStash } from '@/lib/craft/inventory-check'
+import type { MaterialKnowledge } from '@/types/materials/knowledge'
+import { createDiscoveredMaterialKnowledge } from '@/types/materials/knowledge'
+import { initialResources, type Resources } from '@/store/slices/resources-slice'
 import {
+  mergeActiveRefiningFromSave,
   mergeCraftV2PersistedFromSave,
   normalizeActiveCraftColumn,
 } from '@/lib/save-craft-normalize'
+import { normalizeMaterialStudySessionsFromSave } from '@/lib/materials/normalize-material-study-sessions'
+import {
+  normalizeRepairBenchWeaponIdFromSave,
+  normalizeRepairTechniqueStageRunFromSave,
+} from '@/lib/normalize-repair-bench-from-save'
+import type { QuestPhase } from '@/store/slices/forgotten-forge-quest-slice'
 
 interface UseCloudSaveOptions {
   autoSaveInterval?: number
@@ -109,6 +121,7 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
 
   // Отслеживаем состояние сети
   useEffect(() => {
+    if (typeof navigator === 'undefined') return
     setIsOnline(navigator.onLine)
     const handleOnline = () => setIsOnline(navigator.onLine)
     window.addEventListener('online', handleOnline)
@@ -179,6 +192,7 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
         fame: state.player?.fame ?? 0,
       },
       resources: state.resources || {},
+      materialStash: state.materialStash || {},
       statistics: state.statistics || {},
       workers: state.workers || [],
       buildings: state.buildings || [],
@@ -189,14 +203,30 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
       unlockedRecipes: state.unlockedRecipes || { weaponRecipes: [], refiningRecipes: [] },
       recipeSources: state.recipeSources || [],
       unlockedEnchantments: state.unlockedEnchantments || [],
+      unlockedMaterialProcessingTechniqueIds:
+        state.unlockedMaterialProcessingTechniqueIds || [],
+      unlockedRepairTechniqueIds: state.unlockedRepairTechniqueIds || [],
+      unlockedReforgeTechniqueIds: state.unlockedReforgeTechniqueIds || [],
       guild: state.guild || {},
       knownAdventurers: state.knownAdventurers || [],
       orders: state.orders || [],
       tutorial: state.tutorial || { isActive: true, currentStep: 0 },
       materialKnowledge: state.materialKnowledge || {},
+      materialStudySessions: state.materialStudySessions || [],
+      gameMessages: state.gameMessages || [],
       playTime: state.statistics?.playTime || 0,
       craftV2Persisted: state.craftV2Persisted || null,
-      saveVersion: 3,
+      repairBenchWeaponId: state.repairBenchWeaponId ?? null,
+      repairTechniqueStageRun: state.repairTechniqueStageRun ?? null,
+      saveVersion: 5,
+      forgottenForgePersist: {
+        forgottenForgeQuest: state.forgottenForgeQuest,
+        forgottenForgePhase: state.forgottenForgePhase,
+        archivistDialogue: state.archivistDialogue,
+        archivistPendingChoices: state.archivistPendingChoices,
+        altarUnlockedByForgottenForgeQuest: state.altarUnlockedByForgottenForgeQuest,
+        altarBuiltInForge: state.altarBuiltInForge,
+      },
     }
   }, [])
 
@@ -230,6 +260,55 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
     const experience = Number(data.experience ?? p?.experience) || 0
     const fame = Number(data.fame ?? p?.fame) || 0
 
+    const mergedResources = {
+      ...initialResources,
+      ...((data.resources || {}) as Partial<Resources>),
+    } as Resources
+    const mergedStash =
+      data.materialStash != null && typeof data.materialStash === 'object' && !Array.isArray(data.materialStash)
+        ? { ...(data.materialStash as Record<string, number>) }
+        : {}
+    const inv = migrateLegacyMaterialResourcesToStash(mergedResources, mergedStash)
+
+    const baseMaterialKnowledge: Record<string, MaterialKnowledge> =
+      data.materialKnowledge && typeof data.materialKnowledge === 'object'
+        ? { ...(data.materialKnowledge as Record<string, MaterialKnowledge>) }
+        : {}
+    const materialKnowledge = { ...baseMaterialKnowledge }
+    for (const [mid, qty] of Object.entries(inv.materialStash)) {
+      if ((qty ?? 0) > 0 && !materialKnowledge[mid]) {
+        materialKnowledge[mid] = createDiscoveredMaterialKnowledge(mid)
+      }
+    }
+
+    const weaponInvForBench = data.weaponInventory || { weapons: [] }
+    const weaponsForBench = Array.isArray(weaponInvForBench.weapons)
+      ? (weaponInvForBench.weapons as { id?: string }[])
+      : []
+    const repairBenchWeaponId = normalizeRepairBenchWeaponIdFromSave(
+      data.repairBenchWeaponId,
+      weaponsForBench
+    )
+    const repairTechniqueStageRun = normalizeRepairTechniqueStageRunFromSave(
+      data.repairTechniqueStageRun,
+      repairBenchWeaponId,
+      weaponsForBench
+    )
+
+    const ffPersist = normalizeForgottenForgePersistFromSave(data.forgottenForgePersist)
+
+    const tutorialRaw = data.tutorial && typeof data.tutorial === 'object' ? data.tutorial : {}
+    const tutorial = {
+      isActive: true,
+      currentStep: 0,
+      completedSteps: [] as string[],
+      skipped: false,
+      starterForgeExpertiseGranted: false,
+      weaponRepairGuidanceConsumed: false,
+      weaponRepairGuidancePending: false,
+      ...(tutorialRaw as Record<string, unknown>),
+    }
+
     useGameStore.setState({
       player: {
         name: 'Кузнец',
@@ -239,28 +318,49 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
         fame,
         title: getTitleByLevel(level),
       },
-      resources: data.resources || {},
+      resources: inv.resources,
+      materialStash: inv.materialStash,
       statistics: data.statistics || {},
       workers: data.workers || [],
       buildings: data.buildings || [],
       maxWorkers: data.maxWorkers || 3,
-      activeRefining: data.activeRefining || {},
+      activeRefining: mergeActiveRefiningFromSave(data.activeRefining),
       weaponInventory: data.weaponInventory || { weapons: [] },
       unlockedRecipes: data.unlockedRecipes || { weaponRecipes: [], refiningRecipes: [] },
       recipeSources: data.recipeSources || [],
       unlockedEnchantments: data.unlockedEnchantments || [],
+      unlockedMaterialProcessingTechniqueIds: Array.isArray(
+        data.unlockedMaterialProcessingTechniqueIds
+      )
+        ? data.unlockedMaterialProcessingTechniqueIds
+        : [],
+      unlockedRepairTechniqueIds: Array.isArray(data.unlockedRepairTechniqueIds)
+        ? data.unlockedRepairTechniqueIds
+        : [],
+      unlockedReforgeTechniqueIds: Array.isArray(data.unlockedReforgeTechniqueIds)
+        ? data.unlockedReforgeTechniqueIds
+        : [],
       guild: data.guild || {},
       knownAdventurers: data.knownAdventurers || [],
       orders: data.orders || [],
-      tutorial: data.tutorial || { isActive: true, currentStep: 0 },
-      materialKnowledge:
-        data.materialKnowledge && typeof data.materialKnowledge === 'object'
-          ? data.materialKnowledge
-          : {},
+      tutorial,
+      materialKnowledge,
+      materialStudySessions: normalizeMaterialStudySessionsFromSave(
+        Array.isArray(data.materialStudySessions) ? data.materialStudySessions : []
+      ),
+      gameMessages: Array.isArray(data.gameMessages) ? data.gameMessages : [],
       craftV2Persisted: mergeCraftV2PersistedFromSave(
         data.craftV2Persisted,
         data.activeCraft
       ),
+      repairBenchWeaponId,
+      repairTechniqueStageRun,
+      forgottenForgeQuest: ffPersist.forgottenForgeQuest,
+      forgottenForgePhase: ffPersist.forgottenForgePhase as QuestPhase,
+      archivistDialogue: ffPersist.archivistDialogue,
+      archivistPendingChoices: ffPersist.archivistPendingChoices,
+      altarUnlockedByForgottenForgeQuest: ffPersist.altarUnlockedByForgottenForgeQuest,
+      altarBuiltInForge: ffPersist.altarBuiltInForge,
     })
   }, [])
 

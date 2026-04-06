@@ -9,6 +9,7 @@ import React from 'react'
 import { motion } from 'framer-motion'
 import { CheckCircle } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import type { CraftedWeaponV2 } from '@/types/craft-v2'
 
@@ -22,6 +23,8 @@ interface WeaponSelectionCardProps {
   canSelect: boolean
   onSelect: () => void
   reason?: string
+  /** Оружие на верстаке ремонта — серое, с бейджем */
+  isRepairBench?: boolean
 }
 
 // Цвета для рангов качества
@@ -43,7 +46,8 @@ export const WeaponSelectionCard: React.FC<WeaponSelectionCardProps> = ({
   isSelected,
   canSelect,
   onSelect,
-  reason
+  reason,
+  isRepairBench = false,
 }) => {
   // Вычисляем процент прочности
   const durabilityPercent = Math.round((weapon.currentDurability / weapon.stats.maxDurability) * 100)
@@ -56,26 +60,31 @@ export const WeaponSelectionCard: React.FC<WeaponSelectionCardProps> = ({
     >
       <Card
         className={cn(
-          "card-medieval cursor-pointer transition-all",
-          isSelected && "border-amber-500 bg-amber-900/20",
-          !canSelect && "opacity-50"
+          'card-medieval transition-all',
+          canSelect && 'cursor-pointer',
+          !canSelect && 'cursor-not-allowed',
+          isSelected && canSelect && 'border-amber-500 bg-amber-900/20',
+          !canSelect && 'opacity-60',
+          isRepairBench && !canSelect && 'border-stone-600/60 bg-stone-950/40'
         )}
+        role={canSelect ? 'button' : undefined}
+        aria-disabled={!canSelect}
+        title={!canSelect && reason ? reason : undefined}
         onClick={canSelect ? onSelect : undefined}
       >
         <CardContent className="p-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-stone-800 flex items-center justify-center text-xl relative">
               ⚔️
-              {/* Epic множитель */}
-              {weapon.epicMultiplier > 1.2 && (
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center text-[8px] font-bold text-black">
-                  {weapon.epicMultiplier.toFixed(1)}x
-                </div>
-              )}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 flex-wrap">
                 <h4 className="font-semibold text-stone-200 text-sm truncate">{weapon.fullName}</h4>
+                {isRepairBench && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-stone-500 text-stone-400 shrink-0">
+                    На ремонте
+                  </Badge>
+                )}
                 {/* Ранг качества */}
                 <span className={cn("text-xs font-bold", rankColors[weapon.qualityRank] || 'text-gray-400')}>
                   [{weapon.qualityRank}]
@@ -103,7 +112,14 @@ export const WeaponSelectionCard: React.FC<WeaponSelectionCardProps> = ({
             )}
           </div>
           {!canSelect && reason && (
-            <p className="text-xs text-red-400 mt-2">{reason}</p>
+            <p
+              className={cn(
+                'text-xs mt-2',
+                isRepairBench ? 'text-amber-200/80' : 'text-red-400'
+              )}
+            >
+              {reason}
+            </p>
           )}
         </CardContent>
       </Card>

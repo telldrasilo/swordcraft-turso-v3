@@ -214,6 +214,8 @@ export interface OrderCompletionParams {
   weaponAttack: number
   weaponType: string
   weaponRecipeId: string
+  /** Материал боевой части (iron, steel, …). Для форм basic_* обязателен — recipeId больше не кодирует материал. */
+  weaponMaterial?: string
   orderMinQuality: number
   orderMinAttack?: number
   orderMaterial?: string

@@ -214,6 +214,43 @@ export const eventMistyLeechAmbush: EventTemplate = {
 };
 
 // ============================================================================
+// РУКОЯТЬ РАЗБУХЛА ОТ ВЛАГИ
+// ============================================================================
+
+export const eventMistySwollenHaft: EventTemplate = {
+  id: 'event_misty_swollen_haft',
+  name: 'Рукоять от влаги',
+  type: 'negative',
+  category: 'environment',
+
+  title: 'Дерево ведёт себя чужо',
+  description: `Постоянная влага и туман добрались до рукояти: дерево разбухло, кольца потрескались — клинок сидит в посадке иначе, чем вчера. Удар по эфесу в спешке мог окончательно пустить трещину по волокнам.`,
+  flavorText: '"Болото не любит сухих договоров с металлом."',
+
+  conditions: {
+    locationIds: ['misty_lowlands'],
+    minProgress: 20,
+    maxProgress: 88,
+  },
+
+  effects: [
+    {
+      type: 'damage_weapon',
+      modifier: 6,
+      description: '-6% прочности оружия (трещина рукояти и посадки)',
+    },
+    {
+      type: 'modify_success_chance',
+      modifier: -4,
+      description: '-4% к успеху (непривычный баланс)',
+    },
+  ],
+
+  weight: 12,
+  icon: '🪵',
+};
+
+// ============================================================================
 // ЭКСПОРТ
 // ============================================================================
 
@@ -222,4 +259,5 @@ export const mistySwampEvents: EventTemplate[] = [
   eventMistyBogWalker,
   eventMistyHerbalistHut,
   eventMistyLeechAmbush,
+  eventMistySwollenHaft,
 ];

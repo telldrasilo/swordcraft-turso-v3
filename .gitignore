@@ -17,6 +17,9 @@ node_modules
 /.next/
 /out/
 
+# фактический порт `npm run dev` (next-dev.cjs), чтобы не гадать при fallback 3001+
+.next-dev-port
+
 # production
 /build
 
@@ -38,6 +41,9 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
+
+# Временная сборка из expedition/nodes (генератор мира-сырья)
+src/data/materials/library/_gather_staging/
 next-env.d.ts
 local-*
 .claude

@@ -23,6 +23,13 @@ describe('saveRequestBodySchema', () => {
     expect(r.success).toBe(true)
   })
 
+  it('accepts repairBenchWeaponId string or null', () => {
+    expect(
+      saveRequestBodySchema.safeParse({ repairBenchWeaponId: 'weapon-uuid-1' }).success
+    ).toBe(true)
+    expect(saveRequestBodySchema.safeParse({ repairBenchWeaponId: null }).success).toBe(true)
+  })
+
   it('rejects non-object root', () => {
     const r = saveRequestBodySchema.safeParse([])
     expect(r.success).toBe(false)

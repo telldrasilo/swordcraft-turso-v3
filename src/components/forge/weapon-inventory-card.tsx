@@ -6,8 +6,15 @@
 
 import { motion } from 'framer-motion'
 import {
-  Sword, Heart, Star, Map as MapIcon, Crown, Sparkles,
+  Sword,
+  Heart,
+  Star,
+  Map as MapIcon,
+  Sparkles,
   Package,
+  AlertTriangle,
+  Wrench,
+  ChevronDown,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -25,15 +32,155 @@ import { WeaponIcon } from './forge-utils'
 import {
   getWarSoulTier,
   getProgressToNextTier,
+  getNextTierInfo,
+  resolveWarSoulProgressBarMax,
+  WAR_SOUL_WEAPON_POOL_MIN,
 } from '@/lib/war-soul-utils'
+import { isWarSoulPoolUncapped } from '@/data/war-soul-balance'
 import { getQualityWithinGradeDisplay } from '@/lib/craft/quality-display'
+import { getActiveDamageTagLabels } from '@/lib/weapon-damage/damage-tags-ui'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
+import { getDamageTagById } from '@/data/weapon-damage/damage-tag-registry'
+
+/** Свёртка §9.1: архив тегов и счётчики устранения — для отладки на верстаке */
+function WeaponRepairLegacyDebugPanel({ weapon }: { weapon: CraftedWeaponV2 }) {
+  const legacy = weapon.weaponLegacy
+  const archived = legacy?.archivedDamageTagIds ?? []
+  const resolveMap = legacy?.repairResolveCountByTagId ?? {}
+  const precise = legacy?.repairDiagnosisPreciseCountByTagId ?? {}
+  const risky = legacy?.repairDiagnosisRiskyCountByTagId ?? {}
+  const skipped = legacy?.repairDiagnosisSkippedCountByTagId ?? {}
+  const tagIds = Array.from(
+    new Set([
+      ...archived,
+      ...Object.keys(resolveMap),
+      ...Object.keys(precise),
+      ...Object.keys(risky),
+      ...Object.keys(skipped),
+    ])
+  )
+
+  if (tagIds.length === 0) {
+    return (
+      <div className="pt-2 border-t border-stone-700/50">
+        <Collapsible className="group">
+          <CollapsibleTrigger
+            type="button"
+            className="flex w-full items-center justify-between gap-2 rounded-md border border-stone-700/60 bg-stone-900/35 px-2 py-1.5 text-left text-[11px] text-stone-500 hover:text-stone-300"
+          >
+            <span>Под капотом (§9.1)</span>
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-1.5 text-[10px] text-stone-500">
+            Пока нет архива тегов и счётчиков починок — появятся после успешных ремонтов с снятием
+            повреждений.
+          </CollapsibleContent>
+        </Collapsible>
+      </div>
+    )
+  }
+
+  return (
+    <div className="pt-2 border-t border-stone-700/50">
+      <Collapsible className="group" defaultOpen={false}>
+        <CollapsibleTrigger
+          type="button"
+          className="flex w-full items-center justify-between gap-2 rounded-md border border-stone-700/60 bg-stone-900/35 px-2 py-1.5 text-left text-[11px] text-stone-500 hover:text-stone-300"
+        >
+          <span>Под капотом (§9.1)</span>
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-2 space-y-2 text-[10px] text-stone-400">
+          <p className="text-stone-500 leading-snug">
+            Данные для будущего зачарования; в бою не показываются.
+          </p>
+          <div>
+            <p className="text-stone-500 mb-1 font-medium">Архив тегов (id)</p>
+            <ul className="space-y-0.5 font-mono text-[10px] text-stone-400">
+              {archived.length === 0 ? (
+                <li>—</li>
+              ) : (
+                archived.map((id) => {
+                  const def = getDamageTagById(id)
+                  return (
+                    <li key={id}>
+                      <span className="text-stone-500">{id}</span>
+                      {def?.label ? (
+                        <span className="text-stone-500"> — {def.label}</span>
+                      ) : null}
+                    </li>
+                  )
+                })
+              )}
+            </ul>
+          </div>
+          <div>
+            <p className="text-stone-500 mb-1 font-medium">Устранений по тегу (repair resolve)</p>
+            <ul className="space-y-0.5">
+              {tagIds.map((tagId) => {
+                const n = resolveMap[tagId] ?? 0
+                const def = getDamageTagById(tagId)
+                return (
+                  <li key={tagId} className="flex justify-between gap-2">
+                    <span className="truncate text-stone-400">
+                      {def?.label ?? tagId}
+                    </span>
+                    <span className="tabular-nums text-stone-300 shrink-0">×{n}</span>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+          {(Object.keys(precise).length > 0 ||
+            Object.keys(risky).length > 0 ||
+            Object.keys(skipped).length > 0) && (
+            <div>
+              <p className="text-stone-500 mb-1 font-medium">Диагностика §9.1.1 (precise / risky / skipped)</p>
+              <ul className="space-y-0.5 font-mono text-[10px]">
+                {Array.from(
+                  new Set([
+                    ...Object.keys(precise),
+                    ...Object.keys(risky),
+                    ...Object.keys(skipped),
+                  ])
+                ).map((tagId) => {
+                  const p = precise[tagId] ?? 0
+                  const r = risky[tagId] ?? 0
+                  const s = skipped[tagId] ?? 0
+                  const def = getDamageTagById(tagId)
+                  return (
+                    <li key={`diag-${tagId}`} className="flex flex-wrap justify-between gap-x-2 gap-y-0.5">
+                      <span className="truncate text-stone-400">{def?.label ?? tagId}</span>
+                      <span className="text-stone-300 shrink-0">
+                        P{p} R{r} S{s}
+                      </span>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          )}
+        </CollapsibleContent>
+      </Collapsible>
+    </div>
+  )
+}
 
 interface WeaponInventoryCardProps {
   weapon: CraftedWeaponV2
+  /** Карточка в секции ремонта: бейдж верстака, без кнопки «Отправить на ремонт» */
+  context?: 'inventory' | 'repairBench'
 }
 
-export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
+export function WeaponInventoryCard({ weapon, context = 'inventory' }: WeaponInventoryCardProps) {
+  const onRepairBench = context === 'repairBench'
   const isWeaponInExpedition = useGameStore((state) => state.isWeaponInExpedition)
+  const sendWeaponToRepairBench = useGameStore((state) => state.sendWeaponToRepairBench)
+  const navigateToForgeTab = useGameStore((state) => state.navigateToForgeTab)
 
   const qualityGrade = weapon.qualityGrade
   const qualityColor = getQualityColor(weapon.quality)
@@ -65,7 +212,12 @@ export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
   const durabilityPercent = Math.round((durability / weapon.stats.maxDurability) * 100)
   const durabilityColor = durabilityPercent > 50 ? 'text-green-400' : durabilityPercent > 25 ? 'text-yellow-400' : 'text-red-400'
   const durabilityBgColor = durabilityPercent > 50 ? 'bg-green-500' : durabilityPercent > 25 ? 'bg-yellow-500' : 'bg-red-500'
-  
+
+  const damageUi = getActiveDamageTagLabels(weapon, 2)
+  const hasVisibleDamage = damageUi.total > 0
+  const needsRepairShortcut =
+    hasVisibleDamage || durability < weapon.stats.maxDurability
+
   /** Фон иконки по градации качества (не от attack-tier) */
   const iconBgByQuality: Record<QualityGrade, string> = {
     poor: 'bg-stone-900/50',
@@ -77,8 +229,14 @@ export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
   }
   const iconBoxBg = iconBgByQuality[weapon.qualityGrade] ?? 'bg-stone-900/50'
   // Тир Души Войны
-  const warSoulTier = weapon.warSoul > 0 || (weapon.maxWarSoul ?? 0) > 0 
-    ? getWarSoulTier(weapon.warSoul, weapon.maxWarSoul ?? 100)
+  const warSoulTier =
+    weapon.warSoul > 0 || (weapon.maxWarSoul ?? 0) > 0 || (weapon.soulPotential ?? 0) > 0
+      ? getWarSoulTier(
+          weapon.warSoul,
+          isWarSoulPoolUncapped(weapon.maxWarSoul)
+            ? Number.POSITIVE_INFINITY
+            : (weapon.maxWarSoul ?? WAR_SOUL_WEAPON_POOL_MIN)
+        )
     : null
   
   return (
@@ -86,10 +244,10 @@ export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
-      layout
+      className="min-w-0 w-full"
     >
       <Card className={cn(
-        'card-medieval transition-all group relative overflow-hidden',
+        'card-medieval transition-all group relative overflow-hidden w-full min-w-0',
         'hover:border-amber-600/50',
         inExpedition && 'border-green-600/50 bg-green-900/10'
       )}>
@@ -106,24 +264,35 @@ export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
         
         <CardContent className="p-4 relative">
           {/* Заголовок с иконкой и названием */}
-          <div className="flex items-start justify-between mb-3">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-2 mb-3">
+            {/* min-w гарантирует место под название; flex-wrap уводит бейджи на следующую строку при тесноте */}
+            <div className="flex min-w-[min(100%,12.5rem)] max-w-full flex-1 items-center gap-3">
               <div className={cn(
-                'w-14 h-14 rounded-xl flex items-center justify-center text-2xl',
+                'w-14 h-14 shrink-0 rounded-xl flex items-center justify-center text-2xl',
                 iconBoxBg
               )}>
                 <WeaponIcon type={weapon.type} />
               </div>
-              <div>
-                <h4 className="font-semibold text-stone-200">{weapon.fullName}</h4>
+              <div className="min-w-0 flex-1">
+                <h4 className="font-semibold text-stone-200 leading-snug break-normal">
+                  {weapon.fullName}
+                </h4>
                 <div className="flex items-center gap-2 mt-0.5">
                   <span className="text-xs text-stone-500">{typeStats?.name}</span>
                 </div>
               </div>
             </div>
             
-            {/* Бейджи качества */}
-            <div className="flex flex-col items-end gap-1">
+            {/* Качество (градация) и тир души — справа под названием */}
+            <div className="flex flex-col items-end gap-1.5 shrink-0 text-right">
+              {onRepairBench && (
+                <Badge
+                  variant="outline"
+                  className="text-[10px] px-1.5 py-0 border-stone-500 text-stone-400"
+                >
+                  На ремонте
+                </Badge>
+              )}
               <Tooltip delayDuration={200}>
                 <TooltipTrigger asChild>
                   <Badge
@@ -284,13 +453,27 @@ export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
                 </TooltipTrigger>
                 <TooltipContent side="top" className="max-w-xs">
                   {(() => {
-                    const tier = getWarSoulTier(weapon.warSoul, weapon.maxWarSoul ?? 100)
-                    const progress = getProgressToNextTier(weapon.warSoul, weapon.maxWarSoul ?? 100)
+                    const uncapped = isWarSoulPoolUncapped(weapon.maxWarSoul)
+                    const poolCap = uncapped
+                      ? Number.POSITIVE_INFINITY
+                      : (weapon.maxWarSoul ?? WAR_SOUL_WEAPON_POOL_MIN)
+                    const tier = getWarSoulTier(weapon.warSoul, poolCap)
+                    const progress = getProgressToNextTier(weapon.warSoul, poolCap)
+                    const barMax = resolveWarSoulProgressBarMax(weapon.warSoul, poolCap)
+                    const nextTier = getNextTierInfo(weapon.warSoul, poolCap)
                     const tierBonuses = tier.bonus
+                    const pot = weapon.soulPotential ?? weapon.stats.soulPotential ?? 1
                     return (
                       <>
                         <p className="font-semibold text-purple-400">
-                          {tier.icon} {tier.name}: {weapon.warSoul}/{weapon.maxWarSoul ?? 100} Души Войны
+                          {nextTier
+                            ? `${tier.icon} ${tier.name}: ${weapon.warSoul}/${barMax} душ до «${nextTier.name}»`
+                            : uncapped
+                              ? `${tier.icon} ${tier.name}: ${weapon.warSoul} душ`
+                              : `${tier.icon} ${tier.name}: ${weapon.warSoul}/${barMax} душ (пул)`}
+                        </p>
+                        <p className="text-xs text-amber-200/90 mt-1">
+                          Потенциал души: ×{pot.toFixed(2)} к награде за миссию
                         </p>
                         <p className="text-xs text-stone-400 mt-1">
                           Прогресс к следующему тиру: {progress}%
@@ -307,23 +490,6 @@ export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
                   })()}
                 </TooltipContent>
               </Tooltip>
-
-              {/* Эпический множитель */}
-              {(weapon.epicMultiplier ?? 1) > 1 && (
-                <Tooltip delayDuration={200}>
-                  <TooltipTrigger asChild>
-                    <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-amber-900/30 border border-amber-600/50 text-amber-400 cursor-help">
-                      <Crown className="w-3.5 h-3.5" />
-                      <span className="text-xs text-stone-400">Эпичность:</span>
-                      <span className="text-sm font-semibold text-amber-400">×{(weapon.epicMultiplier ?? 1).toFixed(2)}</span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    <p className="font-semibold text-amber-400">Эпичность: ×{(weapon.epicMultiplier ?? 1).toFixed(2)}</p>
-                    <p className="text-xs text-stone-400">Увеличивает награды от экспедиций. Растёт с каждым приключением!</p>
-                  </TooltipContent>
-                </Tooltip>
-              )}
 
               {/* Количество экспедиций */}
               {(weapon.adventureCount ?? 0) > 0 && (
@@ -366,6 +532,57 @@ export function WeaponInventoryCard({ weapon }: WeaponInventoryCardProps) {
                 );
               })()}
             </div>
+          )}
+
+          {/* Повреждения и переход на ремонт — внизу, после состава */}
+          {(hasVisibleDamage ||
+            (needsRepairShortcut && !inExpedition && !onRepairBench)) && (
+            <div className="pt-2 border-t border-stone-700/50 space-y-2">
+              {hasVisibleDamage && (
+                <Tooltip delayDuration={200}>
+                  <TooltipTrigger asChild>
+                    <div className="flex flex-wrap items-center gap-1.5 cursor-help rounded-lg border border-amber-800/50 bg-amber-950/30 px-2 py-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+                      {damageUi.labels.map((label, i) => (
+                        <Badge
+                          key={`${label}-${i}`}
+                          variant="outline"
+                          className="text-[10px] border-amber-700/60 text-amber-200/90 max-w-[9rem] truncate"
+                        >
+                          {label}
+                        </Badge>
+                      ))}
+                      {damageUi.more > 0 && (
+                        <span className="text-[10px] text-amber-400/90">+{damageUi.more}</span>
+                      )}
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-xs">
+                    <p className="font-medium text-amber-200">Видимые повреждения ({damageUi.total})</p>
+                    <p className="text-xs text-stone-400 mt-1">
+                      Устраняются на вкладке «Ремонт» после отправки клинка на верстак.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              {needsRepairShortcut && !inExpedition && !onRepairBench && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    sendWeaponToRepairBench(weapon.id)
+                    navigateToForgeTab('repair')
+                  }}
+                  className="inline-flex w-full sm:w-auto items-center justify-center gap-1.5 rounded-md border border-amber-700/55 bg-stone-900/70 px-3 py-2 text-xs font-medium text-amber-100/95 hover:bg-amber-950/40"
+                >
+                  <Wrench className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+                  Отправить на ремонт
+                </button>
+              )}
+            </div>
+          )}
+
+          {onRepairBench && (
+            <WeaponRepairLegacyDebugPanel weapon={weapon} />
           )}
 
         </CardContent>

@@ -3,7 +3,7 @@
  *
  * Ресурсы:
  * - rotten_wood (гнилое дерево) - common
- * - decayed_bones (истлевшие кости) - common
+ * - decayed_bones (гнилые кости) - common
  * - raw_leather (сырая кожа) - common
  * - iron_ore (железная руда) - common
  * - bog_iron (болотное железо) - uncommon

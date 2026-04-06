@@ -3,6 +3,8 @@ import { weaponRecipes } from '@/data/weapon-recipes'
 import type { NPCOrder } from '@/types/npc-order'
 import { initialResources } from '@/store/slices/resources-slice'
 import { initialUnlockedRecipes } from '@/store/slices/craft-slice'
+import { getCraftingCost } from '@/lib/craft/inventory-check'
+import { craftingResourceCostMapToGoldApprox } from '@/lib/store-utils/order-material-cost-gold'
 import {
   calculateMaterialCostForOrder,
   calculateMaxAchievableAttack,
@@ -62,10 +64,14 @@ describe('checkCanAffordRecipeMaterials', () => {
 })
 
 describe('calculateMaterialCostForOrder', () => {
-  it('aggregates sell prices for recipe cost entries', () => {
+  it('uses getCraftingCost + craftingResourceCostMapToGoldApprox (§6.7 мост с заказами)', () => {
     const { materials, totalCost } = calculateMaterialCostForOrder(ironSword)
+    const map = getCraftingCost(ironSword, {})
+    expect(craftingResourceCostMapToGoldApprox(map as Record<string, number>)).toBe(totalCost)
     expect(materials.length).toBeGreaterThan(0)
-    expect(totalCost).toBeGreaterThan(0)
+    expect(materials.find(m => m.resource === 'coal')?.amount).toBe(
+      (ironSword.cost?.coal ?? 0) + 3
+    )
   })
 })
 
@@ -114,5 +120,13 @@ describe('checkOrderAchievability', () => {
       unlockedRecipes: { weaponRecipes: [], refiningRecipes: [] },
     })
     expect(r.achievable).toBe(false)
+  })
+
+  it('matches legacy recipe when order uses canonical catalog material id (§6.7)', () => {
+    const r = checkOrderAchievability(
+      { ...baseOrder(), material: 'iron_alloy' },
+      contextOk
+    )
+    expect(r.achievable).toBe(true)
   })
 })

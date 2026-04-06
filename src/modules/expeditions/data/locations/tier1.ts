@@ -24,8 +24,8 @@ export const oakGroveOutskirts: Location = {
     // Базовые материалы из проекта
     { materialId: 'oak', baseWeight: 100, rarity: 'common', minQuantity: 3, maxQuantity: 8 },
     { materialId: 'birch', baseWeight: 80, rarity: 'common', minQuantity: 2, maxQuantity: 5 },
-    { materialId: 'iron_ore', baseWeight: 40, rarity: 'common', minQuantity: 1, maxQuantity: 3 },
-    { materialId: 'coal', baseWeight: 50, rarity: 'common', minQuantity: 2, maxQuantity: 4 },
+    { materialId: 'iron_ore', baseWeight: 88, rarity: 'common', minQuantity: 2, maxQuantity: 5 },
+    { materialId: 'coal', baseWeight: 92, rarity: 'common', minQuantity: 2, maxQuantity: 5 },
     // Новые материалы
     { materialId: 'oak_bark', baseWeight: 90, rarity: 'common', minQuantity: 2, maxQuantity: 6 },
     { materialId: 'acorns', baseWeight: 100, rarity: 'common', minQuantity: 5, maxQuantity: 15 },
@@ -87,6 +87,9 @@ export const oakGroveOutskirts: Location = {
 на северо-востоке рощи. Дед его деда говорил, что шахта ведёт к древнему капищу,
 где друиды когда-то проводили ритуалы. Вход завален, но из щелей иногда пробивается
 холодный воздух, пахнущий землёй и железом.`,
+
+  /** Встречающиеся стихии (SPEC §3.2 / §3.8); редкие оси — через редкие события в пуле. */
+  presentElements: ['nature', 'earth', 'air'],
 
   dungeonHook: {
     name: 'Древнее капище друидов',

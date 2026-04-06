@@ -17,6 +17,16 @@ export interface ResolvedEventLoot {
   materialGrants: Array<{ materialId: string; quantity: number }>
 }
 
+export function mergeMaterialGrantList(
+  list: Array<{ materialId: string; quantity: number }>
+): Array<{ materialId: string; quantity: number }> {
+  const m = new Map<string, number>()
+  for (const g of list) {
+    m.set(g.materialId, (m.get(g.materialId) ?? 0) + g.quantity)
+  }
+  return [...m.entries()].map(([materialId, quantity]) => ({ materialId, quantity }))
+}
+
 /**
  * Те же множители, что при завершении миссии (договор + отладка), для превью в журнале.
  */
@@ -32,13 +42,9 @@ export function applyExpeditionModuleLootMultipliers(
   const eventGoldMult =
     devBalance?.eventGoldMultiplier ?? devBalance?.quantityMultiplier ?? 1
 
-  const byId = new Map<string, number>()
-  for (const g of materialGrants) {
-    byId.set(g.materialId, (byId.get(g.materialId) ?? 0) + g.quantity)
-  }
-
-  const merged: Array<{ materialId: string; quantity: number }> = [...byId.entries()].map(
-    ([materialId, quantity]) => ({
+  const mergedInput = mergeMaterialGrantList(materialGrants)
+  const merged: Array<{ materialId: string; quantity: number }> = mergedInput.map(
+    ({ materialId, quantity }) => ({
       materialId,
       quantity: Math.max(
         1,
@@ -51,6 +57,17 @@ export function applyExpeditionModuleLootMultipliers(
     materialGrants: merged,
     bonusGold: Math.floor(bonusGold * eventGoldMult),
   }
+}
+
+/** Как при `buildExpeditionStartEvents`: одна база с `generateEventsForMission` и превью лута. */
+export const EXPEDITION_EVENT_RESOLUTION_SEED_MOD = 2147483647
+
+/** Сид для `getEffectsForEventResolution` по снимку события (совпадает с `resolveTemplateLoot(..., seed + order)`). */
+export function eventResolutionSeedForSnapshot(
+  expeditionStartedAtMs: number,
+  snapshotOrder: number
+): number {
+  return Math.floor(expeditionStartedAtMs % EXPEDITION_EVENT_RESOLUTION_SEED_MOD) + snapshotOrder
 }
 
 export function getEffectsForEventResolution(

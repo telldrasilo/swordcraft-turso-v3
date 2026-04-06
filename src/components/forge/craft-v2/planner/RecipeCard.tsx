@@ -7,7 +7,7 @@
 
 import React from 'react'
 import { motion } from 'framer-motion'
-import { Sword, Hammer, CheckCircle2 } from 'lucide-react'
+import { Sword, Hammer, CheckCircle2, Gavel } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { WeaponRecipe } from '@/types/craft-v2'
 
@@ -22,6 +22,9 @@ const typeIcons: Record<string, React.ReactNode> = {
   sword: <Sword className="w-5 h-5" />,
   dagger: <Sword className="w-4 h-4" />,
   axe: <Hammer className="w-5 h-5" />,
+  mace: <Hammer className="w-5 h-5" />,
+  spear: <Sword className="w-5 h-5" />,
+  hammer: <Gavel className="w-5 h-5" />,
 }
 
 export function RecipeCard({ recipe, isSelected, isAvailable, onSelect }: RecipeCardProps) {
@@ -31,7 +34,7 @@ export function RecipeCard({ recipe, isSelected, isAvailable, onSelect }: Recipe
       whileTap={isAvailable ? { scale: 0.98 } : {}}
       onClick={isAvailable ? onSelect : undefined}
       className={cn(
-        "p-3 rounded-lg border-2 transition-all cursor-pointer",
+        "p-2 rounded-lg border-2 transition-all cursor-pointer",
         isSelected 
           ? "border-amber-500 bg-amber-900/30" 
           : isAvailable
@@ -39,22 +42,22 @@ export function RecipeCard({ recipe, isSelected, isAvailable, onSelect }: Recipe
             : "border-stone-800 bg-stone-900/30 opacity-50 cursor-not-allowed"
       )}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         <div className={cn(
-          "p-2 rounded-lg",
+          "p-1.5 rounded-lg shrink-0",
           isSelected ? "bg-amber-600/30 text-amber-400" : "bg-stone-700 text-stone-400"
         )}>
           {typeIcons[recipe.type] || <Sword className="w-5 h-5" />}
         </div>
         <div className="flex-1 min-w-0">
           <p className={cn(
-            "font-medium truncate",
+            "text-sm font-medium truncate",
             isSelected ? "text-amber-200" : "text-stone-200"
           )}>
             {recipe.name}
           </p>
           <p className="text-xs text-stone-500 truncate">
-            {recipe.parts.length} частей • ATK {recipe.baseStats.attackBase}
+            {recipe.parts.length} ч. · ур. {recipe.requiredLevel ?? 1}
           </p>
         </div>
         {isSelected && (

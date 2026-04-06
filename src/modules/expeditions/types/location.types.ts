@@ -3,6 +3,8 @@
  * Автономный модуль — может быть перенесён в основной проект
  */
 
+import type { ElementAxisId } from '@/data/weapon-damage/elemental-axes'
+
 // ============================================================================
 // ТИпы редкости
 // ============================================================================
@@ -138,6 +140,9 @@ export interface Location {
   tier: LocationTier;
   type: LocationType;
   tags: LocationTag[];
+
+  /** Стихии окружения; фильтр выдачи elemental_* на оружие (ELEMENTAL_PLATFORM_SPEC §3.2). Пусто — пока без явных стихий. */
+  presentElements?: ElementAxisId[];
 
   // Доступ
   unlockRequirements: LocationUnlockRequirements;

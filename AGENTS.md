@@ -27,6 +27,7 @@ Next.js 15, TypeScript 5, Zustand 5.0.6 (composed store), Tailwind CSS 4, shadcn
 
 ### При работе с данными:
 - **Материалы** → docs/data/MATERIALS_DATA.md; полный гайд добавления и энциклопедии — **docs/data/MATERIALS_ADDING.md**; маппинг id экспедиций — **docs/expedition-material-id-map.md**
+- **Цепочки руда/слиток/wood/stone и ключи склада** → **docs/RESOURCE_TRANSFORMATION_MAP.md** (человекочитаемая карта; источник правды — `inventory-check.ts`, `refining-recipes.ts`)
 - **Рецепты** → docs/data/RECIPES_DATA.md
 - **Техники** → docs/data/TECHNIQUES_DATA.md
 - **Искатели** → docs/data/ADVENTURERS_DATA.md
@@ -78,6 +79,8 @@ store.completeOrder(orderId, weaponId, weapon)
 store.addMaterialExpertise(materialId, amount)
 ```
 
+Завершение крафта **v2:** батч прироста экспертизы строится в `src/lib/craft/craft-expertise-from-craft.ts` и применяется из `use-craft-v2` через `queueMicrotask`, чтобы не дергать Zustand внутри updater’а React — см. `docs/utils/FORMULAS.md` (B2).
+
 ## Важные архитектурные решения
 
 1. **Composed Store** — Все слайсы объединены в одном файле game-store-composed.ts
@@ -97,6 +100,7 @@ store.addMaterialExpertise(materialId, amount)
 - **Основной слой:** Zustand persist (`localStorage`, см. store) + локальный бэкап в `use-cloud-save.ts`
 - **Облако (Turso):** только если **`NEXT_PUBLIC_CLOUD_SAVE_ENABLED=true`**; иначе `/api/save` не используется клиентом (ответ 503 при прямом вызове). Чеклист расширения полей: `src/lib/cloud-save-feature.ts`
 - API: `src/app/api/save/route.ts`
+- **Разработка:** при смене схемы персиста или `STORE_VERSION` после `git pull` при странных ошибках загрузки — очистите `localStorage` для ключа `swordcraft-store-v2` (и при необходимости `swordcraft-offline-backup`); миграции сейвов до релиза не гарантируются.
 
 ## Тесты и проверка качества
 
@@ -113,6 +117,10 @@ store.addMaterialExpertise(materialId, amount)
 | `npm run type-check` | `tsc --noEmit` |
 | `npm run lint` | ESLint |
 | `npm run build` | Production-сборка Next.js (строгая проверка) |
+| `npm run clean:next` | Удалить кеш `.next` (битый HMR / 404 на `/_next/static/...`) |
+| `npm run dev:clean` | `clean:next` затем `dev` — первый шаг при «пустой странице» и 404 на `main-app.js`, `layout.css` |
+
+**Диагностика dev (404 на чанки / `layout.css`):** чаще всего устаревшая вкладка после перезапуска dev, **другой порт** (скрипт `scripts/next-dev.cjs` уходит на 3001+, если 3000 занят — в корне появляется `.next-dev-port` с номером) или повреждённый `.next`. Сообщение браузера вроде `[CursorBrowser] Native dialog overrides` идёт от встроенного браузера Cursor, не от приложения. Жёсткое обновление вкладки или `npm run dev:clean`.
 
 ### CI
 В [.github/workflows/ci.yml](.github/workflows/ci.yml): **`npm ci` → `npm run lint` → `npm run test` → `npm run test:coverage` → `npm run build`**. Любой PR/пуш в `main`/`master` должен проходить эту цепочку.

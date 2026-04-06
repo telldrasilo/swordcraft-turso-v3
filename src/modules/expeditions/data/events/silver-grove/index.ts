@@ -7,11 +7,12 @@
  * - lunar.ts — лунная магия и ночные существа (4 события)
  * - silver.ts — серебро и лесные явления (4 события)
  *
- * Итого: 8 событий для silver_grove
+ * Итого: 10 событий для silver_grove
  */
 
 import { silverLunarEvents } from './lunar';
 import { silverForestEvents } from './silver';
+import { silverElementalEvents } from './elemental';
 
 // ============================================================================
 // ЭКСПОРТ ВСЕХ СОБЫТИЙ
@@ -43,11 +44,12 @@ export {
 export const silverGroveEvents = [
   ...silverLunarEvents,
   ...silverForestEvents,
+  ...silverElementalEvents,
 ];
 
 // Статистика событий локации
 export const silverGroveEventsStats = {
-  total: 8,
+  total: 10,
   locationId: 'silver_grove',
   byType: {
     positive: 3,

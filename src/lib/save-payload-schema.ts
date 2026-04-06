@@ -62,6 +62,7 @@ export const saveRequestBodySchema = z
     timestamp: z.coerce.number().finite().optional(),
     player: z.union([playerShapeSchema, looseRecord]).optional(),
     resources: z.unknown().optional(),
+    materialStash: z.unknown().optional(),
     statistics: z.unknown().optional(),
     workers: z.unknown().optional(),
     buildings: z.unknown().optional(),
@@ -72,14 +73,25 @@ export const saveRequestBodySchema = z
     unlockedRecipes: z.unknown().optional(),
     recipeSources: z.unknown().optional(),
     unlockedEnchantments: z.unknown().optional(),
+    unlockedMaterialProcessingTechniqueIds: z.unknown().optional(),
+    unlockedRepairTechniqueIds: z.unknown().optional(),
+    unlockedReforgeTechniqueIds: z.unknown().optional(),
     guild: z.unknown().optional(),
     knownAdventurers: z.unknown().optional(),
     orders: z.unknown().optional(),
     tutorial: z.unknown().optional(),
     materialKnowledge: z.unknown().optional(),
+    materialStudySessions: z.unknown().optional(),
+    gameMessages: z.unknown().optional(),
     craftV2Persisted: z.unknown().optional(),
     playTime: z.coerce.number().finite().min(0).max(Number.MAX_SAFE_INTEGER).optional(),
     saveVersion: z.coerce.number().int().min(1).max(999_999).optional(),
+    /** Слот верстака ремонта (id оружия или null) */
+    repairBenchWeaponId: z.union([z.string().min(1), z.null()]).optional(),
+    /** Активный прогон этапов ремонта (после `validateSaveData` нормализуется на сервере) */
+    repairTechniqueStageRun: z.unknown().optional(),
+    /** Квест «Эхо забытой кузни» + архивариус (облако / Turso) */
+    forgottenForgePersist: z.unknown().optional(),
   })
   .superRefine((data, ctx) => {
     try {
@@ -111,6 +123,11 @@ export const saveRequestBodySchema = z
     arr('knownAdventurers', data.knownAdventurers, 2000)
     arr('recipeSources', data.recipeSources, 10_000)
     arr('unlockedEnchantments', data.unlockedEnchantments, 5000)
+    arr('unlockedMaterialProcessingTechniqueIds', data.unlockedMaterialProcessingTechniqueIds, 500)
+    arr('unlockedRepairTechniqueIds', data.unlockedRepairTechniqueIds, 500)
+    arr('unlockedReforgeTechniqueIds', data.unlockedReforgeTechniqueIds, 500)
+    arr('materialStudySessions', data.materialStudySessions, 500)
+    arr('gameMessages', data.gameMessages, 500)
   })
 
 export type SaveRequestBody = z.infer<typeof saveRequestBodySchema>

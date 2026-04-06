@@ -9,28 +9,26 @@ import { Trophy, Users, Scroll, Star, Crown, TrendingUp } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { useGameStore } from '@/store/game-store-composed'
+import { getMaxActiveExpeditions } from '@/types/guild'
 import {
-  getReputationToNextLevel,
-  getTotalReputationForLevel,
-  getMaxActiveExpeditions,
-} from '@/types/guild'
+  getRankUpCost,
+  getReputationPointsToAffordRankUp,
+  MAX_GUILD_LEVEL,
+} from '@/lib/guild-reputation-tier'
 
 export function GuildStatsSection() {
   const guild = useGameStore((state) => state.guild)
   const stats = useGameStore((state) => state.statistics)
 
-  // Рассчитываем прогресс до следующего уровня
   const currentLevel = guild.level
   const currentReputation = guild.reputation
-  const nextLevelReputation = getTotalReputationForLevel(currentLevel + 1)
-  const previousLevelReputation = getTotalReputationForLevel(currentLevel)
-  const totalReputationForCurrentLevel = nextLevelReputation - previousLevelReputation
-  const currentProgressInLevel = currentReputation - previousLevelReputation
-  const progressPercent = totalReputationForCurrentLevel > 0
-    ? Math.min(100, (currentProgressInLevel / totalReputationForCurrentLevel) * 100)
-    : 100
+  const rankUpCost = getRankUpCost(currentLevel)
+  const pointsToRankUp = getReputationPointsToAffordRankUp(currentLevel, currentReputation)
+  const progressPercent =
+    currentLevel >= MAX_GUILD_LEVEL || rankUpCost <= 0
+      ? 100
+      : Math.min(100, (currentReputation / rankUpCost) * 100)
 
-  const reputationToNext = getReputationToNextLevel(currentReputation, currentLevel)
   const maxExpeditions = getMaxActiveExpeditions(currentLevel)
 
   return (
@@ -52,25 +50,32 @@ export function GuildStatsSection() {
               </div>
               <div className="space-y-1">
                 <div className="text-sm text-gray-400">
-                  Репутация: <span className="text-amber-200 font-semibold">{currentReputation}</span>
+                  Очки в ранге: <span className="text-amber-200 font-semibold">{currentReputation}</span>
+                  {currentLevel < MAX_GUILD_LEVEL && rankUpCost > 0 && (
+                    <span className="text-gray-600"> / {rankUpCost}</span>
+                  )}
                 </div>
                 <div className="text-sm text-gray-400">
-                  Всего: <span className="text-gray-300">{guild.totalReputation}</span>
+                  Всего заработано: <span className="text-gray-300">{guild.totalReputation}</span>
                 </div>
               </div>
             </div>
             <div className="text-right">
               <div className="text-sm text-gray-400">
-                До уровня {currentLevel + 1}
+                {currentLevel >= MAX_GUILD_LEVEL ? 'Ранг' : `До повышения ранга`}
               </div>
               <div className="text-lg font-semibold text-amber-200">
-                {reputationToNext > 0 ? `+${reputationToNext}` : 'Максимальный уровень'}
+                {currentLevel >= MAX_GUILD_LEVEL
+                  ? 'Максимум'
+                  : pointsToRankUp > 0
+                    ? `ещё ${pointsToRankUp}`
+                    : 'можно повысить'}
               </div>
             </div>
           </div>
 
           {/* Прогресс-бар */}
-          {reputationToNext > 0 && (
+          {currentLevel < MAX_GUILD_LEVEL && rankUpCost > 0 && (
             <div className="space-y-2">
               <div className="flex justify-between text-xs text-gray-400">
                 <span>Прогресс</span>
@@ -85,15 +90,22 @@ export function GuildStatsSection() {
             <div className="flex items-center gap-2 text-sm">
               <TrendingUp className="w-4 h-4 text-green-400" />
               <div>
-                <div className="text-gray-400 text-xs">Экспедиций</div>
-                <div className="text-gray-200 font-semibold">{maxExpeditions}</div>
+                <div className="text-gray-400 text-xs">Экспедиций завершено</div>
+                <div className="text-gray-200 font-semibold">
+                  {guild.stats.totalExpeditions}
+                  <span className="text-gray-500 font-normal text-xs ml-1">
+                    (слотов: {maxExpeditions})
+                  </span>
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-2 text-sm">
               <Users className="w-4 h-4 text-blue-400" />
               <div>
-                <div className="text-gray-400 text-xs">Искателей</div>
-                <div className="text-gray-200 font-semibold">{guild.maxKnownAdventurers}</div>
+                <div className="text-gray-400 text-xs">Искатели</div>
+                <div className="text-gray-200 font-semibold">
+                  {guild.knownAdventurers.length}/{guild.maxKnownAdventurers}
+                </div>
               </div>
             </div>
           </div>

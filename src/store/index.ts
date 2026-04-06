@@ -27,6 +27,7 @@ export {
   type WeaponMaterial,
   type QualityGrade,
   type GameScreen,
+  type ForgeMainTab,
   // Начальные значения
   initialPlayer,
   initialStatistics,

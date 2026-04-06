@@ -190,6 +190,22 @@ export function createMaterialKnowledge(materialId: string): MaterialKnowledge {
 }
 
 /**
+ * Запись при первом «открытии» материала (ENC / склад без порога кузницы).
+ * Экспертиза 1% — видно в справочнике; для кузницы v2 нужен порог отдельно (см. MIN_MATERIAL_EXPERTISE_FOR_CRAFT).
+ */
+export function createDiscoveredMaterialKnowledge(materialId: string): MaterialKnowledge {
+  const now = Date.now()
+  return {
+    materialId,
+    expertise: 1,
+    discoveredAt: now,
+    lastUsedAt: now,
+    totalUses: 0,
+    totalResearchTime: 0,
+  }
+}
+
+/**
  * Добавить экспертизу к материалу
  */
 export function addExpertise(

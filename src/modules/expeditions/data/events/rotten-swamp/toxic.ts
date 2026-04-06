@@ -200,6 +200,48 @@ export const eventRottenPoisoner: EventTemplate = {
 };
 
 // ============================================================================
+// СТЕКЛЯННЫЕ ТРОСТНИКИ (порезы острия)
+// ============================================================================
+
+export const eventRottenGlassReeds: EventTemplate = {
+  id: 'event_rotten_glass_reeds',
+  name: 'Стеклянные тростники',
+  type: 'negative',
+  category: 'danger',
+
+  title: 'Кромка ловит осколки',
+  description: `Заросли «стеклянных» тростников — хрупкие волокна с острыми краями, как бритва. Вытягиваешь клинок из зарослей — и на стали остаются рваные царапины у острия, будто кто-то провёл по металлу пилой из игл.`,
+  flavorText: '"Болото режет тихо — пока не посмотришь на лезвие."',
+
+  conditions: {
+    locationIds: ['rotten_swamp'],
+    minProgress: 15,
+    maxProgress: 85,
+  },
+
+  effects: [
+    {
+      type: 'damage_adventurer',
+      modifier: 8,
+      description: '-8% HP (порезы рук)',
+    },
+    {
+      type: 'damage_weapon',
+      modifier: 7,
+      description: '-7% прочности оружия (зазубрины у острия)',
+    },
+    {
+      type: 'modify_duration',
+      modifier: 90,
+      description: '+1.5 минуты (обход зарослей)',
+    },
+  ],
+
+  weight: 13,
+  icon: '🌾',
+};
+
+// ============================================================================
 // ЭКСПОРТ
 // ============================================================================
 
@@ -208,4 +250,5 @@ export const rottenToxicEvents: EventTemplate[] = [
   eventRottenDisease,
   eventRottenAlchemistCache,
   eventRottenPoisoner,
+  eventRottenGlassReeds,
 ];

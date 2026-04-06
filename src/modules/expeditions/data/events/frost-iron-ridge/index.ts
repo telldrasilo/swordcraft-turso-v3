@@ -6,10 +6,11 @@
  * Структура:
  * - cold.ts — холод, лёд и великаны (4 события)
  *
- * Итого: 4 события для frost_iron_ridge
+ * Итого: 5 событий для frost_iron_ridge
  */
 
 import { frostColdEvents } from './cold';
+import { frostElementalEvents } from './elemental';
 
 // ============================================================================
 // ЭКСПОРТ ВСЕХ СОБЫТИЙ
@@ -28,11 +29,12 @@ export {
 // Объединённый массив всех событий локации
 export const frostIronRidgeEvents = [
   ...frostColdEvents,
+  ...frostElementalEvents,
 ];
 
 // Статистика событий локации
 export const frostIronRidgeEventsStats = {
-  total: 4,
+  total: 5,
   locationId: 'frost_iron_ridge',
   byType: {
     positive: 1,

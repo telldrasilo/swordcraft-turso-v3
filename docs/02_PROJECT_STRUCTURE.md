@@ -260,7 +260,7 @@ import { GameLayout } from "@/components/layout/game-layout"
 | *(в `game-store-composed.ts` + `use-craft-v2.ts`)* | Крафт v2 | `craftV2Persisted`, этапы и UI; отдельного `craft-v2-slice.ts` нет |
 | `orders-slice.ts` | Заказы NPC | availableOrders[], activeOrderId, completedOrders[], expiredOrders[] |
 | `guild-slice.ts` | Гильдия | level, glory, reputation, adventurers[], activeExpeditions[], history |
-| `enchantments-slice.ts` | Зачарования | unlockedEnchantments[], soulEssence, maxEnchantmentsPerWeapon |
+| ~~`enchantments-slice.ts`~~ (удалён, фаза 0) | — | Раньше дублировал логику; контракт зачарований — `craft-slice` + `game-store-composed` |
 | `encyclopedia-slice.ts` | Энциклопедия | materialKnowledge, selectedCategory, searchQuery |
 | `tutorial-slice.ts` | Туториал | isActive, currentStep, completedSteps, skipped |
 

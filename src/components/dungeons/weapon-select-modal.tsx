@@ -6,7 +6,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { X, Sword, Heart, Sparkles, Star, Wrench } from 'lucide-react'
+import { X, Sword, Heart, Sparkles, Wrench } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
@@ -146,7 +146,7 @@ export function WeaponSelectModal({
                             <Heart className="w-3 h-3" />
                             <span>{curDur}/{maxDur}</span>
                             {isBroken && <span className="text-red-400">(сломано)</span>}
-                            {isDamaged && !isBroken && <span className="text-orange-400">(нужен ремонт)</span>}
+                            {isDamaged && !isBroken && <span className="text-orange-400">(нужен «Ремонт» в кузнице)</span>}
                           </div>
                           
                           {/* Очки души */}
@@ -154,14 +154,6 @@ export function WeaponSelectModal({
                             <div className="flex items-center gap-1 text-purple-400">
                               <Sparkles className="w-3 h-3" />
                               <span>{weapon.warSoul} Души Войны</span>
-                            </div>
-                          )}
-                          
-                          {/* Множитель эпичности */}
-                          {(weapon.epicMultiplier ?? 1) > 1 && (
-                            <div className="flex items-center gap-1 text-amber-400">
-                              <Star className="w-3 h-3" />
-                              <span>×{(weapon.epicMultiplier ?? 1).toFixed(1)}</span>
                             </div>
                           )}
                         </div>
@@ -172,7 +164,7 @@ export function WeaponSelectModal({
                       <div className="mt-2 p-2 rounded bg-orange-900/20 border border-orange-600/20">
                         <div className="flex items-center gap-2 text-xs text-orange-400">
                           <Wrench className="w-3 h-3" />
-                          <span>Рекомендуется отремонтировать перед вылазкой</span>
+                          <span>Рекомендуется заглянуть во вкладку «Ремонт» перед вылазкой</span>
                         </div>
                       </div>
                     )}

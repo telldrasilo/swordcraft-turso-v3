@@ -6,7 +6,7 @@ import type { MaterialNode } from '@/types/materials/material-core'
 import type { WeaponRecipe } from '@/types/craft-v2'
 import type { Resources } from '@/store/slices/resources-slice'
 import type { MaterialKnowledge } from '@/types/materials/knowledge'
-import { getResourceKeyForMaterial } from './inventory-check'
+import { getAvailableAmountForResourceKey, getResourceKeyForMaterial } from './inventory-check'
 import { getMaterialRarity, type MaterialRarity } from '@/types/materials/material-core'
 import {
   CRAFT_PERCENT_SCALE,
@@ -37,6 +37,8 @@ import {
 /** Контекст для сортировки */
 export interface SortContext {
   inventory: Resources
+  /** Склад по catalog materialId (экспедиции); учёт вместе с inventory для крафта */
+  materialStash?: Record<string, number>
   knowledge: Record<string, MaterialKnowledge>
   recipe: WeaponRecipe
   partId: string
@@ -100,10 +102,10 @@ export function smartSortMaterials(
  * Чем выше оценка, тем выше материал в списке
  */
 function calculateMaterialScore(material: MaterialNode, context: SortContext): number {
-  const { inventory, knowledge, recipe, partId, blacksmithLevel: _blacksmithLevel, dominantProperty } = context
+  const { inventory, materialStash, knowledge, recipe, partId, blacksmithLevel: _blacksmithLevel, dominantProperty } = context
   
   // 1. Доступность (вес 40%) - 40 баллов максимум
-  const availabilityScore = calculateAvailabilityScore(material, inventory)
+  const availabilityScore = calculateAvailabilityScore(material, inventory, materialStash)
   
   // 2. Качество для данной части (вес 30%) - 30 баллов максимум
   const qualityScore = calculateQualityScore(material, recipe, partId, dominantProperty)
@@ -129,13 +131,10 @@ function calculateMaterialScore(material: MaterialNode, context: SortContext): n
  */
 function calculateAvailabilityScore(
   material: MaterialNode,
-  inventory: Resources
+  inventory: Resources,
+  materialStash: Record<string, number> = {}
 ): number {
-  const resourceKey = getResourceKeyForMaterial(material.identity.id)
-  if (!resourceKey) return 0
-  
-  const quantity = inventory[resourceKey] || 0
-  // Нормализуем: 0 = 0, >=1 = 100
+  const quantity = getMaterialQuantity(material, inventory, materialStash)
   return quantity > 0 ? MATERIAL_SORT_IN_STOCK_SCORE : 0
 }
 
@@ -255,12 +254,10 @@ function calculateRarityScore(material: MaterialNode): number {
  */
 export function isMaterialAvailable(
   material: MaterialNode,
-  inventory: Resources
+  inventory: Resources,
+  materialStash: Record<string, number> = {}
 ): boolean {
-  const resourceKey = getResourceKeyForMaterial(material.identity.id)
-  if (!resourceKey) return false
-  
-  return (inventory[resourceKey] || 0) > 0
+  return getMaterialQuantity(material, inventory, materialStash) > 0
 }
 
 /**
@@ -268,12 +265,15 @@ export function isMaterialAvailable(
  */
 export function getMaterialQuantity(
   material: MaterialNode,
-  inventory: Resources
+  inventory: Resources,
+  materialStash: Record<string, number> = {}
 ): number {
-  const resourceKey = getResourceKeyForMaterial(material.identity.id)
-  if (!resourceKey) return 0
-  
-  return inventory[resourceKey] || 0
+  const id = material.identity.id
+  const resourceKey = getResourceKeyForMaterial(id)
+  if (resourceKey) {
+    return getAvailableAmountForResourceKey(inventory, materialStash, resourceKey)
+  }
+  return materialStash[id] ?? 0
 }
 
 const materialSortingDefaultExport = {

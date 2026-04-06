@@ -77,11 +77,20 @@ mindmap
 ### Игровые системы
 | Файл | Описание |
 |---------|---------|
-| [docs/systems/FORGE_SYSTEM.md](systems/FORGE_SYSTEM.md) | Крафт оружия, качество, War Soul |
+| [docs/systems/FORGE_SYSTEM.md](systems/FORGE_SYSTEM.md) | Крафт оружия, качество, War Soul, ремонт, **перековка** (фаза 1) |
+| [docs/systems/WAR_SOUL_CONCEPT_AND_FORECAST.md](systems/WAR_SOUL_CONCEPT_AND_FORECAST.md) | **Душа войны:** тиры, пул `maxWarSoul`, масштаб ×4000, прогноз крафта и идеи переработки UI |
+| [docs/systems/CRAFT_SYSTEM_ROADMAP.md](systems/CRAFT_SYSTEM_ROADMAP.md) | **Дорожная карта крафта:** стадии материалов, экспертиза, техники и цепочки обработки (фазы A–E) |
 | [docs/systems/GUILD_SYSTEM.md](systems/GUILD_SYSTEM.md) | Гильдия, искатели, экспедиции, модификаторы |
+| [docs/systems/ELEMENTAL_PLATFORM_SPEC.md](systems/ELEMENTAL_PLATFORM_SPEC.md) | **Канон v1.0:** оси урона, стихии, шрамы, чеклист событий §3.5, словарь UI §3.6 |
+| [docs/systems/ELEMENTAL_PLATFORM_IMPLEMENTATION.md](systems/ELEMENTAL_PLATFORM_IMPLEMENTATION.md) | План внедрения платформы осей/стихий и **worklog** по фазам |
 | [docs/systems/RESOURCE_SYSTEM.md](systems/RESOURCE_SYSTEM.md) | Добыча, шахты, рабочие, здания |
 | [docs/systems/ORDER_SYSTEM.md](systems/ORDER_SYSTEM.md) | Заказы NPC, требования, скрытые теги |
-| [docs/systems/ENCHANTMENT_SYSTEM.md](systems/ENCHANTMENT_SYSTEM.md) | Школы магии, уровни, жертвоприношение |
+| [docs/systems/ENCHANTMENT_SYSTEM.md](systems/ENCHANTMENT_SYSTEM.md) | Школы магии, уровни, жертвоприношение (legacy-описание) |
+| [docs/systems/ENCHANTMENT_AWAKENING_CONCEPT.md](systems/ENCHANTMENT_AWAKENING_CONCEPT.md) | **Канон** модуля зачарований: пробуждения, древо, слияние, план фаз 0–5 |
+| [docs/systems/ENCHANTMENT_MODULE_PHASE0.md](systems/ENCHANTMENT_MODULE_PHASE0.md) | **Фаза 0:** детальный план, worklog, правила разработки модуля |
+| [docs/systems/ENCHANTMENT_MODULE_PHASE1.md](systems/ENCHANTMENT_MODULE_PHASE1.md) | **Фаза 1:** гейт экрана «Зачарования», перековка, to-do 1.3, сверка с концепцией |
+| [docs/systems/ENCHANTMENT_MODULE_PHASE2_ALTAR_CONSTRUCTION.md](systems/ENCHANTMENT_MODULE_PHASE2_ALTAR_CONSTRUCTION.md) | **Фаза 2 (проект):** постройка алтаря, связь с квестом, материалы, техники, крафт v2 |
+| [docs/systems/ENCHANTMENT_MODULE_PHASE2_IMPLEMENTATION_ROADMAP.md](systems/ENCHANTMENT_MODULE_PHASE2_IMPLEMENTATION_ROADMAP.md) | **Фаза 2:** пошаговый план внедрения по фазам (данные → крафт v2 → UI → техники → QA) |
 | [docs/Ecnchantment_System/README.md](Ecnchantment_System/README.md) | Автономный пакет документации для отдельной разработки и обратной интеграции |
 
 ### Утилиты и расчёты
@@ -96,6 +105,8 @@ mindmap
 | Файл | Описание |
 |---------|---------|
 | [docs/data/MATERIALS_DATA.md](data/MATERIALS_DATA.md) | Система материалов, бонусы |
+| [docs/MATERIAL_SEMANTIC_PROCESS_ROLES.md](MATERIAL_SEMANTIC_PROCESS_ROLES.md) | Смысловые роли материалов в процессах (принципы и фазы A–E) |
+| [docs/RESOURCE_TRANSFORMATION_MAP.md](RESOURCE_TRANSFORMATION_MAP.md) | **Карта преобразований:** `materialId` ↔ `ResourceKey`, горн/пилорама, начисления и расход (Mermaid + таблицы) |
 | [docs/data/RECIPES_DATA.md](data/RECIPES_DATA.md) | Рецепты оружия и плавки |
 | [docs/data/TECHNIQUES_DATA.md](data/TECHNIQUES_DATA.md) | Техники крафта |
 | [docs/data/ADVENTURERS_DATA.md](data/ADVENTURERS_DATA.md) | Теги, редкость, генерация |

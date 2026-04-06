@@ -7,26 +7,48 @@
 
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
   Sword, Shield, Star, Zap, Package, CheckCircle2,
-  Sparkles, Heart, Timer
+  Sparkles, Heart, Timer, Flame
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 import type { CraftedWeaponV2 } from '@/types/craft-v2'
 import { QUALITY_GRADES_CONFIG } from '@/types/craft-v2'
 import { getQualityWithinGradeDisplay } from '@/lib/craft/quality-display'
+import type { CraftExpertiseGainRow } from '@/lib/craft/craft-expertise-from-craft'
+import {
+  getNextTierInfo,
+  getWarSoulTier,
+  resolveWarSoulProgressBarMax,
+  WAR_SOUL_WEAPON_POOL_MIN,
+} from '@/lib/war-soul-utils'
+import { isWarSoulPoolUncapped } from '@/data/war-soul-balance'
 
 // ================================
 // КОНСТАНТЫ
 // ================================
 
 const QUALITY_CONFIG = QUALITY_GRADES_CONFIG
+
+function expertisePctDisplay(value: number): string {
+  return String(Math.round(value))
+}
 
 // ================================
 // ПОДКОМПОНЕНТЫ
@@ -153,15 +175,33 @@ interface CraftResultProps {
   weapon: CraftedWeaponV2
   onCollect: () => void
   onContinue: () => void
+  /** Прирост экспертизы по материалам (уже начислен в store при завершении крафта) */
+  expertiseGains?: CraftExpertiseGainRow[] | null
 }
 
-export function CraftResult({ weapon, onCollect, onContinue }: CraftResultProps) {
+export function CraftResult({ weapon, onCollect, onContinue, expertiseGains }: CraftResultProps) {
+  const [collectDialogOpen, setCollectDialogOpen] = useState(false)
   const qualityConfig =
     QUALITY_CONFIG.find(g => g.grade === weapon.qualityGrade) ??
     QUALITY_CONFIG[1] ??
     QUALITY_CONFIG[0]!
   const qInGrade = getQualityWithinGradeDisplay(weapon.quality)
-  
+
+  const warSoulProgressDisplay = useMemo(() => {
+    const uncapped = isWarSoulPoolUncapped(weapon.maxWarSoul)
+    const poolCap = uncapped ? Number.POSITIVE_INFINITY : (weapon.maxWarSoul ?? WAR_SOUL_WEAPON_POOL_MIN)
+    const barMax = resolveWarSoulProgressBarMax(weapon.warSoul, poolCap)
+    const nextTier = getNextTierInfo(weapon.warSoul, poolCap)
+    if (nextTier) {
+      return `${weapon.warSoul}/${barMax} до «${nextTier.name}»`
+    }
+    if (uncapped) {
+      const t = getWarSoulTier(weapon.warSoul, poolCap)
+      return `${weapon.warSoul} душ — «${t.name}»`
+    }
+    return `${weapon.warSoul}/${barMax} (пул)`
+  }, [weapon.warSoul, weapon.maxWarSoul])
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
@@ -255,9 +295,15 @@ export function CraftResult({ weapon, onCollect, onContinue }: CraftResultProps)
             color="bg-green-600/30 text-green-400"
           />
           <StatCard
+            icon={<Flame className="w-4 h-4" />}
+            label="Потенциал души"
+            value={`×${(weapon.soulPotential ?? weapon.stats.soulPotential ?? 1).toFixed(2)}`}
+            color="bg-amber-600/30 text-amber-300"
+          />
+          <StatCard
             icon={<Sparkles className="w-4 h-4" />}
             label="Душа Войны"
-            value={`${weapon.warSoul}/${weapon.maxWarSoul}`}
+            value={warSoulProgressDisplay}
             color="bg-purple-600/30 text-purple-400"
           />
         </CardContent>
@@ -291,7 +337,10 @@ export function CraftResult({ weapon, onCollect, onContinue }: CraftResultProps)
         <Button
           size="lg"
           className="flex-1 bg-green-600 hover:bg-green-500"
-          onClick={onCollect}
+          onClick={() => {
+            if (expertiseGains && expertiseGains.length > 0) setCollectDialogOpen(true)
+            else onCollect()
+          }}
         >
           <Package className="w-5 h-5 mr-2" />
           Забрать оружие
@@ -304,6 +353,42 @@ export function CraftResult({ weapon, onCollect, onContinue }: CraftResultProps)
           Создать ещё
         </Button>
       </div>
+
+      <AlertDialog open={collectDialogOpen} onOpenChange={setCollectDialogOpen}>
+        <AlertDialogContent className="border-stone-700 bg-stone-900 text-stone-100">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Прирост знаний о материалах</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-stone-300">
+                <p className="text-sm">
+                  За этот крафт ваши навыки работы с материалами выросли:
+                </p>
+                <ul className="text-sm list-disc pl-4 space-y-1">
+                  {expertiseGains?.map(g => (
+                    <li key={g.materialId}>
+                      <span className="font-medium text-stone-200">{g.materialName}</span>
+                      : +{expertisePctDisplay(g.delta)}% (было{' '}
+                      {expertisePctDisplay(g.before)}%, стало {expertisePctDisplay(g.after)}%)
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-stone-600">Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-green-600 hover:bg-green-500"
+              onClick={() => {
+                setCollectDialogOpen(false)
+                onCollect()
+              }}
+            >
+              Забрать оружие
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </motion.div>
   )
 }

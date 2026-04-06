@@ -14,7 +14,12 @@ import {
 import type { Location } from '@/modules/expeditions/types'
 import type { GeneratedEvent } from '@/modules/expeditions/data/events/_event-template'
 import { getRouteDurationSeconds } from '@/lib/expedition-contract-economy'
-import { resolveTemplateLoot } from '@/lib/expedition-event-loot'
+import {
+  EXPEDITION_EVENT_RESOLUTION_SEED_MOD,
+  eventResolutionSeedForSnapshot,
+  mergeMaterialGrantList,
+  resolveTemplateLoot,
+} from '@/lib/expedition-event-loot'
 
 /** Сериализуемый снимок события модуля в persist / завершение экспедиции */
 export interface ModuleExpeditionEventSnapshot {
@@ -96,7 +101,7 @@ export function buildExpeditionStartEvents(
     return emptyExpeditionStart(contractType)
   }
 
-  const seed = Math.floor(startedAtMs % 2147483647)
+  const seed = Math.floor(startedAtMs % EXPEDITION_EVENT_RESOLUTION_SEED_MOD)
   const routeDurationSeconds = getRouteDurationSeconds(expedition.duration, contractType)
   const generated = generateEventsForMission({
     mission,
@@ -110,8 +115,18 @@ export function buildExpeditionStartEvents(
   const moduleEventSnapshots: ModuleExpeditionEventSnapshot[] = []
 
   for (const ge of generated) {
+    const tpl = getEventById(ge.templateId)
     const host = generatedToHostEvent(ge, startedAtMs)
-    if (host) events.push(host)
+    if (host) {
+      if (tpl) {
+        const loot = resolveTemplateLoot(tpl, location, eventResolutionSeedForSnapshot(startedAtMs, ge.order))
+        host.moduleLootPreview = {
+          bonusGold: loot.bonusGold,
+          materialGrants: mergeMaterialGrantList(loot.materialGrants),
+        }
+      }
+      events.push(host)
+    }
     moduleEventSnapshots.push({
       instanceId: ge.instanceId,
       templateId: ge.templateId,

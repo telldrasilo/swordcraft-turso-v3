@@ -23,6 +23,7 @@ import { useGameStore } from '@/store'
 import type { NPCOrder } from '@/types/npc-order'
 import { calculateGoldRewardRange } from '@/lib/store-utils/order-utils'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { hiddenTagsSatisfyOrderMaterial } from '@/lib/craft/weapon-display-meta'
 
 // Названия типов оружия
 const weaponTypeNames: Record<string, string> = {
@@ -70,9 +71,14 @@ export function OrderCard({ order, onSelect, onCancel, isActive, canAccept }: Or
   )
   
   const suitableWeapons = weaponInventory.weapons.filter(w => {
-    if (w.type !== order.weaponType) return false
     if (w.quality < order.minQuality) return false
     if (order.minAttack && w.stats.attack < order.minAttack) return false
+    if (w.hiddenTags && w.hiddenTags.length > 0) {
+      if (!w.hiddenTags.includes(order.weaponType)) return false
+      if (order.material && !hiddenTagsSatisfyOrderMaterial(w.hiddenTags, order.material)) return false
+      return true
+    }
+    if (w.type !== order.weaponType) return false
     if (order.material && w.recipeId && !w.recipeId.includes(order.material)) return false
     return true
   })

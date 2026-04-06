@@ -15,6 +15,12 @@ export interface TutorialState {
   currentStep: number
   completedSteps: string[]
   skipped: boolean
+  /** Выданы стартовые 10% §6.1 (кузня) после туториала / пропуска */
+  starterForgeExpertiseGranted: boolean
+  /** Подсказка про вкладку «Ремонт» уже показана или отклонена */
+  weaponRepairGuidanceConsumed: boolean
+  /** Одноразовый триггер для UI (тост); не сохраняется в persist как true */
+  weaponRepairGuidancePending: boolean
 }
 
 /** Actions для туториала */
@@ -38,6 +44,9 @@ export const initialTutorialState: TutorialState = {
   currentStep: 0,
   completedSteps: [],
   skipped: false,
+  starterForgeExpertiseGranted: false,
+  weaponRepairGuidanceConsumed: false,
+  weaponRepairGuidancePending: false,
 }
 
 // ================================
@@ -68,12 +77,14 @@ export const TUTORIAL_STEPS = [
   {
     id: 'guild',
     title: 'Гильдия',
-    content: 'Выполняйте заказы и отправляйте оружие в экспедиции для получения наград.',
+    content:
+      'Выполняйте заказы и экспедиции. С изношенным или с метками повреждений оружием гильдия не пустит — сначала вкладка «Ремонт» в кузнице.',
   },
   {
     id: 'altar',
-    title: 'Алтарь душ',
-    content: 'Жертвуйте ненужное оружие для получения эссенции и зачарований.',
+    title: 'Зачарования',
+    content:
+      'Раздел «Зачарования» в меню откроет новый модуль (пробуждение души, древо перков). Сейчас экран — заглушка; старый алтарь снят.',
   },
 ] as const
 
@@ -92,6 +103,9 @@ export const createTutorialSlice: StateCreator<
   currentStep: 0,
   completedSteps: [],
   skipped: false,
+  starterForgeExpertiseGranted: false,
+  weaponRepairGuidanceConsumed: false,
+  weaponRepairGuidancePending: false,
 
   // Actions
   nextTutorialStep: () => set((state) => {
@@ -135,4 +149,11 @@ export const createTutorialSlice: StateCreator<
   resetTutorial: () => set(() => ({
     ...initialTutorialState,
   })),
+
+  acknowledgeWeaponRepairGuidance: () =>
+    set((state) => ({
+      ...state,
+      weaponRepairGuidancePending: false,
+      weaponRepairGuidanceConsumed: true,
+    })),
 })

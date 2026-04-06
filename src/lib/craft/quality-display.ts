@@ -25,9 +25,12 @@ export interface QualityWithinGradeDisplay {
 
 function configForQuality(quality: number) {
   const q = Math.round(Math.max(0, Math.min(100, quality)))
-  const config =
-    QUALITY_GRADES_V2.find((g) => q >= g.min && q <= g.max) ??
-    QUALITY_GRADES_V2[QUALITY_GRADES_V2.length - 1]!
+  const grades = QUALITY_GRADES_V2
+  const fallback = grades[grades.length - 1]
+  if (fallback === undefined) {
+    throw new Error('QUALITY_GRADES_V2 must not be empty')
+  }
+  const config = grades.find((g) => q >= g.min && q <= g.max) ?? fallback
   return { q, config }
 }
 

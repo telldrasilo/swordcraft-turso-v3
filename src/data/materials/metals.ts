@@ -57,6 +57,143 @@ export const metalMaterials: Material[] = [
     
     icon: '/icons/resources/iron.png',
   },
+
+  {
+    id: 'iron_alloy',
+    name: 'Железный слиток',
+    adjective: 'Железный',
+    category: 'metal',
+    description:
+      'Готовая к ковке заготовка после плавки. Основа простого оружия и то же имя в префиксе, что у классического железа.',
+
+    properties: {
+      hardness: 50,
+      flexibility: 45,
+      weight: 5,
+      conductivity: 15,
+    },
+
+    crafting: {
+      workability: 70,
+      meltingPoint: 1200,
+      requiredHeat: 1,
+    },
+
+    weaponEffects: {
+      attackBonus: 0,
+      durabilityBonus: 10,
+      soulCapacity: 50,
+      repairPotential: 1.3,
+      enchantPower: 0.9,
+      enchantSlots: 0,
+    },
+
+    craftTimeModifier: 0.85,
+    craftRisk: 0,
+
+    dominantProperty: {
+      type: 'durability',
+      value: 55,
+    },
+
+    source: {
+      rarity: 'common',
+    },
+
+    icon: '/icons/resources/iron.png',
+  },
+
+  {
+    id: 'copper_alloy',
+    name: 'Медный слиток',
+    adjective: 'Медный',
+    category: 'metal',
+    description: 'Слиток меди после плавки.',
+    properties: { hardness: 40, flexibility: 35, weight: 8.9, conductivity: 35 },
+    crafting: { workability: 80, meltingPoint: 1085, requiredHeat: 1 },
+    weaponEffects: {
+      attackBonus: -2,
+      durabilityBonus: 8,
+      soulCapacity: 40,
+      repairPotential: 1.2,
+      enchantPower: 0.85,
+      enchantSlots: 0,
+    },
+    craftTimeModifier: 0.9,
+    craftRisk: 2,
+    dominantProperty: { type: 'durability', value: 48 },
+    source: { rarity: 'common' },
+    icon: '/icons/resources/copperIngot.png',
+  },
+
+  {
+    id: 'tin_alloy',
+    name: 'Оловянный слиток',
+    adjective: 'Оловянный',
+    category: 'metal',
+    description: 'Слиток олова после плавки.',
+    properties: { hardness: 35, flexibility: 40, weight: 7.3, conductivity: 25 },
+    crafting: { workability: 90, meltingPoint: 232, requiredHeat: 1 },
+    weaponEffects: {
+      attackBonus: -4,
+      durabilityBonus: 5,
+      soulCapacity: 35,
+      repairPotential: 1.1,
+      enchantPower: 0.8,
+      enchantSlots: 0,
+    },
+    craftTimeModifier: 0.88,
+    craftRisk: 1,
+    dominantProperty: { type: 'balance', value: 42 },
+    source: { rarity: 'common' },
+    icon: '/icons/resources/tinIngot.png',
+  },
+
+  {
+    id: 'bronze',
+    name: 'Бронза',
+    adjective: 'Бронзовый',
+    category: 'alloy',
+    description: 'Сплав меди и олова.',
+    properties: { hardness: 58, flexibility: 38, weight: 8.8, conductivity: 30 },
+    crafting: { workability: 65, meltingPoint: 950, requiredHeat: 1 },
+    weaponEffects: {
+      attackBonus: 4,
+      durabilityBonus: 12,
+      soulCapacity: 45,
+      repairPotential: 1.0,
+      enchantPower: 0.9,
+      enchantSlots: 0,
+    },
+    craftTimeModifier: 1.0,
+    craftRisk: 3,
+    dominantProperty: { type: 'durability', value: 58 },
+    source: { rarity: 'uncommon' },
+    icon: '/icons/resources/bronzeIngot.png',
+  },
+
+  {
+    id: 'gold_alloy',
+    name: 'Золотой слиток',
+    adjective: 'Золотой',
+    category: 'metal',
+    description: 'Слиток золота после плавки.',
+    properties: { hardness: 25, flexibility: 30, weight: 19.3, conductivity: 70 },
+    crafting: { workability: 85, meltingPoint: 1064, requiredHeat: 2 },
+    weaponEffects: {
+      attackBonus: 2,
+      durabilityBonus: 5,
+      soulCapacity: 120,
+      repairPotential: 1.4,
+      enchantPower: 1.4,
+      enchantSlots: 1,
+    },
+    craftTimeModifier: 1.15,
+    craftRisk: 4,
+    dominantProperty: { type: 'conductivity', value: 75 },
+    source: { rarity: 'rare' },
+    icon: '/icons/resources/goldIngot.png',
+  },
   
   // ============================================
   // СПЛАВЫ (создаются из сырья)
@@ -319,6 +456,51 @@ export const metalMaterials: Material[] = [
       unlockCondition: 'Найти в эльфийских руинах',
     },
     
+    icon: '/icons/resources/mithrilIngot.png',
+  },
+
+  {
+    id: 'mithril_alloy',
+    name: 'Мифриловый слиток',
+    adjective: 'Мифриловый',
+    category: 'metal',
+    description: 'Выплавленный мифрил — лёгкий слиток легендарного металла для высшего оружия.',
+
+    properties: {
+      hardness: 88,
+      flexibility: 75,
+      weight: 2.5,
+      conductivity: 90,
+    },
+
+    crafting: {
+      workability: 25,
+      meltingPoint: 2500,
+      requiredHeat: 4,
+    },
+
+    weaponEffects: {
+      attackBonus: 22,
+      durabilityBonus: 25,
+      soulCapacity: 200,
+      repairPotential: 1.5,
+      enchantPower: 1.8,
+      enchantSlots: 3,
+    },
+
+    craftTimeModifier: 1.6,
+    craftRisk: 15,
+
+    dominantProperty: {
+      type: 'balance',
+      value: 90,
+    },
+
+    source: {
+      rarity: 'legendary',
+      unlockCondition: 'Найти в эльфийских руинах',
+    },
+
     icon: '/icons/resources/mithrilIngot.png',
   },
 ]

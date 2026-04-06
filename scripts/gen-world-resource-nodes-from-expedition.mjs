@@ -1,6 +1,6 @@
 /**
- * Строит world-resources/nodes.ts (с маркерами // @file) из expedition/nodes.ts
- * Запуск: node scripts/gen-world-resource-nodes-from-expedition.mjs
+ * Строит library/_gather_staging/nodes.ts (с маркерами // @file) из expedition/nodes.ts.
+ * Далее: node scripts/split-world-resource-nodes.mjs
  */
 import fs from 'fs'
 import path from 'path'
@@ -9,7 +9,8 @@ import { fileURLToPath } from 'url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.join(__dirname, '..')
 const srcPath = path.join(root, 'src/data/materials/library/expedition/nodes.ts')
-const outPath = path.join(root, 'src/data/materials/library/world-resources/nodes.ts')
+const stagingDir = path.join(root, 'src/data/materials/library/_gather_staging')
+const outPath = path.join(stagingDir, 'nodes.ts')
 
 const src = fs.readFileSync(srcPath, 'utf8')
 const prefix = 'expeditionNode({'
@@ -59,5 +60,6 @@ for (const inner of blocks) {
   out += `// @file ${id}.ts\nexport const ${exportName} = buildWorldNode({\n${body}\n})\n\n`
 }
 
+fs.mkdirSync(stagingDir, { recursive: true })
 fs.writeFileSync(outPath, out, 'utf8')
-console.log('Wrote', blocks.length, 'blocks to', path.relative(root, outPath))
+console.log('Wrote', blocks.length, 'blocks to', path.relative(root, outPath), '(then run split-world-resource-nodes.mjs)')

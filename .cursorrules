@@ -30,7 +30,7 @@ Next.js 15, TypeScript 5, Zustand 5.0.6 (composed store), Tailwind CSS 4, shadcn
   - крафт v2 — `craftV2Persisted` + `src/hooks/use-craft-v2.ts` (отдельного `craft-v2-slice.ts` нет)
   - orders-slice.ts - заказы NPC
   - guild-slice.ts - гильдия, искатели, экспедиции
-  - enchantments-slice.ts - зачарования
+  - зачарования (legacy): craft-slice (`unlockedEnchantments`) + cross-slice в `game-store-composed.ts`; новый модуль — см. `docs/systems/ENCHANTMENT_AWAKENING_CONCEPT.md`
   - encyclopedia-slice.ts - энциклопедия знаний
   - tutorial-slice.ts - туториал
 

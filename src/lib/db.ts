@@ -40,6 +40,9 @@ CREATE TABLE IF NOT EXISTS game_saves (
   unlockedRecipes TEXT DEFAULT '{"weaponRecipes":["sword_iron","dagger_iron","sword_bronze","dagger_bronze","sword_copper","dagger_copper"],"refiningRecipes":[]}',
   recipeSources TEXT DEFAULT '[]',
   unlockedEnchantments TEXT DEFAULT '[]',
+  unlockedMaterialProcessingTechniqueIds TEXT DEFAULT '[]',
+  unlockedRepairTechniqueIds TEXT DEFAULT '[]',
+  unlockedReforgeTechniqueIds TEXT DEFAULT '[]',
   guild TEXT DEFAULT '{}',
   knownAdventurers TEXT DEFAULT '[]',
   orders TEXT DEFAULT '{}',
@@ -48,7 +51,10 @@ CREATE TABLE IF NOT EXISTS game_saves (
   createdAt TEXT DEFAULT (datetime('now')),
   updatedAt TEXT DEFAULT (datetime('now')),
   playTime INTEGER DEFAULT 0,
-  saveVersion INTEGER DEFAULT 2
+  saveVersion INTEGER DEFAULT 2,
+  repairBenchWeaponId TEXT DEFAULT NULL,
+  repairTechniqueStageRun TEXT DEFAULT NULL,
+  forgottenForgePersist TEXT DEFAULT NULL
 );
 
 CREATE TABLE IF NOT EXISTS save_history (
@@ -121,6 +127,60 @@ async function ensureGameSavesColumns(db: Client): Promise<void> {
   if (!names.has('craftV2Persisted')) {
     await db.execute({
       sql: "ALTER TABLE game_saves ADD COLUMN craftV2Persisted TEXT DEFAULT '{}'",
+      args: [],
+    })
+  }
+  if (!names.has('materialStash')) {
+    await db.execute({
+      sql: "ALTER TABLE game_saves ADD COLUMN materialStash TEXT DEFAULT '{}'",
+      args: [],
+    })
+  }
+  if (!names.has('materialStudySessions')) {
+    await db.execute({
+      sql: "ALTER TABLE game_saves ADD COLUMN materialStudySessions TEXT DEFAULT '[]'",
+      args: [],
+    })
+  }
+  if (!names.has('gameMessages')) {
+    await db.execute({
+      sql: "ALTER TABLE game_saves ADD COLUMN gameMessages TEXT DEFAULT '[]'",
+      args: [],
+    })
+  }
+  if (!names.has('unlockedMaterialProcessingTechniqueIds')) {
+    await db.execute({
+      sql: "ALTER TABLE game_saves ADD COLUMN unlockedMaterialProcessingTechniqueIds TEXT DEFAULT '[]'",
+      args: [],
+    })
+  }
+  if (!names.has('unlockedRepairTechniqueIds')) {
+    await db.execute({
+      sql: "ALTER TABLE game_saves ADD COLUMN unlockedRepairTechniqueIds TEXT DEFAULT '[]'",
+      args: [],
+    })
+  }
+  if (!names.has('unlockedReforgeTechniqueIds')) {
+    await db.execute({
+      sql: "ALTER TABLE game_saves ADD COLUMN unlockedReforgeTechniqueIds TEXT DEFAULT '[]'",
+      args: [],
+    })
+  }
+  if (!names.has('repairBenchWeaponId')) {
+    await db.execute({
+      sql: 'ALTER TABLE game_saves ADD COLUMN repairBenchWeaponId TEXT DEFAULT NULL',
+      args: [],
+    })
+  }
+  if (!names.has('repairTechniqueStageRun')) {
+    await db.execute({
+      sql: 'ALTER TABLE game_saves ADD COLUMN repairTechniqueStageRun TEXT DEFAULT NULL',
+      args: [],
+    })
+  }
+  if (!names.has('forgottenForgePersist')) {
+    await db.execute({
+      sql: 'ALTER TABLE game_saves ADD COLUMN forgottenForgePersist TEXT DEFAULT NULL',
       args: [],
     })
   }

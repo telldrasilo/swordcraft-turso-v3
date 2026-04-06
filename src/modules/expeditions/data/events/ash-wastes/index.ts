@@ -5,11 +5,13 @@
  *
  * Структура:
  * - fire.ts — огонь, пепел и вулканы (4 события)
+ * - elemental.ts — стихийные следы на клинке (3 события)
  *
- * Итого: 4 события для ash_wastes
+ * Итого: 7 событий для ash_wastes
  */
 
 import { ashFireEvents } from './fire';
+import { ashWastesElementalEvents } from './elemental';
 
 // ============================================================================
 // ЭКСПОРТ ВСЕХ СОБЫТИЙ
@@ -26,25 +28,23 @@ export {
 } from './fire';
 
 // Объединённый массив всех событий локации
-export const ashWastesEvents = [
-  ...ashFireEvents,
-];
+export const ashWastesEvents = [...ashFireEvents, ...ashWastesElementalEvents];
 
 // Статистика событий локации
 export const ashWastesEventsStats = {
-  total: 4,
+  total: 7,
   locationId: 'ash_wastes',
   byType: {
     positive: 1,
-    negative: 2,
+    negative: 5,
     neutral: 0,
     choice: 1,
   },
   byCategory: {
     discovery: 1,
-    danger: 1,
+    danger: 2,
     combat: 1,
-    environment: 1,
+    environment: 3,
     travel: 0,
     social: 0,
     treasure: 0,

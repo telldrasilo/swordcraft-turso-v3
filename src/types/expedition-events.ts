@@ -146,6 +146,12 @@ export interface EventReward {
 // АКТИВНОЕ СОБЫТИЕ (в экспедиции)
 // ================================
 
+/** Зафиксированное превью лута модуля (совпадает с расчётом при завершении) */
+export interface ExpeditionModuleLootPreview {
+  bonusGold: number
+  materialGrants: Array<{ materialId: string; quantity: number }>
+}
+
 export interface ExpeditionEvent extends ExpeditionEventTemplate {
   /** Уникальный ID инстанса события */
   instanceId: string
@@ -158,6 +164,9 @@ export interface ExpeditionEvent extends ExpeditionEventTemplate {
 
   /** Порядковый номер события в экспедиции */
   order: number
+
+  /** Лут шаблона, посчитанный при старте миссии (для журнала = завершение) */
+  moduleLootPreview?: ExpeditionModuleLootPreview
 
   /** Награды от события (пока заглушка для будущего функционала) */
   rewards?: EventReward[]

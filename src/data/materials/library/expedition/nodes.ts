@@ -1,6 +1,6 @@
 /**
- * Эталон для `scripts/gen-world-resource-nodes-from-expedition.mjs` → `world-resources/items`.
- * В рантайме каталог — `library/world-resources` (`buildWorldNode`); этот файл не экспортируется из `expedition/index.ts`.
+ * Эталон для `scripts/gen-world-resource-nodes-from-expedition.mjs` → `_gather_staging/nodes.ts` → split по папкам library.
+ * В рантайме каталог — `world-resource-nodes.ts` + `build-world-node.ts` в корне `library/`; этот файл не экспортируется из `expedition/index.ts`.
  */
 
 import { expeditionNode } from './factory'
@@ -18,7 +18,7 @@ export const expeditionMaterialNodes: MaterialNode[] = [
   expeditionNode({
     id: 'coal',
     name: 'Уголь',
-    role: 'stone',
+    role: 'fuel',
     economy: { rarity: 28, tier: 1, baseValue: 9, availability: 88, discoverability: 85 },
     summary: sb('Органический минерал. Основное топливо для плавки и кузни.'),
     description:
@@ -43,16 +43,6 @@ export const expeditionMaterialNodes: MaterialNode[] = [
     summary: sb('Пластичная порода для керамики и грубых форм.'),
     description: 'Сырая глина из низин и штолен; сохнет на воздухе, обжигается в печи.',
     tags: ['ceramic'],
-  }),
-
-  expeditionNode({
-    id: 'copper_nuggets',
-    name: 'Медные самородки',
-    role: 'ore',
-    tags: ['copper-bearing'],
-    economy: { rarity: 48, tier: 1, baseValue: 22, availability: 55, discoverability: 50 },
-    summary: sb('Куски почти чистой меди без полной переплавки.'),
-    description: 'Редкие самородки в верхних жилах; ценятся алхимиками и плавильщиками.',
   }),
 
   expeditionNode({
@@ -215,7 +205,7 @@ export const expeditionMaterialNodes: MaterialNode[] = [
   expeditionNode({
     id: 'ancient_coal',
     name: 'Древний уголь',
-    role: 'stone',
+    role: 'fuel',
     tags: ['fuel'],
     economy: { rarity: 48, tier: 2, baseValue: 20, availability: 55, discoverability: 52 },
     summary: sb('Уголь высокой плотности; жар дольше обычного.'),

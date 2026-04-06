@@ -13,10 +13,6 @@ import {
   Compass,
   Skull,
   Timer,
-  Zap,
-  Send,
-  Map,
-  Gauge,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -34,8 +30,6 @@ import {
   getAvailableLocations,
   getMissionsForLocation,
 } from '@/modules/expeditions'
-import { CONTRACT_CONFIG } from '@/modules/expeditions/data/missions/_mission-template'
-import { cn } from '@/lib/utils'
 import { EXPEDITION_DEV_UI_ENABLED } from '@/lib/expedition-dev-tools'
 import type { CraftedWeaponV2 } from '@/types/craft-v2'
 
@@ -46,10 +40,13 @@ import { RecruitmentInterface } from './recruitment-interface'
 import { ExpeditionHistoryEntryComponent } from './expedition-history-entry'
 import { WeaponSelectionCard } from './expeditions'
 import { ExpeditionLocationMissionBoard } from './expeditions/ExpeditionLocationMissionBoard'
-import { ExpeditionClientPaymentBreakdown } from './expeditions/ExpeditionClientPaymentBreakdown'
-
-// Новые компоненты UX улучшений
-import { ScenarioComparison } from './expeditions/ScenarioComparison'
+import { ExpeditionMissionBrief } from './expeditions/ExpeditionMissionBrief'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ForgottenForgeQuestCard } from './forgotten-forge-quest-card'
+import {
+  FORGOTTEN_FORGE_EXPEDITION_LOCATION_BY_STEP,
+  FORGOTTEN_FORGE_QUEST_ID,
+} from '@/data/quests/forgotten-forge'
 
 // Автосохранение
 import { debouncedSaveDraft, clearDraft, loadDraft, DraftStatus, getDraftStatus } from '@/lib/expedition-draft'
@@ -60,7 +57,8 @@ import { convertToLegacy, convertToExtended, mapExpeditionForRecruitment, mapWea
 import type { ContractTier, ContractedAdventurer } from '@/types/contract'
 // Импорт системы модификаторов
 import { calculateExpeditionResult, type ExpeditionCalculation } from '@/lib/expedition-calculator-v2'
-import { FullModifierBreakdown } from '@/components/ui/modifier-breakdown'
+import { validateExpeditionStart } from '@/lib/expedition-start-validation'
+import { getWeaponGuildServiceBlockReason } from '@/lib/guild-weapon-service-eligibility'
 
 // ExpeditionCard теперь импортируется как ExpeditionSelectionCard
 
@@ -70,8 +68,15 @@ export function ExpeditionsSection() {
   const guild = useGameStore((state) => state.guild)
   const resources = useGameStore((state) => state.resources)
   const weaponInventory = useGameStore((state) => state.weaponInventory)
+  const repairBenchWeaponId = useGameStore((state) => state.repairBenchWeaponId)
   const initializeAdventurers = useGameStore((state) => state.initializeAdventurers)
   const startExpeditionFull = useGameStore((state) => state.startExpeditionFull)
+  const offerGuildContract = useGameStore((state) => state.offerGuildContract)
+  const tickForgottenForgeQuestAvailability = useGameStore(
+    (state) => state.tickForgottenForgeQuestAvailability
+  )
+  const forgottenForgeQuest = useGameStore((state) => state.forgottenForgeQuest)
+  const forgottenForgePhase = useGameStore((state) => state.forgottenForgePhase)
 
   const [selectedExpedition, setSelectedExpedition] = useState<ExpeditionTemplate | null>(null)
   const [selectedWeapon, setSelectedWeapon] = useState<CraftedWeaponV2 | null>(null)
@@ -84,6 +89,8 @@ export function ExpeditionsSection() {
   const [draftStatus, setDraftStatus] = useState<DraftStatus | null>(null)
 
   const [missionContract, setMissionContract] = useState<'exploration' | 'speed'>('exploration')
+  const [expeditionSubTab, setExpeditionSubTab] = useState<'expeditions' | 'special'>('expeditions')
+  const [questExpeditionLink, setQuestExpeditionLink] = useState(false)
   const [showBalancePanel, setShowBalancePanel] = useState(false)
   const [devBalance, setDevBalance] = useState<ExpeditionDevBalanceTweaks>({
     eventGoldMultiplier: 1,
@@ -105,10 +112,7 @@ export function ExpeditionsSection() {
   }, [guild.level])
 
   // Контрактные искатели из расширенного состояния гильдии
-  const contractedAdventurers =
-    ('contractedAdventurers' in guild
-      ? (guild as { contractedAdventurers?: ContractedAdventurer[] }).contractedAdventurers
-      : undefined) ?? []
+  const contractedAdventurers: ContractedAdventurer[] = guild.contractedAdventurers
   
   // Подсчёт миссий для каждого искателя из истории
   const getAdventurerStats = (adventurerId: string) => {
@@ -129,11 +133,12 @@ export function ExpeditionsSection() {
   }
   
   // Обработка предложения контракта
-  const handleOfferContract = (adventurer: Adventurer, tier: ContractTier) => {
-    // Эта функция должна вызывать action из store
-    // Пока что просто выводим в консоль
-    console.warn('Offer contract:', { adventurer: adventurer.name, tier })
-    // В реальной реализации здесь будет вызов store action
+  const handleOfferContract = (
+    adventurer: Adventurer,
+    tier: ContractTier,
+    adventurerExtended?: AdventurerExtended | null
+  ) => {
+    offerGuildContract(adventurer, tier, adventurerExtended ?? undefined)
   }
 
   // Восстановление черновика при загрузке
@@ -165,6 +170,21 @@ export function ExpeditionsSection() {
     initializeAdventurers()
   }, [initializeAdventurers])
 
+  useEffect(() => {
+    tickForgottenForgeQuestAvailability()
+  }, [tickForgottenForgeQuestAvailability, guild.level])
+
+  // Снять выбор, если клинок отправили на верстак (другая вкладка)
+  useEffect(() => {
+    if (selectedWeapon && repairBenchWeaponId === selectedWeapon.id) {
+      queueMicrotask(() => {
+        setSelectedWeapon(null)
+        setSelectedAdventurer(null)
+        setSelectedExtendedAdventurer(null)
+      })
+    }
+  }, [repairBenchWeaponId, selectedWeapon])
+
   // Проверка возможности выбрать экспедицию
   const canSelectExpedition = (_expedition: ExpeditionTemplate): { can: boolean; reason: string } => {
     return { can: true, reason: '' }
@@ -175,6 +195,10 @@ export function ExpeditionsSection() {
     if (!selectedExpedition) {
       return { can: false, reason: 'Сначала выберите экспедицию' }
     }
+    const guildBlock = getWeaponGuildServiceBlockReason(weapon, repairBenchWeaponId ?? null)
+    if (guildBlock) {
+      return { can: false, reason: guildBlock }
+    }
     if (weapon.currentDurability <= 10) {
       return { can: false, reason: 'Оружие слишком повреждено' }
     }
@@ -184,19 +208,28 @@ export function ExpeditionsSection() {
     return { can: true, reason: '' }
   }
 
-  // Доступное оружие (фильтруем по прочности, использованию в экспедиции и требованиям атаки)
-  const availableWeapons = weaponInventory.weapons.filter(w => {
-    // Базовые проверки (v2)
-    if (w.currentDurability <= 10) return false
-    if (guild.activeExpeditions.some(e => e.weaponId === w.id)) return false
+  /** Базовый список кандидатов (без оружия на верстаке, если оно не проходит фильтр) */
+  const baseFilteredWeapons = useMemo(() => {
+    return weaponInventory.weapons.filter((w) => {
+      if (w.currentDurability <= 10) return false
+      if (guild.activeExpeditions.some((e) => e.weaponId === w.id)) return false
+      if (selectedExpedition && w.stats.attack < selectedExpedition.minWeaponAttack) {
+        return false
+      }
+      return true
+    })
+  }, [weaponInventory.weapons, guild.activeExpeditions, selectedExpedition])
 
-    // Если выбрана экспедиция, проверяем требования к атаке
-    if (selectedExpedition && w.stats.attack < selectedExpedition.minWeaponAttack) {
-      return false
+  /** Показываем также клинок на верстаке, если он отфильтрован (низкая прочность и т.д.) — disabled в UI */
+  const displayWeapons = useMemo(() => {
+    const out = [...baseFilteredWeapons]
+    const ids = new Set(out.map((w) => w.id))
+    if (repairBenchWeaponId && !ids.has(repairBenchWeaponId)) {
+      const bench = weaponInventory.weapons.find((w) => w.id === repairBenchWeaponId)
+      if (bench) out.push(bench)
     }
-
-    return true
-  })
+    return out
+  }, [baseFilteredWeapons, repairBenchWeaponId, weaponInventory.weapons])
 
   // Запуск экспедиции (v2 - используем startExpeditionFull)
   const handleStartExpedition = () => {
@@ -206,10 +239,11 @@ export function ExpeditionsSection() {
       selectedExpedition,
       selectedAdventurer,
       selectedWeapon,
-      selectedExtendedAdventurer || undefined,
+      selectedExtendedAdventurer ?? convertToExtended(selectedAdventurer),
       {
         contractOverride: missionContract,
         ...(EXPEDITION_DEV_UI_ENABLED ? { devBalance } : {}),
+        ...(questExpeditionLink ? { linkedQuestId: FORGOTTEN_FORGE_QUEST_ID } : {}),
       }
     )
     if (success) {
@@ -221,6 +255,7 @@ export function ExpeditionsSection() {
       setSelectedWeapon(null)
       setSelectedAdventurer(null)
       setSelectedExtendedAdventurer(null)
+      setQuestExpeditionLink(false)
     }
   }
 
@@ -237,7 +272,7 @@ export function ExpeditionsSection() {
   const expeditionCalculation = useMemo<ExpeditionCalculation | null>(() => {
     if (!selectedExpedition || !selectedWeapon || !selectedAdventurer) return null
 
-    // Получаем расширенные данные искателя
+    // Единый путь v2: из пула берём extended через convertToExtended; из Recruitment — уже extended
     const extendedAdventurer = selectedExtendedAdventurer || convertToExtended(selectedAdventurer)
 
     return calculateExpeditionResult(
@@ -256,6 +291,58 @@ export function ExpeditionsSection() {
       missionContract
     )
   }, [selectedExpedition, selectedWeapon, selectedAdventurer, selectedExtendedAdventurer, guild.level, missionContract])
+
+  const expeditionLaunchCheck = useMemo(() => {
+    if (!selectedExpedition || !selectedWeapon || !selectedAdventurer) {
+      return { can: false as const, reason: '' }
+    }
+    const base = validateExpeditionStart({
+      expedition: selectedExpedition,
+      adventurer: selectedAdventurer,
+      weapon: selectedWeapon,
+      guildLevel: guild.level,
+      activeExpeditions: guild.activeExpeditions,
+      repairBenchWeaponId: repairBenchWeaponId ?? null,
+    })
+    if (!base.can) return base
+    if (
+      questExpeditionLink &&
+      forgottenForgeQuest.status === 'active' &&
+      forgottenForgePhase === 'awaiting_expedition'
+    ) {
+      const need = FORGOTTEN_FORGE_EXPEDITION_LOCATION_BY_STEP[forgottenForgeQuest.step]
+      const loc = selectedExpedition.moduleLocationId
+      if (need && loc && loc !== need) {
+        return {
+          can: false as const,
+          reason: 'Выберите миссию в локации, указанной в особом задании',
+        }
+      }
+      if (
+        forgottenForgeQuest.step === 5 &&
+        forgottenForgeQuest.flags.step5Cleanse !== 'magic' &&
+        forgottenForgeQuest.flags.step5Cleanse !== 'physical'
+      ) {
+        return {
+          can: false as const,
+          reason: 'В особом задании выберите способ очистки чаши (магия или физически)',
+        }
+      }
+    }
+    return base
+  }, [
+    selectedExpedition,
+    selectedWeapon,
+    selectedAdventurer,
+    guild.level,
+    guild.activeExpeditions,
+    repairBenchWeaponId,
+    questExpeditionLink,
+    forgottenForgeQuest.status,
+    forgottenForgeQuest.step,
+    forgottenForgeQuest.flags.step5Cleanse,
+    forgottenForgePhase,
+  ])
 
   return (
     <TooltipProvider>
@@ -306,6 +393,29 @@ export function ExpeditionsSection() {
           </Card>
         )}
 
+        <Tabs
+          value={expeditionSubTab}
+          onValueChange={(v) => setExpeditionSubTab(v as 'expeditions' | 'special')}
+          className="w-full"
+        >
+          <TabsList className="bg-stone-900/80 border border-stone-700/60 w-full sm:w-auto justify-start flex-wrap h-auto gap-1 p-1">
+            <TabsTrigger value="expeditions" className="data-[state=active]:bg-amber-900/40">
+              Доступные экспедиции
+            </TabsTrigger>
+            <TabsTrigger value="special" className="data-[state=active]:bg-amber-900/40">
+              Особые задания
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="special" className="mt-4 space-y-4">
+            <ForgottenForgeQuestCard
+              questExpeditionLink={questExpeditionLink}
+              onQuestExpeditionLinkChange={setQuestExpeditionLink}
+              onGoToExpeditionsTab={() => setExpeditionSubTab('expeditions')}
+            />
+          </TabsContent>
+
+          <TabsContent value="expeditions" className="mt-4 space-y-6">
         {/* Выбор экспедиции */}
         <Card className="card-medieval">
           <CardHeader className="flex flex-row items-center justify-between">
@@ -327,6 +437,13 @@ export function ExpeditionsSection() {
             </div>
           </CardHeader>
           <CardContent>
+            {questExpeditionLink &&
+              forgottenForgeQuest.status === 'active' &&
+              forgottenForgePhase === 'awaiting_expedition' && (
+                <p className="text-xs text-amber-200/90 border border-amber-800/50 rounded-md px-3 py-2 mb-3 bg-amber-950/30">
+                  Включено засчитывание квесту «Эхо забытой кузни». Выберите миссию в нужной локации.
+                </p>
+              )}
             <ExpeditionLocationMissionBoard
               guildLevel={guild.level}
               selectedId={selectedExpedition?.id ?? null}
@@ -360,15 +477,16 @@ export function ExpeditionsSection() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {availableWeapons.length === 0 ? (
+              {displayWeapons.length === 0 ? (
                 <p className="text-stone-500 text-center py-4">
                   Нет подходящего оружия. Создайте оружие в кузнице.
                 </p>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   <AnimatePresence mode="popLayout">
-                    {availableWeapons.map(weapon => {
+                    {displayWeapons.map((weapon) => {
                       const { can, reason } = canSelectWeapon(weapon)
+                      const isRepairBench = repairBenchWeaponId === weapon.id
                       return (
                         <WeaponSelectionCard
                           key={weapon.id}
@@ -376,6 +494,7 @@ export function ExpeditionsSection() {
                           isSelected={selectedWeapon?.id === weapon.id}
                           canSelect={can}
                           reason={reason}
+                          isRepairBench={isRepairBench}
                           onSelect={() => {
                             setSelectedWeapon(weapon)
                             setSelectedAdventurer(null)
@@ -409,270 +528,118 @@ export function ExpeditionsSection() {
           />
         )}
 
-        {selectedExpedition && selectedWeapon && selectedExtendedAdventurer && expeditionCalculation && (
-          <ExpeditionClientPaymentBreakdown economy={expeditionCalculation.economy} />
-        )}
-
-        {/* Сравнение сценариев */}
-        {selectedExpedition && selectedWeapon && selectedExtendedAdventurer && (
-          <ScenarioComparison
+        {selectedExpedition && selectedWeapon && selectedAdventurer && expeditionCalculation && (
+          <ExpeditionMissionBrief
             expedition={selectedExpedition}
-            adventurer={selectedExtendedAdventurer}
-            weapon={selectedWeapon}
-            guildLevel={guild.level}
-            contractType={missionContract}
+            calculation={expeditionCalculation}
+            missionContract={missionContract}
+            onMissionContractChange={setMissionContract}
+            adventurerName={selectedAdventurer.name}
+            weaponName={selectedWeapon.fullName}
+            onLaunch={handleStartExpedition}
+            canLaunch={expeditionLaunchCheck.can}
+            launchBlockedReason={expeditionLaunchCheck.reason}
+            devControls={
+              EXPEDITION_DEV_UI_ENABLED ? (
+                <div className="rounded-lg border border-dashed border-amber-700/50 bg-stone-950/40 p-3 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-medium text-amber-200/90">Отладка баланса</span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="text-xs h-7 border-amber-700/40"
+                      onClick={() => setShowBalancePanel((v) => !v)}
+                    >
+                      {showBalancePanel ? 'Скрыть' : 'Коэффициенты'}
+                    </Button>
+                  </div>
+                  {showBalancePanel && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-1">
+                      <div className="space-y-2">
+                        <Label className="text-xs text-stone-400">
+                          Длительность миссии (таймер) ×{devBalance.durationMultiplier.toFixed(1)}
+                        </Label>
+                        <Slider
+                          value={[devBalance.durationMultiplier]}
+                          onValueChange={([v]) =>
+                            setDevBalance((p) => ({ ...p, durationMultiplier: v }))
+                          }
+                          min={0.1}
+                          max={3}
+                          step={0.1}
+                        />
+                        <p className="text-[10px] text-stone-600">&gt;1 — стена короче при том же маршруте</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs text-stone-400">
+                          Золото из событий ×
+                          {(devBalance.eventGoldMultiplier ?? devBalance.quantityMultiplier ?? 1).toFixed(1)}
+                        </Label>
+                        <Slider
+                          value={[devBalance.eventGoldMultiplier ?? devBalance.quantityMultiplier ?? 1]}
+                          onValueChange={([v]) =>
+                            setDevBalance((p) => ({ ...p, eventGoldMultiplier: v }))
+                          }
+                          min={0.1}
+                          max={5}
+                          step={0.1}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs text-stone-400">
+                          Материалы (количество) ×{(devBalance.materialQuantityMultiplier ?? 1).toFixed(2)}
+                        </Label>
+                        <Slider
+                          value={[devBalance.materialQuantityMultiplier ?? 1]}
+                          onValueChange={([v]) =>
+                            setDevBalance((p) => ({ ...p, materialQuantityMultiplier: v }))
+                          }
+                          min={0.1}
+                          max={4}
+                          step={0.05}
+                        />
+                        <p className="text-[10px] text-stone-600">После множителя договора</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs text-stone-400">
+                          Материалы (редкость / удача) ×{(devBalance.materialRarityMultiplier ?? 1).toFixed(2)}
+                        </Label>
+                        <Slider
+                          value={[devBalance.materialRarityMultiplier ?? 1]}
+                          onValueChange={([v]) =>
+                            setDevBalance((p) => ({ ...p, materialRarityMultiplier: v }))
+                          }
+                          min={0.25}
+                          max={3}
+                          step={0.05}
+                        />
+                        <p className="text-[10px] text-stone-600">Надстройка над договором</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs text-stone-400">
+                          Шанс успеха (события) {devBalance.qualityShift >= 0 ? '+' : ''}
+                          {devBalance.qualityShift} п.п.
+                        </Label>
+                        <Slider
+                          value={[devBalance.qualityShift + 20]}
+                          onValueChange={([v]) =>
+                            setDevBalance((p) => ({ ...p, qualityShift: v - 20 }))
+                          }
+                          min={0}
+                          max={40}
+                          step={1}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : undefined
+            }
           />
         )}
-
-        {/* Кнопка начала экспедиции и модификаторы */}
-        {selectedExpedition && selectedWeapon && selectedAdventurer && (
-          <Card className="card-medieval border-amber-600/50">
-            <CardContent className="p-4">
-              <div className="space-y-4 mb-4">
-                <div className="space-y-2">
-                  <Label className="text-stone-200">Договор с авантюристом</Label>
-                  <p className="text-xs text-stone-500">
-                    Выплата заказчика → комиссия гильдии → делёж между кузницей и авантюристом. От договора зависят
-                    длительность маршрута, число событий и «удача» по материалам.
-                  </p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
-                    <button
-                      type="button"
-                      onClick={() => setMissionContract('exploration')}
-                      className={cn(
-                        'rounded-lg border p-3 text-left transition-all',
-                        missionContract === 'exploration'
-                          ? 'border-amber-500/80 bg-amber-950/40 ring-1 ring-amber-500/50'
-                          : 'border-stone-600/50 bg-stone-900/30 hover:border-stone-500/60'
-                      )}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <Map className="w-4 h-4 text-emerald-400" />
-                        <span className="text-sm font-medium text-stone-100">
-                          {CONTRACT_CONFIG.exploration.name}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-stone-400 leading-snug mb-2">
-                        {CONTRACT_CONFIG.exploration.blacksmithGoldPercent}% кузнецу,{' '}
-                        {CONTRACT_CONFIG.exploration.adventurerGoldPercent}% авантюристу. Больше событий и времени на
-                        локацию — выше шанс материалов в находках.
-                      </p>
-                      <div className="text-[10px] text-stone-500">
-                        Материалы ×{CONTRACT_CONFIG.exploration.materialFindMultiplier.toFixed(1)} · длительность ×
-                        {CONTRACT_CONFIG.exploration.durationMultiplier.toFixed(1)}
-                      </div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setMissionContract('speed')}
-                      className={cn(
-                        'rounded-lg border p-3 text-left transition-all',
-                        missionContract === 'speed'
-                          ? 'border-amber-500/80 bg-amber-950/40 ring-1 ring-amber-500/50'
-                          : 'border-stone-600/50 bg-stone-900/30 hover:border-stone-500/60'
-                      )}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <Gauge className="w-4 h-4 text-sky-400" />
-                        <span className="text-sm font-medium text-stone-100">
-                          {CONTRACT_CONFIG.speed.name}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-stone-400 leading-snug mb-2">
-                        Делёж {CONTRACT_CONFIG.speed.blacksmithGoldPercent}/
-                        {CONTRACT_CONFIG.speed.adventurerGoldPercent}. Авантюрист торопится — маршрут короче, событий
-                        меньше, материалов в среднем ниже.
-                      </p>
-                      <div className="text-[10px] text-stone-500">
-                        Материалы ×{CONTRACT_CONFIG.speed.materialFindMultiplier.toFixed(1)} · длительность ×
-                        {CONTRACT_CONFIG.speed.durationMultiplier.toFixed(1)}
-                      </div>
-                    </button>
-                  </div>
-                </div>
-
-                {EXPEDITION_DEV_UI_ENABLED && (
-                  <div className="rounded-lg border border-dashed border-amber-700/50 bg-stone-950/40 p-3 space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-medium text-amber-200/90">Отладка баланса</span>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="text-xs h-7 border-amber-700/40"
-                        onClick={() => setShowBalancePanel((v) => !v)}
-                      >
-                        {showBalancePanel ? 'Скрыть' : 'Коэффициенты'}
-                      </Button>
-                    </div>
-                    {showBalancePanel && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-1">
-                        <div className="space-y-2">
-                          <Label className="text-xs text-stone-400">
-                            Длительность миссии (таймер) ×{devBalance.durationMultiplier.toFixed(1)}
-                          </Label>
-                          <Slider
-                            value={[devBalance.durationMultiplier]}
-                            onValueChange={([v]) =>
-                              setDevBalance((p) => ({ ...p, durationMultiplier: v }))
-                            }
-                            min={0.1}
-                            max={3}
-                            step={0.1}
-                          />
-                          <p className="text-[10px] text-stone-600">&gt;1 — стена короче при том же маршруте</p>
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-xs text-stone-400">
-                            Золото из событий ×
-                            {(devBalance.eventGoldMultiplier ?? devBalance.quantityMultiplier ?? 1).toFixed(1)}
-                          </Label>
-                          <Slider
-                            value={[devBalance.eventGoldMultiplier ?? devBalance.quantityMultiplier ?? 1]}
-                            onValueChange={([v]) =>
-                              setDevBalance((p) => ({ ...p, eventGoldMultiplier: v }))
-                            }
-                            min={0.1}
-                            max={5}
-                            step={0.1}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-xs text-stone-400">
-                            Материалы (количество) ×{(devBalance.materialQuantityMultiplier ?? 1).toFixed(2)}
-                          </Label>
-                          <Slider
-                            value={[devBalance.materialQuantityMultiplier ?? 1]}
-                            onValueChange={([v]) =>
-                              setDevBalance((p) => ({ ...p, materialQuantityMultiplier: v }))
-                            }
-                            min={0.1}
-                            max={4}
-                            step={0.05}
-                          />
-                          <p className="text-[10px] text-stone-600">После множителя договора</p>
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-xs text-stone-400">
-                            Материалы (редкость / удача) ×{(devBalance.materialRarityMultiplier ?? 1).toFixed(2)}
-                          </Label>
-                          <Slider
-                            value={[devBalance.materialRarityMultiplier ?? 1]}
-                            onValueChange={([v]) =>
-                              setDevBalance((p) => ({ ...p, materialRarityMultiplier: v }))
-                            }
-                            min={0.25}
-                            max={3}
-                            step={0.05}
-                          />
-                          <p className="text-[10px] text-stone-600">Надстройка над договором</p>
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-xs text-stone-400">
-                            Шанс успеха (события) {devBalance.qualityShift >= 0 ? '+' : ''}
-                            {devBalance.qualityShift} п.п.
-                          </Label>
-                          <Slider
-                            value={[devBalance.qualityShift + 20]}
-                            onValueChange={([v]) =>
-                              setDevBalance((p) => ({ ...p, qualityShift: v - 20 }))
-                            }
-                            min={0}
-                            max={40}
-                            step={1}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h4 className="font-semibold text-stone-200">Готово к отправке</h4>
-                  <p className="text-sm text-stone-400">
-                    {selectedExpedition.name} • {selectedAdventurer.name} • {selectedWeapon.fullName}
-                  </p>
-                </div>
-                <Button
-                  onClick={handleStartExpedition}
-                  className="bg-gradient-to-r from-amber-700 to-amber-800 hover:from-amber-600 hover:to-amber-700 text-white"
-                >
-                  <Send className="w-4 h-4 mr-2" />
-                  Отправить в экспедицию
-                </Button>
-              </div>
-
-              {/* Детализация модификаторов */}
-              {expeditionCalculation && (
-                <div className="mt-4 pt-4 border-t border-stone-700/50">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Zap className="w-4 h-4 text-amber-400" />
-                    <h5 className="text-sm font-medium text-stone-300">Модификаторы экспедиции</h5>
-                  </div>
-
-                  {/* Сводка результатов */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
-                    <div className="bg-stone-800/50 rounded-lg p-2 text-center">
-                      <div className="text-xs text-stone-400">Шанс успеха</div>
-                      <div className={`text-lg font-bold ${
-                        expeditionCalculation.successChance >= 70 ? 'text-green-400' :
-                        expeditionCalculation.successChance >= 50 ? 'text-amber-400' : 'text-red-400'
-                      }`}>
-                        {expeditionCalculation.successChance}%
-                      </div>
-                    </div>
-                    <div className="bg-stone-800/50 rounded-lg p-2 text-center md:col-span-1">
-                      <div className="text-xs text-stone-400">Золото кузнецу</div>
-                      <div className="text-lg font-bold text-amber-400">
-                        💰 {expeditionCalculation.commission}
-                      </div>
-                      <div className="text-[10px] text-stone-500 mt-1 leading-tight text-left px-1">
-                        Заказчик {expeditionCalculation.economy.clientGrossGold} · гильдия −
-                        {expeditionCalculation.economy.guildFeeGold} · авантюристу{' '}
-                        {expeditionCalculation.economy.adventurerGold}
-                      </div>
-                    </div>
-                    <div className="bg-stone-800/50 rounded-lg p-2 text-center">
-                      <div className="text-xs text-stone-400">Души войны</div>
-                      <div className="text-lg font-bold text-purple-400">
-                        ⚔️ {expeditionCalculation.warSoul}
-                      </div>
-                    </div>
-                    <div className="bg-stone-800/50 rounded-lg p-2 text-center">
-                      <div className="text-xs text-stone-400">Износ оружия</div>
-                      <div className="text-lg font-bold text-yellow-400">
-                        🔧 -{expeditionCalculation.weaponWear}%
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Рекомендация */}
-                  <div className={`text-sm p-2 rounded-lg mb-3 ${
-                    expeditionCalculation.recommendation.rating === 'excellent' ? 'bg-green-900/30 text-green-300' :
-                    expeditionCalculation.recommendation.rating === 'good' ? 'bg-blue-900/30 text-blue-300' :
-                    expeditionCalculation.recommendation.rating === 'risky' ? 'bg-amber-900/30 text-amber-300' :
-                    'bg-red-900/30 text-red-300'
-                  }`}>
-                    {expeditionCalculation.recommendation.description}
-                  </div>
-
-                  {/* Полная детализация модификаторов (сворачиваемая) */}
-                  <details className="group">
-                    <summary className="cursor-pointer text-sm text-amber-400 hover:text-amber-300 flex items-center gap-1">
-                      <span className="group-open:rotate-90 transition-transform inline-block">▶</span>
-                      Показать все модификаторы
-                    </summary>
-                    <div className="mt-3">
-                      <FullModifierBreakdown calculation={expeditionCalculation} compact={true} />
-                    </div>
-                  </details>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
+          </TabsContent>
+        </Tabs>
 
         {/* История экспедиций */}
         {guild.history.length > 0 && (

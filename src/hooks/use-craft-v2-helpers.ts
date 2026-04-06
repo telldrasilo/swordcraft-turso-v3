@@ -6,6 +6,7 @@ import type { CraftPlan, CraftedWeaponV2, WeaponRecipe } from '@/types/craft-v2'
 import { getQualityRank } from '@/types/craft-v2'
 import type { WeaponCalculationResult } from '@/lib/craft/calculator'
 import type { WeaponNameResult } from '@/lib/craft/name-generator'
+import { WAR_SOUL_POOL_UNCAPPED } from '@/data/war-soul-balance'
 
 export function buildCompletedWeaponV2(
   plan: CraftPlan,
@@ -38,7 +39,8 @@ export function buildCompletedWeaponV2(
     qualityGrade: rolled.qualityGrade,
     qualityRank: weaponName.qualityRank || getQualityRank(rolled.quality),
     warSoul: 0,
-    maxWarSoul: rolled.stats.soulCapacity,
+    maxWarSoul: WAR_SOUL_POOL_UNCAPPED,
+    soulPotential: rolled.soulPotential,
     createdAt: Date.now(),
     adventureCount: 0,
     sellPrice: rolled.sellPrice,
@@ -47,5 +49,8 @@ export function buildCompletedWeaponV2(
     currentDurability: rolled.stats.durability,
     epicMultiplier: 1.0,
     techniquesUsed: plan.techniques,
+    activeDamageTags: [],
+    weaponLegacy: { hiddenMarks: [] },
+    repairCondition: 'ok',
   }
 }

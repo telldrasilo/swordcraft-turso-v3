@@ -28,6 +28,9 @@ import { getRecipeById } from '@/data/recipes'
 import { getCraftingCost, checkInventoryForCraft } from '@/lib/craft/inventory-check'
 import { getMaterialPrice } from '@/data/material-shop'
 import type { ResourceKey } from '@/types/resources'
+import type { PartMaterialSupplyEntry } from '@/types/craft-v2'
+import { validateMaterialProcessingPlan } from '@/data/material-processing-techniques'
+import { getPlannerUnlockedTechniqueIds } from '@/lib/craft/planner-unlocked-techniques'
 
 // ================================
 // КОНСТАНТЫ
@@ -52,6 +55,9 @@ const DEFAULT_UNLOCKED_RECIPES = [
   'basic_sword',
   'basic_dagger',
   'basic_axe',
+  'basic_mace',
+  'basic_spear',
+  'basic_hammer',
 ]
 
 // ================================
@@ -132,10 +138,11 @@ export function CraftContainerV2({
 }: CraftContainerV2Props) {
   // Получаем инвентарь из store
   const inventory = useGameStore(state => state.resources)
+  const materialStash = useGameStore(state => state.materialStash)
   const gold = useGameStore(state => state.resources.gold)
-  const spendResources = useGameStore(state => state.spendResources)
+  const spendCraftingCostWithStash = useGameStore(state => state.spendCraftingCostWithStash)
   const spendResource = useGameStore(state => state.spendResource)
-  const addResource = useGameStore(state => state.addResource)
+  const grantResourceKeyFromWorld = useGameStore(state => state.grantResourceKeyFromWorld)
   const addWeaponV2 = useGameStore(state => state.addWeaponV2)
   const addExperience = useGameStore(state => state.addExperience)
 
@@ -148,6 +155,9 @@ export function CraftContainerV2({
   
   // Получаем знания о материалах из энциклопедии
   const materialKnowledge = useGameStore(state => state.materialKnowledge)
+  const unlockedMaterialProcessingTechniqueIds = useGameStore(
+    state => state.unlockedMaterialProcessingTechniqueIds
+  )
   
   // Получаем функцию установки галочки закупки
   const setShouldPurchaseMaterials = useGameStore(state => state.setShouldPurchaseMaterials)
@@ -163,6 +173,7 @@ export function CraftContainerV2({
     instantComplete,
     collectWeapon,
     reset,
+    setPartMaterialSupply,
   } = useCraftV2(playerLevel, forgeLevel)
   
   // Обработчик запуска крафта
@@ -172,10 +183,33 @@ export function CraftContainerV2({
     techniques: string[]
     shouldPurchaseMaterials?: boolean
     shouldTakeAdvance?: boolean
+    partMaterialSupply?: Record<string, PartMaterialSupplyEntry>
   }) => {
     // Получаем рецепт
     const recipe = getRecipeById(plan.recipeId)
     if (!recipe) return
+
+    const partSupply =
+      plan.partMaterialSupply && Object.keys(plan.partMaterialSupply).length > 0
+        ? plan.partMaterialSupply
+        : undefined
+    setPartMaterialSupply(plan.partMaterialSupply ?? {})
+
+    const procUnlock = getPlannerUnlockedTechniqueIds({
+      playerLevel,
+      unlockedMaterialProcessingTechniqueIds:
+        useGameStore.getState().unlockedMaterialProcessingTechniqueIds ?? [],
+    })
+    const procPlan = validateMaterialProcessingPlan(
+      plan.materials,
+      partSupply,
+      plan.techniques,
+      procUnlock
+    )
+    if (!procPlan.ok) {
+      console.warn(procPlan.reason)
+      return
+    }
 
     // Устанавливаем галочку закупки перед запуском
     if (plan.shouldPurchaseMaterials) {
@@ -190,7 +224,13 @@ export function CraftContainerV2({
         materialAssignment[partId] = { materialId, quantity }
       })
 
-      const checkResult = checkInventoryForCraft(recipe, materialAssignment, inventory)
+      const checkResult = checkInventoryForCraft(
+        recipe,
+        materialAssignment,
+        inventory,
+        materialStash,
+        partSupply
+      )
 
       if (checkResult.canPurchaseMissing && checkResult.materialsToBuy.length > 0) {
         const totalCost = checkResult.totalPurchaseCost
@@ -214,7 +254,13 @@ export function CraftContainerV2({
       })
 
       // Проверяем инвентарь
-      const checkResult = checkInventoryForCraft(recipe, materialAssignment, inventory)
+      const checkResult = checkInventoryForCraft(
+        recipe,
+        materialAssignment,
+        inventory,
+        materialStash,
+        partSupply
+      )
 
       // Покупаем недостающие материалы
       if (checkResult.canPurchaseMissing && checkResult.materialsToBuy.length > 0) {
@@ -227,7 +273,7 @@ export function CraftContainerV2({
         if (currentGold >= totalCost) {
           spendResource('gold', totalCost)
           checkResult.materialsToBuy.forEach(mat => {
-            addResource(mat.resourceKey, mat.quantity)
+            grantResourceKeyFromWorld(mat.resourceKey, mat.quantity)
           })
           console.warn(`Куплено материалов на ${totalCost} золота`)
         } else {
@@ -237,10 +283,10 @@ export function CraftContainerV2({
     }
 
     // Рассчитываем стоимость материалов
-    const cost = getCraftingCost(recipe, plan.materials)
+    const cost = getCraftingCost(recipe, plan.materials, partSupply)
 
     // Списываем материалы
-    const spent = spendResources(cost)
+    const spent = spendCraftingCostWithStash(cost)
     if (!spent) {
       console.error('Не удалось списать материалы')
       return
@@ -261,7 +307,24 @@ export function CraftContainerV2({
       // Запускаем крафт
       startCraft()
     }, 100)
-  }, [setRecipe, setMaterial, setTechniques, calculatePreview, startCraft, spendResources, spendResource, addResource, inventory, setShouldPurchaseMaterials, activeOrder, takeAdvance])
+  }, [
+    setRecipe,
+    setMaterial,
+    setTechniques,
+    calculatePreview,
+    startCraft,
+    spendCraftingCostWithStash,
+    spendResource,
+    grantResourceKeyFromWorld,
+    inventory,
+    materialStash,
+    setShouldPurchaseMaterials,
+    activeOrder,
+    takeAdvance,
+    setPartMaterialSupply,
+    playerLevel,
+    unlockedMaterialProcessingTechniqueIds,
+  ])
   
   // Обработчик получения оружия
   const handleCollectWeapon = useCallback(() => {
@@ -316,11 +379,11 @@ export function CraftContainerV2({
     
     // Добавляем материалы в инвентарь
     materials.forEach(mat => {
-      addResource(mat.resourceKey, mat.quantity)
+      grantResourceKeyFromWorld(mat.resourceKey, mat.quantity)
     })
     
     console.warn(`Куплено материалов на ${totalCost} золота`)
-  }, [gold, spendResource, addResource])
+  }, [gold, spendResource, grantResourceKeyFromWorld])
   
   // Рендер по состоянию
   const renderContent = () => {
@@ -340,10 +403,14 @@ export function CraftContainerV2({
             <CraftPlanner
               playerLevel={playerLevel}
               inventory={inventory}
+              materialStash={materialStash}
               gold={gold}
               availableMaterials={availableMaterials}
               unlockedRecipes={unlockedRecipes}
               unlockedTechniques={unlockedTechniques}
+              unlockedMaterialProcessingTechniqueIds={
+                unlockedMaterialProcessingTechniqueIds
+              }
               materialKnowledge={materialKnowledge}
               materialPrices={materialPrices}
               activeOrderId={activeOrderId}
@@ -412,6 +479,7 @@ export function CraftContainerV2({
                 weapon={state.completedWeapon}
                 onCollect={handleCollectWeapon}
                 onContinue={handleContinue}
+                expertiseGains={state.lastCraftExpertiseGains}
               />
             )}
           </motion.div>

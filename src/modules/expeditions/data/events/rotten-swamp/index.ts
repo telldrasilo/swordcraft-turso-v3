@@ -7,11 +7,12 @@
  * - toxic.ts — яды и токсины (4 события)
  * - undead.ts — нежить и мертвецы (4 события)
  *
- * Итого: 8 событий для rotten_swamp
+ * Итого: 11 событий для rotten_swamp
  */
 
 import { rottenToxicEvents } from './toxic';
 import { rottenUndeadEvents } from './undead';
+import { rottenElementalEvents } from './elemental';
 
 // ============================================================================
 // ЭКСПОРТ ВСЕХ СОБЫТИЙ
@@ -29,6 +30,7 @@ export {
   eventRottenDisease,
   eventRottenAlchemistCache,
   eventRottenPoisoner,
+  eventRottenGlassReeds,
 } from './toxic';
 
 export {
@@ -43,11 +45,12 @@ export {
 export const rottenSwampEvents = [
   ...rottenToxicEvents,
   ...rottenUndeadEvents,
+  ...rottenElementalEvents,
 ];
 
 // Статистика событий локации
 export const rottenSwampEventsStats = {
-  total: 8,
+  total: 11,
   locationId: 'rotten_swamp',
   byType: {
     positive: 1,

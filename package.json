@@ -3,7 +3,10 @@
   "version": "0.2.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3000",
+    "dev": "node scripts/next-dev.cjs",
+    "dev:clean": "node scripts/clean-next.cjs && node scripts/next-dev.cjs",
+    "clean:next": "node scripts/clean-next.cjs",
+    "dev:3000": "next dev -p 3000",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
@@ -13,7 +16,8 @@
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "materials:phase0": "npx --yes tsx scripts/generate-materials-phase0.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

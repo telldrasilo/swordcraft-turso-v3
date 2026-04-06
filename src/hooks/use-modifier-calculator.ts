@@ -155,17 +155,16 @@ export function calculateExpeditionWithModifiers(
     warSoul = Math.floor(warSoul * 2)
   }
   
-  // Слава
   const glory = success
-    ? (expedition.reward?.baseWarSoul || 5) * 0.1 + 5 + (isCrit ? 5 : 0)
-    : 1
+    ? Math.floor(result.guildGloryOnSuccess * (isCrit ? 1.5 : 1))
+    : 0
   
   return {
     success,
     isCrit,
     commission,
     warSoul,
-    glory: Math.floor(glory),
+    glory,
     weaponWear: result.weaponWear,
     weaponLost,
     prediction: {

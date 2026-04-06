@@ -49,14 +49,14 @@ describe('isMaterialAvailable / getMaterialQuantity', () => {
       soulEssence: 0,
       wood: 0,
       stone: 0,
-      iron: 4,
+      iron: 0,
       coal: 0,
       copper: 0,
       tin: 0,
       silver: 0,
       goldOre: 0,
       mithril: 0,
-      ironIngot: 0,
+      ironIngot: 4,
       copperIngot: 0,
       tinIngot: 0,
       bronzeIngot: 0,
@@ -105,7 +105,7 @@ describe('smartSortMaterials', () => {
       soulEssence: 0,
       wood: 0,
       stone: 0,
-      iron: 100,
+      iron: 0,
       coal: 0,
       copper: 0,
       tin: 0,
@@ -114,7 +114,7 @@ describe('smartSortMaterials', () => {
 
       mithril: 0,
 
-      ironIngot: 0,
+      ironIngot: 100,
 
       copperIngot: 0,
 

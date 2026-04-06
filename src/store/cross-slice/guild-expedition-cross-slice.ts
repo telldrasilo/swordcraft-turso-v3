@@ -18,6 +18,7 @@ import {
 import { getRouteDurationSeconds } from '@/lib/expedition-contract-economy'
 import { getAdventurerFullName } from '@/lib/adventurer-generator'
 import type { CraftedWeaponV2 } from '@/types/craft-v2'
+import type { ActiveDamageTagEntry } from '@/types/weapon-damage'
 import type { AdventurerExtended } from '@/types/adventurer-extended'
 import type {
   Adventurer,
@@ -26,18 +27,31 @@ import type {
   RecoveryQuest,
   StartExpeditionFullOptions,
 } from '@/types/guild'
-import { getMaxActiveExpeditions, calculateReputationGain } from '@/types/guild'
+import { calculateReputationGain } from '@/types/guild'
+import { validateExpeditionStart } from '@/lib/expedition-start-validation'
+import { buildActiveDamageTagsFromMissionSnapshots } from '@/lib/expedition-post-mission-damage'
+import { getDamageTagById } from '@/data/weapon-damage/damage-tag-registry'
 import type { ExpeditionResult } from '@/store/slices/guild-slice'
 import type { ResourceKey } from '@/store/slices/resources-slice'
 import type { GameStatistics, Player } from '@/store/slices/player-slice'
+import { getWarSoulTierBonus } from '@/data/war-soul-tiers'
+import { convertToExtended } from '@/lib/adventurer-converter'
+import { WEAPON_REPAIR_GUIDANCE_EXPEDITION_MILESTONE } from '@/lib/store-utils/constants'
+import type { TutorialState } from '@/store/slices/tutorial-slice'
+import {
+  FORGOTTEN_FORGE_QUEST_ID,
+  FORGOTTEN_FORGE_STEP3_INSURANCE_GOLD,
+} from '@/data/quests/forgotten-forge'
 
 export type GuildExpeditionStoreDeps = {
   guild: GuildState
+  /** Верстак ремонта: это оружие нельзя отправить в экспедицию */
+  repairBenchWeaponId: string | null
   weaponInventory: { weapons: CraftedWeaponV2[] }
   player: Player
   statistics: GameStatistics
   canAfford: (cost: Partial<Record<ResourceKey, number>>) => boolean
-  spendResource: (key: ResourceKey, amount: number) => void
+  spendResource: (key: ResourceKey, amount: number) => boolean
   addResource: (key: ResourceKey, amount: number) => void
   addExperience: (amount: number) => void
   updateStatistics: (partial: Partial<GameStatistics>) => void
@@ -46,15 +60,32 @@ export type GuildExpeditionStoreDeps = {
     weaponId: string,
     points: number,
     durabilityLoss?: number,
-    epicGain?: number
+    epicGain?: number,
+    appendDamageTags?: ActiveDamageTagEntry[]
   ) => boolean
   discoverMaterial?: (materialId: string) => void
   addMaterialExpertise?: (materialId: string, amount: number) => void
   addMaterialToStash?: (materialId: string, amount: number) => void
+  addReputation: (amount: number) => void
+  tutorial: TutorialState
+  /** Квест «Эхо забытой кузни» (опционально, если slice подключён) */
+  forgottenForgeQuest?: { step: number; flags: { step3Insurance?: boolean } }
+  advanceForgottenForgeAfterExpedition?: (payload: {
+    locationId?: string
+    success: boolean
+    linkedQuestId?: string
+  }) => void
 }
 
+/** Множитель «раз в 20 меньше» к формуле репутации за экспедицию (до применения addReputation). */
+const EXPEDITION_GUILD_REPUTATION_DIVISOR = 20
+
 export function buildGuildExpeditionCrossSlice<S extends GuildExpeditionStoreDeps>(
-  set: (fn: (s: S) => { guild: GuildState }) => void,
+  set: (
+    updater:
+      | Partial<{ guild: GuildState; tutorial: TutorialState }>
+      | ((s: S) => Partial<{ guild: GuildState; tutorial: TutorialState }>)
+  ) => void,
   get: () => S
 ) {
   return {
@@ -67,13 +98,23 @@ export function buildGuildExpeditionCrossSlice<S extends GuildExpeditionStoreDep
     ): boolean => {
       const state = get()
 
-      const maxActive = getMaxActiveExpeditions(state.guild.level)
-      if (state.guild.activeExpeditions.length >= maxActive) {
-        return false
-      }
+      const startCheck = validateExpeditionStart({
+        expedition,
+        adventurer,
+        weapon,
+        guildLevel: state.guild.level,
+        activeExpeditions: state.guild.activeExpeditions,
+        repairBenchWeaponId: state.repairBenchWeaponId ?? null,
+      })
+      if (!startCheck.can) return false
 
-      if (weapon.currentDurability <= 10) return false
-      if (weapon.stats.attack < expedition.minWeaponAttack) return false
+      if (
+        options?.linkedQuestId === FORGOTTEN_FORGE_QUEST_ID &&
+        state.forgottenForgeQuest?.step === 3 &&
+        state.forgottenForgeQuest.flags.step3Insurance === true
+      ) {
+        if (!state.spendResource('gold', FORGOTTEN_FORGE_STEP3_INSURANCE_GOLD)) return false
+      }
 
       const startedAt = Date.now()
       const expeditionForEvents: ExpeditionTemplate =
@@ -127,6 +168,7 @@ export function buildGuildExpeditionCrossSlice<S extends GuildExpeditionStoreDep
             ? eventResult.moduleEventSnapshots
             : undefined,
         devBalanceTweaks,
+        linkedQuestId: options?.linkedQuestId,
       }
 
       set((s) => ({
@@ -205,47 +247,24 @@ export function buildGuildExpeditionCrossSlice<S extends GuildExpeditionStoreDep
       const weapon = state.weaponInventory.weapons.find((w) => w.id === expedition.weaponId)
       if (!weapon) return null
 
-      const adventurerExtended = expedition.adventurerExtended
+      const adventurerForCalc: AdventurerExtended | undefined =
+        expedition.adventurerExtended ??
+        (expedition.adventurerData ? convertToExtended(expedition.adventurerData) : undefined)
 
-      const fallbackExtended: AdventurerExtended = {
-        id: expedition.adventurerId,
-        identity: {
-          firstName: expedition.adventurerName,
-          lastName: '',
-          gender: 'male',
-          portraitId: 0,
-        },
-        combat: {
-          level: 10,
-          rarity: 'common',
-          power: 25,
-          precision: 25,
-          endurance: 25,
-          luck: 25,
-          combatStyle: 'berserker',
-          preferredWeapons: [],
-          avoidedWeapons: [],
-        },
-        personality: {
-          primaryTrait: 'brave',
-          secondaryTrait: 'honourable',
-          motivations: ['gold'],
-          socialTags: [],
-          riskTolerance: 'balanced',
-        },
-        traits: [],
-        uniqueBonuses: [],
-        strengths: [],
-        weaknesses: [],
-        requirements: { minAttack: 0 },
-        createdAt: Date.now(),
-        expiresAt: Date.now() + 86400000,
+      if (!adventurerForCalc) {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn(
+            '[completeExpeditionFull] Нет adventurerExtended и adventurerData — завершение отменено',
+            expedition.id
+          )
+        }
+        return null
       }
 
       const activeContract: ContractType = expedition.contractType ?? 'exploration'
 
       const calculation = calculateExpeditionResultV2(
-        adventurerExtended ?? fallbackExtended,
+        adventurerForCalc,
         template,
         state.guild.level,
         weapon.stats.attack,
@@ -310,11 +329,21 @@ export function buildGuildExpeditionCrossSlice<S extends GuildExpeditionStoreDep
       const success = roll < adjustedSuccessChance
       const isCrit = success && Math.random() * 100 < calculation.critChance
 
-      const commission = Math.floor(calculation.commission * (isCrit ? 1.5 : 1))
-      const warSoul = Math.floor(calculation.warSoul * (isCrit ? 1.5 : 1))
-      const glory = Math.floor(
-        (template.reward.baseWarSoul * 0.1 + (success ? 5 : 2)) * (isCrit ? 1.5 : 1)
-      )
+      const commission = success
+        ? Math.floor(calculation.commission * (isCrit ? 1.5 : 1))
+        : 0
+      // Бонус тира к душе; отдельные модификаторы миссии (ивенты, контракты) — позже, см. war-soul-tiers.
+      const tierSoulPct = getWarSoulTierBonus(weapon.warSoul, weapon.maxWarSoul).warSoulBonus
+      const warSoulTierMult = 1 + tierSoulPct / 100
+      const soulPotentialMult = weapon.soulPotential ?? 1
+      const warSoul = success
+        ? Math.floor(
+            calculation.warSoul * soulPotentialMult * warSoulTierMult * (isCrit ? 1.5 : 1)
+          )
+        : 0
+      const glory = success
+        ? Math.floor(calculation.guildGloryOnSuccess * (isCrit ? 1.5 : 1))
+        : 0
 
       const weaponWear = calculation.weaponWear
 
@@ -322,21 +351,29 @@ export function buildGuildExpeditionCrossSlice<S extends GuildExpeditionStoreDep
       const weaponLost = !success && Math.random() * 100 < weaponLossChance
 
       const eventLootGold = success ? moduleBonusGold : 0
+      const rawReputation = success
+        ? calculateReputationGain('expedition', template.reward.baseGold, state.player.level)
+        : 0
+      const reputationGain =
+        success && rawReputation > 0
+          ? Math.max(1, Math.floor(rawReputation / EXPEDITION_GUILD_REPUTATION_DIVISOR))
+          : 0
+
       const result: ExpeditionResult = {
         success,
         commission,
         warSoul,
         bonusGold: eventLootGold,
         glory,
-        reputation: success
-          ? calculateReputationGain('expedition', template.reward.baseGold, state.player.level)
-          : 0,
+        reputation: reputationGain,
         weaponWear,
         weaponLost,
         isCrit,
         materialsGained:
           success && adjustedMaterialGrants.length > 0 ? adjustedMaterialGrants : undefined,
       }
+
+      let expeditionAppliedVisibleTags = false
 
       if (result.commission > 0) {
         state.addResource('gold', result.commission)
@@ -359,14 +396,50 @@ export function buildGuildExpeditionCrossSlice<S extends GuildExpeditionStoreDep
           addExpertise?.(materialId, expertiseGain)
         }
       }
-      if (result.warSoul > 0 && weapon) {
+      if (weapon && !result.weaponLost) {
         const baseEpicGain = 0.05
         const successBonus = result.success ? 0.03 : 0
         const critBonus = result.isCrit ? 0.05 : 0
-        const epicGain = baseEpicGain + successBonus + critBonus + Math.random() * 0.02
+        const epicGain =
+          result.warSoul > 0
+            ? baseEpicGain + successBonus + critBonus + Math.random() * 0.02
+            : 0.02
 
-        state.addWarSoulToWeapon(weapon.id, result.warSoul, result.weaponWear, epicGain)
+        const completedAtMs = Date.now()
+        const locationForTags =
+          expedition.locationId != null ? getLocationById(expedition.locationId) : undefined
+        const presentElementsForTags = locationForTags?.presentElements ?? []
+        const missionDamageTags = expedition.moduleEventSnapshots?.length
+          ? buildActiveDamageTagsFromMissionSnapshots({
+              snapshots: expedition.moduleEventSnapshots,
+              weaponWear: result.weaponWear,
+              completedAtMs,
+              presentElements: presentElementsForTags,
+              expeditionStartedAtMs: expedition.startedAt,
+            })
+          : []
+        const damageTagLabelsApplied =
+          missionDamageTags.length > 0
+            ? missionDamageTags.map((t) => getDamageTagById(t.tagId)?.label ?? t.tagId)
+            : undefined
+
+        expeditionAppliedVisibleTags = missionDamageTags.length > 0
+
+        state.addWarSoulToWeapon(
+          weapon.id,
+          result.warSoul,
+          result.weaponWear,
+          epicGain,
+          missionDamageTags.length > 0 ? missionDamageTags : undefined
+        )
+        if (damageTagLabelsApplied) {
+          result.damageTagLabelsApplied = damageTagLabelsApplied
+        }
       }
+      if (reputationGain > 0) {
+        state.addReputation(reputationGain)
+      }
+
       if (result.glory) {
         set((s) => ({
           guild: {
@@ -401,35 +474,77 @@ export function buildGuildExpeditionCrossSlice<S extends GuildExpeditionStoreDep
 
       state.addExperience(result.success ? 20 : 5)
 
+      const prevTotalExpeditions = state.statistics.totalExpeditions ?? 0
+      const nextTotalExpeditions = prevTotalExpeditions + 1
+      const hitRepairHintMilestone =
+        prevTotalExpeditions < WEAPON_REPAIR_GUIDANCE_EXPEDITION_MILESTONE &&
+        nextTotalExpeditions >= WEAPON_REPAIR_GUIDANCE_EXPEDITION_MILESTONE
+
       state.updateStatistics({
-        totalExpeditions: (state.statistics.totalExpeditions ?? 0) + 1,
+        totalExpeditions: nextTotalExpeditions,
       })
 
-      set((s) => ({
-        guild: {
-          ...s.guild,
-          activeExpeditions: s.guild.activeExpeditions.filter((e) => e.id !== expeditionId),
-          history: [
-            ...s.guild.history,
-            {
-              id: generateId(),
-              expeditionName: expedition.expeditionName,
-              expeditionIcon: expedition.expeditionIcon,
-              adventurerName: expedition.adventurerName,
-              adventurerData: expedition.adventurerData,
-              adventurerExtended: expedition.adventurerExtended,
-              weaponName: expedition.weaponName,
-              completedAt: Date.now(),
-              success: result.success,
-              commission: result.commission,
-              warSoul: result.warSoul,
-              glory: result.glory,
-              weaponLost: result.weaponLost,
-              isCrit: result.isCrit,
-            },
-          ],
-        },
-      }))
+      if (
+        !state.tutorial.weaponRepairGuidanceConsumed &&
+        (expeditionAppliedVisibleTags || hitRepairHintMilestone)
+      ) {
+        set({
+          tutorial: {
+            ...get().tutorial,
+            weaponRepairGuidancePending: true,
+          },
+        })
+      }
+
+      set((s) => {
+        const prev = s.guild.stats
+        const stats = {
+          ...prev,
+          totalExpeditions: prev.totalExpeditions + 1,
+          successfulExpeditions: result.success
+            ? prev.successfulExpeditions + 1
+            : prev.successfulExpeditions,
+          failedExpeditions: result.success
+            ? prev.failedExpeditions
+            : prev.failedExpeditions + 1,
+          weaponsLost: result.weaponLost ? prev.weaponsLost + 1 : prev.weaponsLost,
+          totalCommission: prev.totalCommission + result.commission,
+          totalWarSoul: prev.totalWarSoul + result.warSoul,
+          totalGlory: prev.totalGlory + result.glory,
+        }
+        return {
+          guild: {
+            ...s.guild,
+            stats,
+            activeExpeditions: s.guild.activeExpeditions.filter((e) => e.id !== expeditionId),
+            history: [
+              ...s.guild.history,
+              {
+                id: generateId(),
+                expeditionName: expedition.expeditionName,
+                expeditionIcon: expedition.expeditionIcon,
+                adventurerName: expedition.adventurerName,
+                adventurerData: expedition.adventurerData,
+                adventurerExtended: expedition.adventurerExtended,
+                weaponName: expedition.weaponName,
+                completedAt: Date.now(),
+                success: result.success,
+                commission: result.commission,
+                warSoul: result.warSoul,
+                glory: result.glory,
+                weaponLost: result.weaponLost,
+                isCrit: result.isCrit,
+              },
+            ],
+          },
+        }
+      })
+
+      get().advanceForgottenForgeAfterExpedition?.({
+        locationId: expedition.locationId,
+        success: result.success,
+        linkedQuestId: expedition.linkedQuestId,
+      })
 
       return result
     },

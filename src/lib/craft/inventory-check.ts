@@ -8,9 +8,24 @@
  * - Детализацию по частям оружия
  */
 
-import type { MaterialAssignment, WeaponRecipe as V2WeaponRecipe } from '@/types/craft-v2'
+import type {
+  MaterialAssignment,
+  PartMaterialSupplyEntry,
+  WeaponRecipe as V2WeaponRecipe,
+} from '@/types/craft-v2'
 import type { WeaponRecipe as LegacyWeaponRecipe } from '@/data/weapon-recipes'
-import type { Resources, ResourceKey } from '@/store/slices/resources-slice'
+import {
+  REFINING_INPUT_STAGE_MATERIAL_ID,
+  refiningRecipes,
+  type RefiningRecipe,
+} from '@/data/refining-recipes'
+import { resolveProcessingTechniqueForPart } from '@/data/material-processing-techniques'
+import type { CraftingCost, Resources, ResourceKey } from '@/store/slices/resources-slice'
+import { WORLD_RESOURCE_TO_RESOURCE_KEY } from '@/lib/materials/world-resource-inventory-bridge'
+import { getMaterialAsLegacy, materialById } from '@/data/materials'
+import { canBuyMaterial, getMaterialShopInfo } from '@/data/material-shop'
+import { isGatherableEncOnlyMaterialId } from '@/lib/materials/gatherable-enc-only'
+import { getRefiningOreChargeEfficiency } from '@/lib/materials/material-process-contribution'
 
 /** Рецепт для расчёта стоимости (V2 из craft-v2 или legacy из weapon-recipes). */
 export type RecipeForCraftingCost = V2WeaponRecipe | LegacyWeaponRecipe
@@ -18,27 +33,32 @@ export type RecipeForCraftingCost = V2WeaponRecipe | LegacyWeaponRecipe
 function isV2WeaponRecipe(recipe: RecipeForCraftingCost): recipe is V2WeaponRecipe {
   return 'parts' in recipe && Array.isArray((recipe as V2WeaponRecipe).parts)
 }
-import { getMaterialAsLegacy } from '@/data/materials'
-import { canBuyMaterial, getMaterialShopInfo } from '@/data/material-shop'
 
 // ================================
 // МАППИНГ МАТЕРИАЛОВ НА РЕСУРСЫ
 // ================================
 
 /**
- * Маппинг ID материалов из крафта на ресурсы инвентаря
- * 
- * Материалы в крафте (craft-v2) → Ресурсы в инвентаре (resources-slice)
+ * Ядро маппинга materialId → `ResourceKey` (кузница, библиотека ores/metals/woods).
+ * Добываемые id из подпапок `library/` подмешиваются ниже — см. `world-resource-inventory-bridge.ts`.
  */
-const MATERIAL_TO_RESOURCE: Record<string, ResourceKey> = {
-  // Металлы (сырьё)
-  'iron': 'iron',
-  'cold_iron': 'iron',  // Вариант железа
-  'copper': 'copper',
-  'tin': 'tin',
-  'silver': 'silver',
-  'gold': 'goldOre',
-  'mithril': 'mithril',
+const CORE_MATERIAL_TO_RESOURCE: Record<string, ResourceKey> = {
+  // Канонические руды / сырьевая стадия (фаза 3 аудита) — тот же пул `ResourceKey`, что у переработки
+  'iron_ore': 'iron',
+  'copper_ore': 'copper',
+  'tin_ore': 'tin',
+  'silver_ore': 'silver',
+  'gold_ore': 'goldOre',
+  'mithril_ore': 'mithril',
+
+  // Базовые металлы в крафте v2 / клинках — слиток (руда — только `*_ore` → ключи руды ниже)
+  'iron': 'ironIngot',
+  'cold_iron': 'ironIngot',
+  'copper': 'copperIngot',
+  'tin': 'tinIngot',
+  'silver': 'silverIngot',
+  'gold': 'goldIngot',
+  'mithril': 'mithrilIngot',
   
   // Сплавы (создаются из сырья)
   'steel': 'steelIngot',
@@ -76,6 +96,16 @@ const MATERIAL_TO_RESOURCE: Record<string, ResourceKey> = {
   'obsidian': 'stone',
   'marble': 'stone',
   'processed_stone': 'stoneBlocks',
+
+  /** Каталожный id угля (добываемые узлы / экспедиции) → тот же ключ, что и склад кузницы */
+  'coal': 'coal',
+  'ancient_coal': 'coal',
+}
+
+/** Полный маппинг: экспедиционные id не перекрывают ядро. */
+const MATERIAL_TO_RESOURCE: Record<string, ResourceKey> = {
+  ...WORLD_RESOURCE_TO_RESOURCE_KEY,
+  ...CORE_MATERIAL_TO_RESOURCE,
 }
 
 /**
@@ -88,26 +118,32 @@ const ALLOY_RECIPES: Record<string, {
 }> = {
   'steel': {
     inputs: [
-      { resource: 'iron', amount: 2, name: 'Железо' },
+      { resource: 'ironIngot', amount: 2, name: 'Железный слиток' },
       { resource: 'coal', amount: 1, name: 'Уголь' },
     ],
     fuel: { resource: 'coal', amount: 1 },
   },
   'high_carbon_steel': {
     inputs: [
-      { resource: 'iron', amount: 2, name: 'Железо' },
+      { resource: 'ironIngot', amount: 2, name: 'Железный слиток' },
       { resource: 'coal', amount: 2, name: 'Уголь' },
     ],
     fuel: { resource: 'coal', amount: 2 },
   },
   'silver_alloy': {
     inputs: [
-      { resource: 'iron', amount: 1, name: 'Железо' },
-      { resource: 'silver', amount: 1, name: 'Серебро' },
+      { resource: 'ironIngot', amount: 1, name: 'Железный слиток' },
+      { resource: 'silverIngot', amount: 1, name: 'Серебряный слиток' },
     ],
     fuel: { resource: 'coal', amount: 1 },
   },
 }
+
+/** Аудит фазы 0: какие craft materialId маппятся на ResourceKey. */
+export const CRAFT_MAPPED_MATERIAL_IDS: string[] = Object.keys(MATERIAL_TO_RESOURCE)
+
+/** Аудит фазы 0: материалы с раскрытием через ALLOY_RECIPES. */
+export const CRAFT_ALLOY_MATERIAL_IDS: string[] = Object.keys(ALLOY_RECIPES)
 
 // ================================
 // ТИПЫ
@@ -155,6 +191,9 @@ export interface InventoryCheckResult {
   materialsToBuy: MaterialToBuy[]
   totalPurchaseCost: number
   canPurchaseMissing: boolean  // Все ли недостающие можно купить
+
+  /** Сем. фаза 3: выбран материал без маппинга на склад кузницы — крафт невозможен до смены выбора. */
+  forgeSpendBlockReason?: string
 }
 
 // ================================
@@ -169,6 +208,333 @@ export function getResourceKeyForMaterial(materialId: string): ResourceKey | nul
 }
 
 /**
+ * Материал может участвовать в расчёте стоимости/списании крафта v2 через `ResourceKey` или `ALLOY_RECIPES`.
+ * Каталожные ENC-only и прочие id без маппинга не должны попадать в выбор планировщика.
+ */
+export function canCatalogMaterialSpendInForgeCraft(materialId: string): boolean {
+  if (ALLOY_RECIPES[materialId]) return true
+  return getResourceKeyForMaterial(materialId) != null
+}
+
+/** materialId → тот же ResourceKey, что и в MATERIAL_TO_RESOURCE, стабильный порядок для списания stash. */
+function getMaterialIdsMappedToResource(resourceKey: ResourceKey): string[] {
+  return Object.entries(MATERIAL_TO_RESOURCE)
+    .filter(([, rk]) => rk === resourceKey)
+    .map(([mid]) => mid)
+    .sort()
+}
+
+/** Каталожные id, мапящиеся на пул `ResourceKey` (стабильный порядок — как при списании stash). */
+export function getCatalogMaterialIdsForResourceKey(resourceKey: ResourceKey): string[] {
+  return getMaterialIdsMappedToResource(resourceKey)
+}
+
+/**
+ * Разница «до/после» для списания с пулов (stash + resources).
+ */
+export function computePoolSpendDeltas(
+  beforeResources: Resources,
+  beforeStash: Record<string, number>,
+  afterResources: Resources,
+  afterStash: Record<string, number>
+): {
+  stashDecrements: Record<string, number>
+  resourceDecrements: Partial<Record<ResourceKey, number>>
+} {
+  const stashDecrements: Record<string, number> = {}
+  const stashKeys = new Set([...Object.keys(beforeStash), ...Object.keys(afterStash)])
+  for (const mid of stashKeys) {
+    const b = beforeStash[mid] ?? 0
+    const a = afterStash[mid] ?? 0
+    if (b > a) stashDecrements[mid] = b - a
+  }
+  const resourceDecrements: Partial<Record<ResourceKey, number>> = {}
+  for (const k of Object.keys(beforeResources) as ResourceKey[]) {
+    const b = beforeResources[k] ?? 0
+    const a = afterResources[k] ?? 0
+    if (b > a) resourceDecrements[k] = b - a
+  }
+  return { stashDecrements, resourceDecrements }
+}
+
+/**
+ * Канонический `materialId` для начисления в `materialStash` при приходе по `ResourceKey`
+ * (рабочие, закупка в крафте, плавка, бонусы заказов — фаза 2 аудита).
+ * `null` → начислять только через `addResource` (валюта и прочее без каталожного id).
+ */
+const RESOURCE_GRANT_STASH_FALLBACK: Partial<Record<ResourceKey, string>> = {
+  leather: 'raw_leather',
+  planks: 'processed_wood',
+  stoneBlocks: 'processed_stone',
+  ironIngot: 'iron_alloy',
+  copperIngot: 'copper_alloy',
+  tinIngot: 'tin_alloy',
+  bronzeIngot: 'bronze',
+  steelIngot: 'steel',
+  silverIngot: 'silver_alloy',
+  goldIngot: 'gold_alloy',
+  mithrilIngot: 'mithril_alloy',
+}
+
+export function getGrantTargetMaterialId(resourceKey: ResourceKey): string | null {
+  if (resourceKey === 'gold' || resourceKey === 'soulEssence') return null
+
+  const stageFromRefining =
+    REFINING_INPUT_STAGE_MATERIAL_ID[resourceKey as keyof typeof REFINING_INPUT_STAGE_MATERIAL_ID]
+  if (stageFromRefining !== undefined) {
+    return stageFromRefining
+  }
+
+  if (MATERIAL_TO_RESOURCE[resourceKey] === resourceKey) {
+    return resourceKey
+  }
+
+  const fallbackId = RESOURCE_GRANT_STASH_FALLBACK[resourceKey]
+  if (fallbackId !== undefined && MATERIAL_TO_RESOURCE[fallbackId] === resourceKey) {
+    return fallbackId
+  }
+
+  return null
+}
+
+/**
+ * Миграция фазы 2: перенос количеств из `resources` в `materialStash` по правилу
+ * `getGrantTargetMaterialId` (как при начислении через store `grantResourceKeyFromWorld`). Идемпотентна.
+ */
+export function migrateLegacyMaterialResourcesToStash(
+  resources: Resources,
+  materialStash: Record<string, number>
+): { resources: Resources; materialStash: Record<string, number> } {
+  const newRes = { ...resources }
+  const newStash = { ...materialStash }
+
+  for (const key of Object.keys(newRes) as ResourceKey[]) {
+    if (key === 'gold' || key === 'soulEssence') continue
+    const n = newRes[key] ?? 0
+    if (n <= 0) continue
+    const mid = getGrantTargetMaterialId(key)
+    if (!mid) continue
+    newStash[mid] = Math.max(0, (newStash[mid] ?? 0) + n)
+    newRes[key] = 0
+  }
+
+  const normalizedStash = normalizeLegacyOreStashAliases(newStash)
+  return { resources: newRes, materialStash: normalizedStash }
+}
+
+/** Легаси-ключи stash до фазы 3 (металлический id = тот же ярлык, что ResourceKey) → каноническая руда. */
+const LEGACY_ORE_STASH_KEY_TO_CANONICAL: Record<string, string> = {
+  iron: 'iron_ore',
+  copper: 'copper_ore',
+  tin: 'tin_ore',
+  silver: 'silver_ore',
+  mithril: 'mithril_ore',
+  gold: 'gold_ore',
+}
+
+function normalizeLegacyOreStashAliases(stash: Record<string, number>): Record<string, number> {
+  const out = { ...stash }
+  for (const [legacy, canonical] of Object.entries(LEGACY_ORE_STASH_KEY_TO_CANONICAL)) {
+    const n = out[legacy]
+    if (n != null && n > 0) {
+      out[canonical] = Math.max(0, (out[canonical] ?? 0) + n)
+      delete out[legacy]
+    }
+  }
+  return out
+}
+
+/**
+ * Доступное количество по ключу склада: `resources[key]` + сумма `materialStash` по всем materialId,
+ * мапящимся на этот ключ (фаза 2 аудита — мост stash ↔ крафт).
+ */
+export function getAvailableAmountForResourceKey(
+  inventory: Resources,
+  materialStash: Record<string, number>,
+  resourceKey: ResourceKey
+): number {
+  let total = inventory[resourceKey] ?? 0
+  for (const mid of getMaterialIdsMappedToResource(resourceKey)) {
+    total += materialStash[mid] ?? 0
+  }
+  return total
+}
+
+/**
+ * Стоимость запуска переработки в тех же ключах, что и `CraftingCost` / `spendCraftingCostWithStash`.
+ * Входы рецепта + `extraCost.coal` (плавка).
+ */
+export function getRefiningCraftingCost(recipe: RefiningRecipe, amount: number): CraftingCost {
+  const cost: CraftingCost = {}
+  for (const input of recipe.inputs) {
+    const k = input.resource as ResourceKey
+    cost[k] = (cost[k] ?? 0) + input.amount * amount
+  }
+  const coalExtra = (recipe.extraCost?.coal ?? 0) * amount
+  if (coalExtra > 0) {
+    cost.coal = (cost.coal ?? 0) + coalExtra
+  }
+  return cost
+}
+
+/** Проверка достаточности `cost` с учётом `materialStash` по `MATERIAL_TO_RESOURCE`. */
+export function canAffordCraftingCostWithStash(
+  cost: CraftingCost,
+  inventory: Resources,
+  materialStash: Record<string, number>
+): boolean {
+  for (const k of Object.keys(cost) as ResourceKey[]) {
+    const amt = cost[k]
+    if (!amt || amt <= 0) continue
+    if (getAvailableAmountForResourceKey(inventory, materialStash, k) < amt) {
+      return false
+    }
+  }
+  return true
+}
+
+function spendSingleResourceKeyFromPools(
+  resourceKey: ResourceKey,
+  amount: number,
+  resources: Resources,
+  stash: Record<string, number>
+): { resources: Resources; stash: Record<string, number> } | null {
+  if (amount <= 0) return { resources, stash }
+  if (resourceKey === 'gold' || resourceKey === 'soulEssence') {
+    const pool = resources[resourceKey] ?? 0
+    if (pool < amount) return null
+    return {
+      resources: { ...resources, [resourceKey]: pool - amount },
+      stash: { ...stash },
+    }
+  }
+
+  let remaining = amount
+  const newStash = { ...stash }
+  const newResources = { ...resources }
+
+  for (const mid of getMaterialIdsMappedToResource(resourceKey)) {
+    const have = newStash[mid] ?? 0
+    if (have <= 0) continue
+    const take = Math.min(have, remaining)
+    const next = have - take
+    if (next > 0) newStash[mid] = next
+    else delete newStash[mid]
+    remaining -= take
+    if (remaining === 0) return { resources: newResources, stash: newStash }
+  }
+
+  const pool = newResources[resourceKey] ?? 0
+  if (pool < remaining) return null
+  newResources[resourceKey] = pool - remaining
+  return { resources: newResources, stash: newStash }
+}
+
+/**
+ * Снять количество по одному `ResourceKey` с тех же пулов, что списание крафта
+ * (сначала `materialStash` по маппингу, затем `resources`). Для продажи и прочего вывода.
+ */
+export function removeResourceKeyFromPools(
+  resourceKey: ResourceKey,
+  amount: number,
+  resources: Resources,
+  materialStash: Record<string, number>
+): { ok: true; resources: Resources; materialStash: Record<string, number> } | { ok: false } {
+  const out = spendSingleResourceKeyFromPools(
+    resourceKey,
+    amount,
+    { ...resources },
+    { ...materialStash }
+  )
+  if (!out) return { ok: false }
+  return { ok: true, resources: out.resources, materialStash: out.stash }
+}
+
+/**
+ * Списать стоимость крафта: сначала `materialStash` по маппингу MATERIAL_TO_RESOURCE, затем `resources`.
+ * Не меняет store — возвращает новые снимки или `ok: false`.
+ */
+export function applyCraftingCostSpend(
+  cost: CraftingCost,
+  resources: Resources,
+  materialStash: Record<string, number>
+): { ok: true; resources: Resources; materialStash: Record<string, number> } | { ok: false } {
+  let res = { ...resources }
+  let stash = { ...materialStash }
+
+  const keys = (Object.keys(cost) as ResourceKey[])
+    .filter(k => (cost[k] ?? 0) > 0)
+    .sort()
+
+  for (const resourceKey of keys) {
+    const amountNeed = cost[resourceKey]
+    if (amountNeed == null || amountNeed <= 0) continue
+    const out = spendSingleResourceKeyFromPools(resourceKey, amountNeed, res, stash)
+    if (!out) return { ok: false }
+    res = out.resources
+    stash = out.stash
+  }
+
+  return { ok: true, resources: res, materialStash: stash }
+}
+
+const SMELTING_ORE_RESOURCE_KEYS: ResourceKey[] = [
+  'iron',
+  'copper',
+  'tin',
+  'silver',
+  'goldOre',
+  'mithril',
+]
+
+/**
+ * Средневзвешенный множитель выхода слитка по фактически списанной шихте (фаза C семантики).
+ * 1 — если нет рудных затрат или симуляция списания не удалась.
+ */
+export function computeRefiningSmeltingOutputMultiplier(
+  recipe: RefiningRecipe,
+  amount: number,
+  resources: Resources,
+  materialStash: Record<string, number>
+): number {
+  const cost = getRefiningCraftingCost(recipe, amount)
+  const beforeStash = { ...materialStash }
+  const beforeRes = { ...resources }
+  const spent = applyCraftingCostSpend(cost, { ...resources }, { ...materialStash })
+  if (!spent.ok) return 1
+
+  let weighted = 0
+  let oreUnits = 0
+  const oreKeySet = new Set(SMELTING_ORE_RESOURCE_KEYS)
+
+  for (const rk of SMELTING_ORE_RESOURCE_KEYS) {
+    if ((cost[rk] ?? 0) <= 0) continue
+    const resRemoved = Math.max(0, (beforeRes[rk] ?? 0) - (spent.resources[rk] ?? 0))
+    if (resRemoved > 0) {
+      const stage =
+        REFINING_INPUT_STAGE_MATERIAL_ID[
+          rk as keyof typeof REFINING_INPUT_STAGE_MATERIAL_ID
+        ]
+      weighted += getRefiningOreChargeEfficiency(stage) * resRemoved
+      oreUnits += resRemoved
+    }
+  }
+
+  for (const [mid, beforeQty] of Object.entries(beforeStash)) {
+    const afterQty = spent.materialStash[mid] ?? 0
+    const removed = beforeQty - afterQty
+    if (removed <= 0) continue
+    const rk = getResourceKeyForMaterial(mid)
+    if (!rk || !oreKeySet.has(rk)) continue
+    weighted += getRefiningOreChargeEfficiency(mid) * removed
+    oreUnits += removed
+  }
+
+  if (oreUnits <= 0) return 1
+  return weighted / oreUnits
+}
+
+/**
  * Получить отображаемое имя ресурса
  */
 function getResourceDisplayName(resourceKey: ResourceKey): string {
@@ -178,10 +544,14 @@ function getResourceDisplayName(resourceKey: ResourceKey): string {
     wood: 'Дерево',
     stone: 'Камень',
     ironIngot: 'Железный слиток',
+    copperIngot: 'Медный слиток',
+    tinIngot: 'Оловянный слиток',
+    goldIngot: 'Золотой слиток',
     steelIngot: 'Стальной слиток',
     silverIngot: 'Серебряный слиток',
     mithrilIngot: 'Мифриловый слиток',
     planks: 'Доски',
+    stoneBlocks: 'Каменные блоки',
     leather: 'Кожа',
     silver: 'Серебро',
   }
@@ -192,6 +562,54 @@ function getResourceDisplayName(resourceKey: ResourceKey): string {
  * Рассчитать сырьё для материала
  * Если это сплав — раскрывает рецепт
  */
+/**
+ * Сырьё для части с учётом пути снабжения (слиток или руда + плавка по рецепту переработки).
+ */
+export function calculatePartRawResources(
+  partId: string,
+  materialId: string,
+  baseQuantity: number,
+  partMaterialSupply?: Record<string, PartMaterialSupplyEntry>
+): { resource: ResourceKey; amount: number; name: string }[] {
+  const entry = partMaterialSupply?.[partId]
+  if (entry?.mode === 'ore_smelt') {
+    const tech = resolveProcessingTechniqueForPart(partId, materialId, entry)
+    const ref = tech ? refiningRecipes.find(r => r.id === tech.refiningRecipeId) : undefined
+    if (ref && ref.output.amount > 0) {
+      const direct = calculateRawResources(materialId, baseQuantity)
+      const outKey = ref.output.resource as ResourceKey
+      const ingotLine = direct.find(d => d.resource === outKey)
+      const ingotsNeeded = ingotLine?.amount
+      if (ingotsNeeded != null && ingotsNeeded > 0) {
+        const batches = ingotsNeeded / ref.output.amount
+        const lines: { resource: ResourceKey; amount: number; name: string }[] = []
+        for (const input of ref.inputs) {
+          const k = input.resource as ResourceKey
+          lines.push({
+            resource: k,
+            amount: input.amount * batches,
+            name: getResourceDisplayName(k),
+          })
+        }
+        const coalExtra = (ref.extraCost?.coal ?? 0) * batches
+        if (coalExtra > 0) {
+          const coalLine = lines.find(l => l.resource === 'coal')
+          if (coalLine) coalLine.amount += coalExtra
+          else {
+            lines.push({
+              resource: 'coal',
+              amount: coalExtra,
+              name: getResourceDisplayName('coal'),
+            })
+          }
+        }
+        return lines
+      }
+    }
+  }
+  return calculateRawResources(materialId, baseQuantity)
+}
+
 function calculateRawResources(
   materialId: string,
   quantity: number
@@ -218,9 +636,27 @@ function calculateRawResources(
     }]
   }
   
-  // Неизвестный материал
-  console.warn(`Unknown material: ${materialId}`)
+  reportCraftMaterialMappingGap(materialId)
   return []
+}
+
+/** Явные сообщения вместо «немого» Unknown material (аудит фаза 3). */
+function reportCraftMaterialMappingGap(materialId: string): void {
+  if (materialById[materialId]) {
+    if (isGatherableEncOnlyMaterialId(materialId)) {
+      console.warn(
+        `[inventory-check] Craft cost: catalog material "${materialId}" is ENC-only (no forge ResourceKey mapping).`
+      )
+      return
+    }
+    console.warn(
+      `[inventory-check] Craft cost: catalog material "${materialId}" has no MATERIAL_TO_RESOURCE entry — add bridge or registry.`
+    )
+    return
+  }
+  console.warn(
+    `[inventory-check] Craft cost: material id "${materialId}" is not in the material catalog (materialById).`
+  )
 }
 
 /**
@@ -229,20 +665,33 @@ function calculateRawResources(
  */
 export function calculateCraftRequirements(
   recipe: V2WeaponRecipe,
-  materialSelections: MaterialAssignment
+  materialSelections: MaterialAssignment,
+  partMaterialSupply?: Record<string, PartMaterialSupplyEntry>
 ): Map<ResourceKey, { amount: number; sources: string[]; names: string[] }> {
   const requirements = new Map<ResourceKey, { amount: number; sources: string[]; names: string[] }>()
   
   for (const [partId, selection] of Object.entries(materialSelections)) {
     const material = getMaterialAsLegacy(selection.materialId)
-    if (!material) continue
+    if (!material) {
+      if (materialById[selection.materialId]) {
+        console.warn(
+          `[inventory-check] calculateCraftRequirements: catalog id "${selection.materialId}" has no legacy craft adapter (getMaterialAsLegacy).`
+        )
+      }
+      continue
+    }
     
     // Базовое количество материала для этой части
     const recipePart = recipe.parts.find(p => p.id === partId)
     const baseQuantity = recipePart?.minQuantity || 1
     
     // Получаем список сырья
-    const rawResources = calculateRawResources(selection.materialId, baseQuantity)
+    const rawResources = calculatePartRawResources(
+      partId,
+      selection.materialId,
+      baseQuantity,
+      partMaterialSupply
+    )
     
     for (const { resource, amount, name } of rawResources) {
       const existing = requirements.get(resource)
@@ -265,19 +714,61 @@ export function calculateCraftRequirements(
 export function checkInventoryForCraft(
   recipe: V2WeaponRecipe,
   materialSelections: MaterialAssignment,
-  inventory: Resources
+  inventory: Resources,
+  materialStash: Record<string, number> = {},
+  partMaterialSupply?: Record<string, PartMaterialSupplyEntry>
 ): InventoryCheckResult {
+  const emptyBlocked = (reason: string): InventoryCheckResult => ({
+    canCraft: false,
+    requirements: [],
+    missing: [],
+    breakdownByPart: [],
+    materialsToBuy: [],
+    totalPurchaseCost: 0,
+    canPurchaseMissing: false,
+    forgeSpendBlockReason: reason,
+  })
+
+  for (const [, selection] of Object.entries(materialSelections)) {
+    if (!canCatalogMaterialSpendInForgeCraft(selection.materialId)) {
+      const enc = isGatherableEncOnlyMaterialId(selection.materialId)
+      const reason = enc
+        ? 'Этот материал сейчас только для энциклопедии (дроп без расхода в кузне). Выберите другой материал для части.'
+        : `Материал «${selection.materialId}» не подключён к складу кузницы (нет записи в MATERIAL_TO_RESOURCE).`
+      return emptyBlocked(reason)
+    }
+  }
+
   const requirements: ResourceRequirement[] = []
   const missing: ResourceRequirement[] = []
   const breakdownByPart: InventoryCheckResult['breakdownByPart'] = []
   const materialsToBuy: MaterialToBuy[] = []
-  
+
   // Рассчитываем общие требования
-  const totalRequirements = calculateCraftRequirements(recipe, materialSelections)
-  
+  const totalRequirements = calculateCraftRequirements(
+    recipe,
+    materialSelections,
+    partMaterialSupply
+  )
+
+  /** Синхронно с `getCraftingCost`: базовый уголь горня (+3) суммируется с углём из частей / плавки. */
+  const FORGE_COAL_BASELINE = 3
+  const coalMerge = totalRequirements.get('coal')
+  if (coalMerge) {
+    coalMerge.amount += FORGE_COAL_BASELINE
+    coalMerge.sources.push('_forge_baseline')
+    coalMerge.names.push('Горн (база)')
+  } else {
+    totalRequirements.set('coal', {
+      amount: FORGE_COAL_BASELINE,
+      sources: ['_forge_baseline'],
+      names: ['Горн (база)'],
+    })
+  }
+
   // Формируем список требований
   for (const [resourceKey, { amount }] of totalRequirements) {
-    const available = inventory[resourceKey] || 0
+    const available = getAvailableAmountForResourceKey(inventory, materialStash, resourceKey)
     const sufficient = available >= amount
     
     const req: ResourceRequirement = {
@@ -323,16 +814,28 @@ export function checkInventoryForCraft(
   
   for (const [partId, selection] of Object.entries(materialSelections)) {
     const material = getMaterialAsLegacy(selection.materialId)
-    if (!material) continue
+    if (!material) {
+      if (materialById[selection.materialId]) {
+        console.warn(
+          `[inventory-check] checkInventoryForCraft: catalog id "${selection.materialId}" has no legacy craft adapter (getMaterialAsLegacy).`
+        )
+      }
+      continue
+    }
     
     const recipePart = recipe.parts.find(p => p.id === partId)
     const baseQuantity = recipePart?.minQuantity || 1
     
     const partRequirements: ResourceRequirement[] = []
-    const rawResources = calculateRawResources(selection.materialId, baseQuantity)
+    const rawResources = calculatePartRawResources(
+      partId,
+      selection.materialId,
+      baseQuantity,
+      partMaterialSupply
+    )
     
     for (const { resource, amount } of rawResources) {
-      const available = inventory[resource] || 0
+      const available = getAvailableAmountForResourceKey(inventory, materialStash, resource)
       partRequirements.push({
         resourceKey: resource,
         resourceId: resource,
@@ -351,33 +854,18 @@ export function checkInventoryForCraft(
       requirements: partRequirements,
     })
   }
-  
-  // Топливо для горна (базовое количество угля)
+
+  const coalTotals = totalRequirements.get('coal')
+  const fuelAvailable = getAvailableAmountForResourceKey(inventory, materialStash, 'coal')
   const fuelRequired: ResourceRequirement = {
     resourceKey: 'coal',
     resourceId: 'coal',
-    resourceName: 'Уголь',
-    quantity: 3, // Базовый расход на крафт
-    available: inventory.coal || 0,
-    sufficient: (inventory.coal || 0) >= 3,
+    resourceName: getResourceDisplayName('coal'),
+    quantity: coalTotals?.amount ?? FORGE_COAL_BASELINE,
+    available: fuelAvailable,
+    sufficient: fuelAvailable >= (coalTotals?.amount ?? FORGE_COAL_BASELINE),
   }
-  
-  // Если не хватает топлива — добавляем в список покупки
-  if (!fuelRequired.sufficient) {
-    const neededFuel = fuelRequired.quantity - fuelRequired.available
-    const fuelShopInfo = getMaterialShopInfo('coal')
-    if (fuelShopInfo) {
-      materialsToBuy.push({
-        resourceKey: 'coal',
-        resourceName: 'Уголь',
-        quantity: neededFuel,
-        unitPrice: fuelShopInfo.basePrice,
-        totalPrice: Math.ceil(fuelShopInfo.basePrice * neededFuel * 1.1),
-        canBuy: true,
-      })
-    }
-  }
-  
+
   // Рассчитываем общую стоимость покупки
   const totalPurchaseCost = materialsToBuy.reduce((sum, m) => sum + m.totalPrice, 0)
   
@@ -385,7 +873,7 @@ export function checkInventoryForCraft(
   const canPurchaseMissing = missing.length > 0 && materialsToBuy.length > 0 && materialsToBuy.every(m => m.canBuy)
   
   return {
-    canCraft: missing.length === 0 && fuelRequired.sufficient,
+    canCraft: missing.length === 0,
     requirements,
     missing,
     breakdownByPart,
@@ -403,13 +891,18 @@ export function checkInventoryForCraft(
  */
 export function getCraftingCost(
   recipe: RecipeForCraftingCost,
-  materialSelections: MaterialAssignment
+  materialSelections: MaterialAssignment,
+  partMaterialSupply?: Record<string, PartMaterialSupplyEntry>
 ): Partial<Record<ResourceKey, number>> {
   const cost: Partial<Record<ResourceKey, number>> = {}
 
   if (isV2WeaponRecipe(recipe)) {
     if (Object.keys(materialSelections).length > 0) {
-      const totalRequirements = calculateCraftRequirements(recipe, materialSelections)
+      const totalRequirements = calculateCraftRequirements(
+        recipe,
+        materialSelections,
+        partMaterialSupply
+      )
       for (const [resourceKey, { amount }] of totalRequirements) {
         cost[resourceKey] = (cost[resourceKey] || 0) + amount
       }
@@ -439,12 +932,10 @@ export function getCraftingCost(
 export function hasMaterialInInventory(
   materialId: string,
   quantity: number,
-  inventory: Resources
+  inventory: Resources,
+  materialStash: Record<string, number> = {}
 ): boolean {
-  const resourceKey = getResourceKeyForMaterial(materialId)
-  if (!resourceKey) return false
-  
-  return (inventory[resourceKey] || 0) >= quantity
+  return getMaterialAmountInInventory(materialId, inventory, materialStash) >= quantity
 }
 
 /**
@@ -452,10 +943,10 @@ export function hasMaterialInInventory(
  */
 export function getMaterialAmountInInventory(
   materialId: string,
-  inventory: Resources
+  inventory: Resources,
+  materialStash: Record<string, number> = {}
 ): number {
   const resourceKey = getResourceKeyForMaterial(materialId)
-  if (!resourceKey) return 0
-  
-  return inventory[resourceKey] || 0
+  if (!resourceKey) return materialStash[materialId] ?? 0
+  return getAvailableAmountForResourceKey(inventory, materialStash, resourceKey)
 }

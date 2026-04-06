@@ -7,12 +7,14 @@ import type { WeaponRecipe } from '@/types/craft-v2'
 
 import { swordRecipes } from './swords'
 import { daggerRecipes, axeRecipes } from './melee'
+import { extraMeleeFormRecipes } from './extra-melee-forms'
 
-// Все рецепты в одном массиве
+// Каталог v2: только формы (тип оружия + части + этапы). Материал и «железность» задаются в планировщике.
 export const allRecipes: WeaponRecipe[] = [
   ...swordRecipes,
   ...daggerRecipes,
   ...axeRecipes,
+  ...extraMeleeFormRecipes,
 ]
 
 // Карта рецептов по ID

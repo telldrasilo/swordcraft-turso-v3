@@ -7,11 +7,12 @@
  * - fog.ts — туман и мистика (4 события)
  * - swamp.ts — болото и трясина (4 события)
  *
- * Итого: 8 событий для misty_lowlands
+ * Итого: 9 событий для misty_lowlands
  */
 
 import { mistyFogEvents } from './fog';
 import { mistySwampEvents } from './swamp';
+import { mistyElementalEvents } from './elemental';
 
 // ============================================================================
 // ЭКСПОРТ ВСЕХ СОБЫТИЙ
@@ -37,17 +38,19 @@ export {
   eventMistyBogWalker,
   eventMistyHerbalistHut,
   eventMistyLeechAmbush,
+  eventMistySwollenHaft,
 } from './swamp';
 
 // Объединённый массив всех событий локации
 export const mistyLowlandsEvents = [
   ...mistyFogEvents,
   ...mistySwampEvents,
+  ...mistyElementalEvents,
 ];
 
 // Статистика событий локации
 export const mistyLowlandsEventsStats = {
-  total: 8,
+  total: 11,
   locationId: 'misty_lowlands',
   byType: {
     positive: 2,

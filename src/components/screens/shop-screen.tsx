@@ -18,31 +18,45 @@ import {
   useFormattedResources,
   type Resources
 } from '@/store'
+import { getAvailableAmountForResourceKey, getGrantTargetMaterialId } from '@/lib/craft/inventory-check'
 import { useProductionRates } from '@/hooks/use-game-loop'
 import { 
   TooltipProvider,
   InfoTooltip 
 } from '@/components/ui/game-tooltip'
 import { cn } from '@/lib/utils'
-import { 
-  ResourceIcon, 
-  rarityColors,
-  getResourceIconInfo 
-} from '@/components/ui/resource-icon'
+import { rarityColors, getResourceIconInfo } from '@/components/ui/resource-icon'
+import { MaterialDisplayIcon } from '@/components/ui/material-display-icon'
+import { getMaterialShopInfo } from '@/data/material-shop'
+import { materialById } from '@/data/materials/library'
+import type { ResourceKey } from '@/store/slices/resources-slice'
 
-// Ресурсы для продажи
-const sellableResources: { id: keyof Resources; name: string; rarity: keyof typeof rarityColors }[] = [
-  { id: 'wood', name: 'Дерево', rarity: 'common' },
-  { id: 'stone', name: 'Камень', rarity: 'common' },
-  { id: 'iron', name: 'Железо', rarity: 'uncommon' },
-  { id: 'coal', name: 'Уголь', rarity: 'common' },
-  { id: 'ironIngot', name: 'Жел. слиток', rarity: 'rare' },
-  { id: 'copperIngot', name: 'Мед. слиток', rarity: 'rare' },
-  { id: 'tinIngot', name: 'Олов. слиток', rarity: 'rare' },
-  { id: 'bronzeIngot', name: 'Бронза', rarity: 'rare' },
-  { id: 'planks', name: 'Доски', rarity: 'uncommon' },
-  { id: 'stoneBlocks', name: 'Кам. блоки', rarity: 'uncommon' },
+/** Имя витрины: приоритет `MaterialNode` по `getGrantTargetMaterialId`, иначе витрина `material-shop`. */
+function displayNameForShopResource(key: ResourceKey, fallback: string): string {
+  const mid = getGrantTargetMaterialId(key)
+  if (mid && materialById[mid]?.identity.name) return materialById[mid].identity.name
+  return getMaterialShopInfo(key)?.name ?? fallback
+}
+
+/** Продажа: имена согласованы с каталогом там, где есть grant-target id. */
+const sellableResourcesConfig: { id: ResourceKey; rarity: keyof typeof rarityColors }[] = [
+  { id: 'wood', rarity: 'common' },
+  { id: 'stone', rarity: 'common' },
+  { id: 'iron', rarity: 'uncommon' },
+  { id: 'coal', rarity: 'common' },
+  { id: 'ironIngot', rarity: 'rare' },
+  { id: 'copperIngot', rarity: 'rare' },
+  { id: 'tinIngot', rarity: 'rare' },
+  { id: 'bronzeIngot', rarity: 'rare' },
+  { id: 'planks', rarity: 'uncommon' },
+  { id: 'stoneBlocks', rarity: 'uncommon' },
 ]
+
+const sellableResources = sellableResourcesConfig.map(({ id, rarity }) => ({
+  id,
+  name: displayNameForShopResource(id, id),
+  rarity,
+}))
 
 // Пакеты для покупки
 const buyPackages = [
@@ -67,11 +81,16 @@ function formatAmount(num: number): string {
 // Компонент строки продажи ресурса
 function SellRow({ resourceId, name, rarity }: { resourceId: keyof Resources; name: string; rarity: keyof typeof rarityColors }) {
   const resources = useGameStore((state) => state.resources)
+  const materialStash = useGameStore((state) => state.materialStash)
   const sellResource = useGameStore((state) => state.sellResource)
   const getResourceSellPrice = useGameStore((state) => state.getResourceSellPrice)
   const [amount, setAmount] = useState(0)
   
-  const available = Math.floor(resources[resourceId] || 0)
+  const available = Math.floor(
+    resourceId === 'gold' || resourceId === 'soulEssence'
+      ? resources[resourceId] || 0
+      : getAvailableAmountForResourceKey(resources, materialStash, resourceId)
+  )
   const price = Math.floor(getResourceSellPrice(resourceId))
   const totalGold = price * amount
   const canSell = amount > 0 && amount <= available
@@ -99,7 +118,12 @@ function SellRow({ resourceId, name, rarity }: { resourceId: keyof Resources; na
     >
       {/* Иконка и название */}
       <div className="flex items-center gap-3 min-w-[180px]">
-        <ResourceIcon id={resourceId} size="lg" />
+        <MaterialDisplayIcon
+          catalogMaterialId={getGrantTargetMaterialId(resourceId)}
+          resourceKeyFallback={resourceId}
+          size="lg"
+          title={name}
+        />
         <div>
           <p className="font-bold text-stone-100 text-lg">{name}</p>
           <p className="text-sm text-stone-400">
@@ -170,15 +194,16 @@ function SellRow({ resourceId, name, rarity }: { resourceId: keyof Resources; na
 function BuyCard({ pkg }: { pkg: typeof buyPackages[0] }) {
   const resources = useGameStore((state) => state.resources)
   const spendResource = useGameStore((state) => state.spendResource)
-  const addResource = useGameStore((state) => state.addResource)
+  const grantResourceKeyFromWorld = useGameStore((state) => state.grantResourceKeyFromWorld)
   
   const canAfford = resources.gold >= pkg.cost
   const resInfo = getResourceIconInfo(pkg.resource)
   const colors = resInfo ? rarityColors[resInfo.rarity] : rarityColors.common
+  const resourceLabel = displayNameForShopResource(pkg.resource, resInfo?.name ?? pkg.resource)
   
   const handleBuy = () => {
     if (spendResource('gold', pkg.cost)) {
-      addResource(pkg.resource, pkg.amount)
+      grantResourceKeyFromWorld(pkg.resource, pkg.amount)
     }
   }
   
@@ -199,10 +224,15 @@ function BuyCard({ pkg }: { pkg: typeof buyPackages[0] }) {
       >
         <CardContent className="p-4">
           <div className="flex items-center gap-3">
-            <ResourceIcon id={pkg.resource} size="xl" />
+            <MaterialDisplayIcon
+              catalogMaterialId={getGrantTargetMaterialId(pkg.resource)}
+              resourceKeyFallback={pkg.resource}
+              size="xl"
+              title={pkg.name}
+            />
             <div className="flex-1">
               <p className="font-bold text-stone-100 text-lg">{pkg.name}</p>
-              <p className="text-lg font-bold text-green-400">+{pkg.amount} {resInfo?.name || pkg.resource}</p>
+              <p className="text-lg font-bold text-green-400">+{pkg.amount} {resourceLabel}</p>
             </div>
             <div className="text-right">
               <div className="flex items-center gap-1.5 text-amber-400">
@@ -223,33 +253,39 @@ function BuyCard({ pkg }: { pkg: typeof buyPackages[0] }) {
 // Компонент компактного инвентаря
 function CompactInventory() {
   const rawResources = useGameStore((s) => s.resources)
+  const materialStash = useGameStore((s) => s.materialStash)
   const formattedResources = useFormattedResources()
   const productionRates = useProductionRates()
   
-  const displayResources = [
-    { id: 'gold', name: 'Золото', rarity: 'uncommon' as const },
-    { id: 'soulEssence', name: 'Эссенция', rarity: 'epic' as const },
-    { id: 'wood', name: 'Дерево', rarity: 'common' as const },
-    { id: 'stone', name: 'Камень', rarity: 'common' as const },
-    { id: 'iron', name: 'Железо', rarity: 'uncommon' as const },
-    { id: 'coal', name: 'Уголь', rarity: 'common' as const },
-    { id: 'ironIngot', name: 'Слиток', rarity: 'rare' as const },
-    { id: 'bronzeIngot', name: 'Бронза', rarity: 'rare' as const },
-    { id: 'planks', name: 'Доски', rarity: 'uncommon' as const },
-    { id: 'stoneBlocks', name: 'Блоки', rarity: 'uncommon' as const },
+  const displayResources: { id: ResourceKey; fallbackName: string; rarity: keyof typeof rarityColors }[] = [
+    { id: 'gold', fallbackName: 'Золото', rarity: 'uncommon' },
+    { id: 'soulEssence', fallbackName: 'Эссенция', rarity: 'epic' },
+    { id: 'wood', fallbackName: 'Дерево', rarity: 'common' },
+    { id: 'stone', fallbackName: 'Камень', rarity: 'common' },
+    { id: 'iron', fallbackName: 'Железо', rarity: 'uncommon' },
+    { id: 'coal', fallbackName: 'Уголь', rarity: 'common' },
+    { id: 'ironIngot', fallbackName: 'Слиток', rarity: 'rare' },
+    { id: 'bronzeIngot', fallbackName: 'Бронза', rarity: 'rare' },
+    { id: 'planks', fallbackName: 'Доски', rarity: 'uncommon' },
+    { id: 'stoneBlocks', fallbackName: 'Блоки', rarity: 'uncommon' },
   ]
   
   return (
     <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2">
       {displayResources.map((res) => {
-        const amount = rawResources[res.id as keyof Resources] ?? 0
+        const amount =
+          res.id === 'gold' || res.id === 'soulEssence'
+            ? rawResources[res.id as keyof Resources] ?? 0
+            : getAvailableAmountForResourceKey(rawResources, materialStash, res.id as keyof Resources)
         const rate = productionRates[res.id as keyof typeof productionRates] || 0
         const colors = rarityColors[res.rarity]
         const formatted = formattedResources.formatted[res.id as keyof typeof formattedResources.formatted]
+        const label = displayNameForShopResource(res.id, res.fallbackName)
         
         return (
           <motion.div
             key={res.id}
+            title={`${label}: ${formatAmount(amount)}`}
             whileHover={{ scale: 1.05 }}
             className={cn(
               'p-2 rounded-lg border-2 text-center transition-all',
@@ -259,7 +295,12 @@ function CompactInventory() {
             )}
           >
             <div className="flex justify-center">
-              <ResourceIcon id={res.id} size="md" />
+              <MaterialDisplayIcon
+                catalogMaterialId={getGrantTargetMaterialId(res.id)}
+                resourceKeyFallback={res.id}
+                size="md"
+                title={label}
+              />
             </div>
             <p className={cn('font-bold text-sm mt-0.5', colors.text)}>
               {formatted || formatAmount(amount)}

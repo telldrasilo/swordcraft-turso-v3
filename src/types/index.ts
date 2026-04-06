@@ -13,6 +13,7 @@ export * from './worker'
 
 // Крафт и оружие
 export * from './craft'
+export * from './weapon-enchantment-tree'
 
 // Гильдия и экспедиции
 export * from './guild'
@@ -25,3 +26,6 @@ export * from './expedition-events'
 
 // Заказы и туториал
 export * from './game'
+
+// Ремонт по техникам (фаза 3b)
+export * from './weapon-repair'

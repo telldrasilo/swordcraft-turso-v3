@@ -15,6 +15,8 @@ import {
 
 // Импорт нового типа оружия
 import type { CraftedWeaponV2 } from '@/types/craft-v2'
+import type { ActiveDamageTagEntry } from '@/types/weapon-damage'
+import type { RepairTechniqueExecutionOptions } from '@/types/repair-execution'
 import type { RefiningRecipe } from '@/data/refining-recipes'
 
 // ================================
@@ -58,6 +60,8 @@ export interface ActiveRefining {
   startTime: number | null
   endTime: number | null
   amount: number
+  /** Множитель выхода плавки по качеству шихты (семантика фазы C); по умолчанию 1 */
+  smeltingOutputMultiplier?: number
 }
 
 /** Инвентарь оружия */
@@ -77,22 +81,52 @@ export interface UnlockedRecipes {
 /** Источник получения рецепта */
 export interface RecipeSource {
   recipeId: string
-  source: 'purchase' | 'order' | 'expedition' | 'level'
+  source: 'purchase' | 'order' | 'expedition' | 'level' | 'guild_intendant'
   obtainedAt: number
+}
+
+/** Активный таймер этапов ремонта по техникам (переживает смену вкладки кузницы) */
+export interface RepairTechniqueStageRunState {
+  weaponId: string
+  startedAt: number
+  techniqueIds: string[]
+  executionOpts?: RepairTechniqueExecutionOptions
 }
 
 /** Состояние крафта */
 export interface CraftState {
+  /** Оружие на верстаке «Ремонт» (не показывается в списке инвентаря кузницы) */
+  repairBenchWeaponId: string | null
+  /**
+   * Выбранные техники до запуска ремонта (черновик; тот же клинок на верстаке).
+   * Не персистится.
+   */
+  repairBenchTechniqueDraft: { weaponId: string; techniqueIds: string[] } | null
+  /**
+   * Запущенные этапы ремонта: время старта и параметры для завершения после таймера.
+   * Персистится (Zustand persist + облако при включённом Turso).
+   */
+  repairTechniqueStageRun: RepairTechniqueStageRunState | null
   activeRefining: ActiveRefining
   weaponInventory: WeaponInventory
   unlockedRecipes: UnlockedRecipes
   recipeSources: RecipeSource[]
   unlockedEnchantments: string[]
+  /** Техники обработки материала в кузне (`material-processing-techniques`) */
+  unlockedMaterialProcessingTechniqueIds: string[]
+  /** Узкоспециализированные техники ремонта, купленные у интенданта (`repairTier: specialized`). */
+  unlockedRepairTechniqueIds: string[]
+  /** Спец-техники перековки, купленные у интенданта (`reforgeTier: specialized`); дублирует/дополняет разблокировку через кузню. */
+  unlockedReforgeTechniqueIds: string[]
 }
 
 /** Actions для крафта */
 export interface CraftActions {
-  startRefining: (recipe: RefiningRecipe, amount: number) => boolean
+  startRefining: (
+    recipe: RefiningRecipe,
+    amount: number,
+    options?: { smeltingOutputMultiplier?: number }
+  ) => boolean
   updateRefiningProgress: (progress: number) => void
   completeRefining: () => boolean
   isRefining: () => boolean
@@ -100,12 +134,36 @@ export interface CraftActions {
   getWeaponById: (weaponId: string) => CraftedWeaponV2 | undefined
   addWeapon: (weapon: CraftedWeaponV2) => void
   removeWeapon: (weaponId: string) => boolean
-  unlockRecipe: (recipeId: string, source: 'purchase' | 'order' | 'expedition' | 'level') => boolean
+  unlockRecipe: (
+    recipeId: string,
+    source: 'purchase' | 'order' | 'expedition' | 'level' | 'guild_intendant'
+  ) => boolean
   isRecipeUnlocked: (recipeId: string) => boolean
   getRecipeSource: (recipeId: string) => RecipeSource | undefined
   unlockEnchantment: (enchantmentId: string) => boolean
   isEnchantmentUnlocked: (enchantmentId: string) => boolean
-  addWarSoulToWeapon: (weaponId: string, points: number, durabilityLoss?: number, epicGain?: number) => boolean
+  unlockMaterialProcessingTechnique: (techniqueId: string) => boolean
+  addWarSoulToWeapon: (
+    weaponId: string,
+    points: number,
+    durabilityLoss?: number,
+    epicGain?: number,
+    appendDamageTags?: ActiveDamageTagEntry[]
+  ) => boolean
+  /** Поставить клинок на верстак ремонта (заменяет предыдущий слот). */
+  sendWeaponToRepairBench: (weaponId: string) => { success: boolean; error?: string }
+  /** Убрать клинок с верстака без ремонта. */
+  returnWeaponFromRepairBench: () => void
+  setRepairBenchTechniqueDraft: (
+    draft: { weaponId: string; techniqueIds: string[] } | null
+  ) => void
+  beginRepairTechniqueStageRun: (payload: {
+    weaponId: string
+    techniqueIds: string[]
+    executionOpts?: RepairTechniqueExecutionOptions
+    startedAt?: number
+  }) => void
+  clearRepairTechniqueStageRun: () => void
 }
 
 /** Полный тип slice */
@@ -140,17 +198,8 @@ export const initialWeaponInventory: WeaponInventory = {
 }
 
 export const initialUnlockedRecipes: UnlockedRecipes = {
-  weaponRecipes: [
-    'basic_sword',
-    'basic_dagger',
-    'basic_axe',
-    'iron_sword',
-    'iron_dagger',
-    'iron_axe',
-    'iron_mace',
-    'iron_spear',
-    'iron_hammer',
-  ],
+  /** Строгая политика: бесплатно только семейство мечей; остальные формы — у интенданта. */
+  weaponRecipes: ['basic_sword'],
   refiningRecipes: ['iron_ingot', 'copper_ingot', 'tin_ingot', 'wood_planks', 'stone_blocks'],
 }
 
@@ -165,21 +214,31 @@ export const createCraftSlice: StateCreator<
   CraftSlice
 > = (set, get) => ({
   // State
+  repairBenchWeaponId: null,
+  repairBenchTechniqueDraft: null,
+  repairTechniqueStageRun: null,
   activeRefining: initialActiveRefining,
   weaponInventory: initialWeaponInventory,
   unlockedRecipes: initialUnlockedRecipes,
   recipeSources: [],
   unlockedEnchantments: [],
+  unlockedMaterialProcessingTechniqueIds: [],
+  unlockedRepairTechniqueIds: [],
+  unlockedReforgeTechniqueIds: [],
 
   // Actions - Переработка
-  startRefining: (recipe, amount) => {
+  startRefining: (recipe, amount, options) => {
     const state = get()
     if (state.activeRefining.recipeId) return false
     // Проверка ресурсов делается в game-store
     
     const now = Date.now()
     const endTime = now + recipe.processTime * 1000 * amount
-    
+    const smeltingOutputMultiplier =
+      options?.smeltingOutputMultiplier != null && options.smeltingOutputMultiplier > 0
+        ? options.smeltingOutputMultiplier
+        : 1
+
     set({
       activeRefining: {
         recipeId: recipe.id,
@@ -188,6 +247,7 @@ export const createCraftSlice: StateCreator<
         startTime: now,
         endTime: endTime,
         amount,
+        smeltingOutputMultiplier,
       }
     })
     return true
@@ -215,12 +275,21 @@ export const createCraftSlice: StateCreator<
     if (!weapon) return false
     
     // Начисление золота делается в game-store
-    set((state) => ({
-      weaponInventory: {
-        ...state.weaponInventory,
-        weapons: state.weaponInventory.weapons.filter(w => w.id !== weaponId),
+    set((state) => {
+      const onBench = state.repairBenchWeaponId === weaponId
+      return {
+        repairBenchWeaponId: onBench ? null : state.repairBenchWeaponId,
+        repairBenchTechniqueDraft: onBench ? null : state.repairBenchTechniqueDraft,
+        repairTechniqueStageRun:
+          onBench || state.repairTechniqueStageRun?.weaponId === weaponId
+            ? null
+            : state.repairTechniqueStageRun,
+        weaponInventory: {
+          ...state.weaponInventory,
+          weapons: state.weaponInventory.weapons.filter(w => w.id !== weaponId),
+        },
       }
-    }))
+    })
     return true
   },
 
@@ -238,14 +307,58 @@ export const createCraftSlice: StateCreator<
     const weapon = state.weaponInventory.weapons.find(w => w.id === weaponId)
     if (!weapon) return false
     
-    set((state) => ({
-      weaponInventory: {
-        ...state.weaponInventory,
-        weapons: state.weaponInventory.weapons.filter(w => w.id !== weaponId),
+    set((state) => {
+      const onBench = state.repairBenchWeaponId === weaponId
+      return {
+        repairBenchWeaponId: onBench ? null : state.repairBenchWeaponId,
+        repairBenchTechniqueDraft: onBench ? null : state.repairBenchTechniqueDraft,
+        repairTechniqueStageRun:
+          onBench || state.repairTechniqueStageRun?.weaponId === weaponId
+            ? null
+            : state.repairTechniqueStageRun,
+        weaponInventory: {
+          ...state.weaponInventory,
+          weapons: state.weaponInventory.weapons.filter(w => w.id !== weaponId),
+        },
       }
-    }))
+    })
     return true
   },
+
+  sendWeaponToRepairBench: (weaponId) => {
+    const w = get().weaponInventory.weapons.find((x) => x.id === weaponId)
+    if (!w) return { success: false, error: 'Оружие не найдено' }
+    set({
+      repairBenchWeaponId: weaponId,
+      repairBenchTechniqueDraft: null,
+      repairTechniqueStageRun: null,
+    })
+    return { success: true }
+  },
+
+  returnWeaponFromRepairBench: () =>
+    set({
+      repairBenchWeaponId: null,
+      repairBenchTechniqueDraft: null,
+      repairTechniqueStageRun: null,
+    }),
+
+  setRepairBenchTechniqueDraft: (draft) => set({ repairBenchTechniqueDraft: draft }),
+
+  beginRepairTechniqueStageRun: (payload) => {
+    const startedAt = payload.startedAt ?? Date.now()
+    set({
+      repairTechniqueStageRun: {
+        weaponId: payload.weaponId,
+        startedAt,
+        techniqueIds: payload.techniqueIds,
+        executionOpts: payload.executionOpts,
+      },
+      repairBenchTechniqueDraft: null,
+    })
+  },
+
+  clearRepairTechniqueStageRun: () => set({ repairTechniqueStageRun: null }),
 
   // Actions - Рецепты
   unlockRecipe: (recipeId, source) => {
@@ -291,14 +404,30 @@ export const createCraftSlice: StateCreator<
 
   isEnchantmentUnlocked: (enchantmentId) => get().unlockedEnchantments.includes(enchantmentId),
 
+  unlockMaterialProcessingTechnique: (techniqueId) => {
+    const state = get()
+    if (state.unlockedMaterialProcessingTechniqueIds.includes(techniqueId)) return false
+    set(s => ({
+      unlockedMaterialProcessingTechniqueIds: [
+        ...s.unlockedMaterialProcessingTechniqueIds,
+        techniqueId,
+      ],
+    }))
+    return true
+  },
+
   // Actions - Война душ
-  addWarSoulToWeapon: (weaponId, points, durabilityLoss = 5, epicGain = 0.05) => {
+  addWarSoulToWeapon: (weaponId, points, durabilityLoss = 5, epicGain = 0.05, appendDamageTags) => {
     const state = get()
     const weapon = state.weaponInventory.weapons.find(w => w.id === weaponId)
     if (!weapon) return false
     
     const newDurability = Math.max(0, weapon.currentDurability - durabilityLoss)
     const newEpicMultiplier = Math.min(5.0, weapon.epicMultiplier + epicGain)
+    const extra = appendDamageTags?.length
+      ? [...weapon.activeDamageTags, ...appendDamageTags]
+      : weapon.activeDamageTags
+    const repairCondition = appendDamageTags?.length ? 'needsProperRepair' : weapon.repairCondition
     
     set((state) => ({
       weaponInventory: {
@@ -310,6 +439,8 @@ export const createCraftSlice: StateCreator<
             currentDurability: newDurability,
             epicMultiplier: newEpicMultiplier,
             adventureCount: w.adventureCount + 1,
+            activeDamageTags: extra,
+            repairCondition,
           } : w
         ),
       }

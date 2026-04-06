@@ -7,3 +7,5 @@ export { oak } from './oak'
 export { ash } from './ash'
 export { ebony } from './ebony'
 export { ironwood } from './ironwood'
+
+export * from './gatherable'

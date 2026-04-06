@@ -12,13 +12,22 @@ import type {
   CraftPlan,
   ActiveCraftV2,
   GameConfig,
-  StageTypeDefinition
+  StageTypeDefinition,
+  PartMaterialSupplyEntry,
+  CraftStageSource,
 } from '@/types/craft-v2'
 import { DEFAULT_GAME_CONFIG } from '@/types/craft-v2'
 import { getStageById } from '@/data/stages'
 import { getMaterialAsLegacy } from '@/data/materials'
 import { getRecipeById } from '@/data/recipes'
 import { getTechniqueById } from '@/data/techniques'
+import { resolveProcessingTechniqueForPart } from '@/data/material-processing-techniques'
+import {
+  aggregateExpertiseImpactsForPlan,
+  buildExpertisePlanRowsFromCraft,
+  getExpertiseTimeMultiplierForMaterial,
+} from '@/lib/craft/aggregate-expertise-impact'
+import { scaleCraftSoulCapacityToWeaponPool } from '@/data/war-soul-tiers'
 
 /**
  * Контекст для генерации процесса
@@ -30,6 +39,9 @@ interface GenerationContext {
   blacksmithLevel: number
   forgeLevel: number
   config: GameConfig
+  materialExpertise: Record<string, number>
+  /** Глобальный множитель времени от экспертизы (этапы без primaryMaterialId). */
+  aggregatedExpertiseTimeMultiplier: number
 }
 
 /**
@@ -42,8 +54,13 @@ export function generateCraftStages(
   blacksmithLevel: number = 1,
   forgeLevel: number = 1,
   config: GameConfig = DEFAULT_GAME_CONFIG,
-  shouldPurchaseMaterials: boolean = false
+  shouldPurchaseMaterials: boolean = false,
+  partMaterialSupply?: Record<string, PartMaterialSupplyEntry>,
+  materialExpertise: Record<string, number> = {}
 ): CraftStageInstance[] {
+  const expertiseRows = buildExpertisePlanRowsFromCraft(recipe, materials)
+  const aggExpertise = aggregateExpertiseImpactsForPlan(expertiseRows, materialExpertise)
+
   const context: GenerationContext = {
     recipe,
     materials,
@@ -51,6 +68,8 @@ export function generateCraftStages(
     blacksmithLevel,
     forgeLevel,
     config,
+    materialExpertise,
+    aggregatedExpertiseTimeMultiplier: aggExpertise.timeMultiplier,
   }
   
   // 1. Базовая последовательность этапов из рецепта
@@ -58,7 +77,7 @@ export function generateCraftStages(
   
   // 2. Добавляем этап закупки материалов, если нужно
   if (shouldPurchaseMaterials) {
-    stageConfigs.unshift({ stageType: 'proc_purchasing' })
+    stageConfigs.unshift({ stageType: 'proc_purchasing', stageSource: 'global' })
   }
   
   // 3. Применяем модификации от материалов
@@ -66,6 +85,14 @@ export function generateCraftStages(
   
   // 3. Применяем модификации от техник
   stageConfigs = applyTechniqueMods(stageConfigs, techniques, context)
+
+  stageConfigs = applyPartMaterialSupplyStageConfigs(
+    stageConfigs,
+    materials,
+    partMaterialSupply
+  )
+
+  stageConfigs = attachPrimaryMetadataToStages(stageConfigs, materials)
   
   // 4. Создаём экземпляры этапов
   const instances: CraftStageInstance[] = stageConfigs.map((config, index) => {
@@ -129,6 +156,97 @@ function applyMaterialMods(
 /**
  * Применить модификации от техник
  */
+function applyPartMaterialSupplyStageConfigs(
+  stages: WeaponRecipe['stages'],
+  materials: MaterialAssignment,
+  partMaterialSupply?: Record<string, PartMaterialSupplyEntry>
+): WeaponRecipe['stages'] {
+  if (!partMaterialSupply || Object.keys(partMaterialSupply).length === 0) {
+    return stages
+  }
+  const result = [...stages]
+  const insertions: {
+    stageType: string
+    afterStageType?: string
+    beforeStageType?: string
+    baseDurationOverride?: number
+    primaryPartId?: string
+    primaryMaterialId?: string
+    stageSource?: 'processing_technique'
+    techniqueId?: string
+  }[] = []
+
+  for (const [partId, assign] of Object.entries(materials)) {
+    const entry = partMaterialSupply[partId]
+    const tech = resolveProcessingTechniqueForPart(partId, assign.materialId, entry)
+    if (!tech?.craftStageInsertions?.length) continue
+    for (const ins of tech.craftStageInsertions) {
+      insertions.push({
+        stageType: ins.stageType,
+        afterStageType: ins.afterStageType,
+        beforeStageType: ins.beforeStageType,
+        baseDurationOverride:
+          ins.durationSeconds != null && ins.durationSeconds > 0
+            ? ins.durationSeconds
+            : undefined,
+        primaryPartId: partId,
+        primaryMaterialId: assign.materialId,
+        stageSource: 'processing_technique',
+        techniqueId: tech.id,
+      })
+    }
+  }
+
+  for (const ins of insertions) {
+    let idx: number
+    if (ins.afterStageType) {
+      const pos = result.findIndex(s => s.stageType === ins.afterStageType)
+      idx = pos >= 0 ? pos + 1 : result.length
+    } else if (ins.beforeStageType) {
+      const pos = result.findIndex(s => s.stageType === ins.beforeStageType)
+      idx = pos >= 0 ? pos : result.length
+    } else {
+      idx = result.length
+    }
+    result.splice(idx, 0, {
+      stageType: ins.stageType,
+      ...(ins.baseDurationOverride != null
+        ? { baseDurationOverride: ins.baseDurationOverride }
+        : {}),
+      ...(ins.primaryPartId != null ? { primaryPartId: ins.primaryPartId } : {}),
+      ...(ins.primaryMaterialId != null ? { primaryMaterialId: ins.primaryMaterialId } : {}),
+      ...(ins.stageSource != null ? { stageSource: ins.stageSource } : {}),
+      ...(ins.techniqueId != null ? { techniqueId: ins.techniqueId } : {}),
+    })
+  }
+  return result
+}
+
+function attachPrimaryMetadataToStages(
+  stages: WeaponRecipe['stages'],
+  materials: MaterialAssignment
+): WeaponRecipe['stages'] {
+  return stages.map((s) => {
+    if (s.primaryMaterialId && s.primaryPartId && s.stageSource) {
+      return s
+    }
+    const partId = s.material
+    const assign = partId ? materials[partId] : undefined
+    if (partId && assign?.materialId) {
+      return {
+        ...s,
+        primaryPartId: s.primaryPartId ?? partId,
+        primaryMaterialId: s.primaryMaterialId ?? assign.materialId,
+        stageSource: s.stageSource ?? 'recipe',
+      }
+    }
+    return {
+      ...s,
+      stageSource: s.stageSource ?? 'global',
+    }
+  })
+}
+
 function applyTechniqueMods(
   stages: WeaponRecipe['stages'],
   techniques: Technique[],
@@ -173,22 +291,46 @@ function applyTechniqueMods(
  */
 function createStageInstance(
   stageType: StageTypeDefinition,
-  config: { stageType: string; material?: string; target?: string },
+  config: {
+    stageType: string
+    material?: string
+    target?: string
+    baseDurationOverride?: number
+    primaryPartId?: string
+    primaryMaterialId?: string
+    stageSource?: CraftStageSource
+    techniqueId?: string
+  },
   index: number,
   context: GenerationContext
 ): CraftStageInstance {
   // Получаем материал для расчёта модификаторов
-  const material = config.material && context.materials[config.material]
-    ? getMaterialAsLegacy(context.materials[config.material].materialId)
-    : null
+  const partAssign = config.material ? context.materials[config.material] : undefined
+  const primaryMaterialId =
+    config.primaryMaterialId ?? partAssign?.materialId
+
+  const material = primaryMaterialId
+    ? getMaterialAsLegacy(primaryMaterialId)
+    : partAssign
+      ? getMaterialAsLegacy(partAssign.materialId)
+      : null
+
+  const primaryPartId =
+    config.primaryPartId ?? (config.material ? config.material : undefined)
+  const stageSource =
+    config.stageSource ?? (config.material ? 'recipe' : 'global')
   
   // Рассчитываем длительность
-  const baseDuration = stageType.baseDuration
+  const baseDuration =
+    config.baseDurationOverride != null && config.baseDurationOverride > 0
+      ? config.baseDurationOverride
+      : stageType.baseDuration
   const calculatedDuration = calculateStageDuration(
     baseDuration,
     stageType,
     material ?? null,
-    context
+    context,
+    primaryMaterialId
   )
   
   // Выбираем сообщения
@@ -202,6 +344,10 @@ function createStageInstance(
     category: stageType.category,
     materialId: config.material,
     target: config.target,
+    primaryPartId,
+    primaryMaterialId,
+    stageSource,
+    techniqueId: config.techniqueId,
     baseDuration,
     calculatedDuration,
     status: 'pending',
@@ -220,7 +366,8 @@ function calculateStageDuration(
   baseDuration: number,
   stageType: StageTypeDefinition,
   material: Material | null,
-  context: GenerationContext
+  context: GenerationContext,
+  primaryMaterialId?: string
 ): number {
   let duration = baseDuration
   
@@ -247,6 +394,21 @@ function calculateStageDuration(
       duration *= (100 / workability)  // Чем ниже workability, тем дольше
     }
   }
+
+  const preExpertiseDuration = duration
+  let expertiseTime = 1
+  if (primaryMaterialId) {
+    expertiseTime = getExpertiseTimeMultiplierForMaterial(
+      primaryMaterialId,
+      context.materialExpertise
+    )
+  } else {
+    expertiseTime = context.aggregatedExpertiseTimeMultiplier
+  }
+  duration *= expertiseTime
+
+  const softFloor = preExpertiseDuration * 0.75
+  duration = Math.max(duration, softFloor)
   
   // Минимум 5 секунд
   return Math.max(5, Math.round(duration))
@@ -269,7 +431,9 @@ export function createCraftPlan(
   techniqueIds: string[] = [],
   blacksmithLevel: number = 1,
   forgeLevel: number = 1,
-  shouldPurchaseMaterials: boolean = false
+  shouldPurchaseMaterials: boolean = false,
+  partMaterialSupply?: Record<string, PartMaterialSupplyEntry>,
+  materialExpertise: Record<string, number> = {}
 ): CraftPlan {
   const recipe = getRecipeById(recipeId)
   if (!recipe) {
@@ -288,7 +452,9 @@ export function createCraftPlan(
     blacksmithLevel,
     forgeLevel,
     undefined,
-    shouldPurchaseMaterials
+    shouldPurchaseMaterials,
+    partMaterialSupply,
+    materialExpertise
   )
   
   // Рассчитываем общее время
@@ -300,11 +466,17 @@ export function createCraftPlan(
   // Оценка качества
   const estimatedQuality = estimateQuality(blacksmithLevel, materials, techniques)
   
+  const supply =
+    partMaterialSupply && Object.keys(partMaterialSupply).length > 0
+      ? partMaterialSupply
+      : undefined
+
   return {
     recipeId,
     materials,
     techniques: techniqueIds,
     shouldPurchaseMaterials,
+    partMaterialSupply: supply,
     estimatedTime,
     estimatedStats,
     estimatedQuality,
@@ -368,7 +540,7 @@ function calculateWeaponStats(
     maxDurability: Math.round(durability),
     weight: Math.round(weight * 10) / 10,
     balance: Math.round(balance),
-    soulCapacity: Math.round(soulCapacity),
+    soulCapacity: scaleCraftSoulCapacityToWeaponPool(Math.round(soulCapacity)),
     repairPotential,
     enchantSlots,
     enchantPower,
@@ -410,7 +582,8 @@ function estimateQuality(
  */
 export function createActiveCraft(
   plan: CraftPlan,
-  recipe: WeaponRecipe
+  recipe: WeaponRecipe,
+  materialExpertise: Record<string, number> = {}
 ): ActiveCraftV2 {
   const stages = generateCraftStages(
     recipe,
@@ -419,7 +592,9 @@ export function createActiveCraft(
     1,  // уровень кузнеца
     1,  // уровень кузницы
     undefined, // config
-    plan.shouldPurchaseMaterials ?? false
+    plan.shouldPurchaseMaterials ?? false,
+    plan.partMaterialSupply,
+    materialExpertise
   )
   
   const totalDuration = stages.reduce((sum, s) => sum + s.calculatedDuration, 0)

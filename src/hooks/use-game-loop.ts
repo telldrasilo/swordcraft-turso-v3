@@ -48,7 +48,7 @@ export function useGameLoop() {
   const offlineProgressCalculatedRef = useRef<boolean>(false)
   
   // Используем индивидуальные селекторы (Zustand оптимизирован для этого)
-  const addResource = useGameStore((state) => state.addResource)
+  const grantResourceKeyFromWorld = useGameStore((state) => state.grantResourceKeyFromWorld)
   const workers = useGameStore((state) => state.workers)
   const buildings = useGameStore((state) => state.buildings)
   const updateWorkerStamina = useGameStore((state) => state.updateWorkerStamina)
@@ -61,6 +61,8 @@ export function useGameLoop() {
   const activeRefining = useGameStore((state) => state.activeRefining)
   const updateRefiningProgress = useGameStore((state) => state.updateRefiningProgress)
   const completeRefining = useGameStore((state) => state.completeRefiningWithResources)
+  const flushCompletedMaterialStudies = useGameStore((state) => state.flushCompletedMaterialStudies)
+  const tickMaterialStudyProgress = useGameStore((state) => state.tickMaterialStudyProgress)
 
   // Расчёт расхода стамины для рабочего на конкретном здании
   const getStaminaDrain = useCallback((worker: Worker, building: ProductionBuilding): number => {
@@ -123,7 +125,7 @@ export function useGameLoop() {
       if (rate > 0 && workersWithStamina > 0) {
         // Добавляем ресурсы
         const amount = rate * deltaSeconds
-        addResource(building.produces, amount)
+        grantResourceKeyFromWorld(building.produces, amount)
         
         // Обновляем прогресс здания
         updateBuildingProgress(building.id, efficiency)
@@ -180,7 +182,18 @@ export function useGameLoop() {
       }
     }
 
-  }, [buildings, workers, calculateBuildingProduction, addResource, updateWorkerStamina, addWorkerExperience, updateBuildingProgress, addExperience, assignWorker, getStaminaDrain, activeRefining, updateRefiningProgress, completeRefining])
+  }, [buildings, workers, calculateBuildingProduction, grantResourceKeyFromWorld, updateWorkerStamina, addWorkerExperience, updateBuildingProgress, addExperience, assignWorker, getStaminaDrain, activeRefining, updateRefiningProgress, completeRefining])
+
+  // Изучение материалов (энциклопедия): завершение сессий и промежуточные сообщения
+  useEffect(() => {
+    flushCompletedMaterialStudies()
+    tickMaterialStudyProgress()
+    const id = window.setInterval(() => {
+      flushCompletedMaterialStudies()
+      tickMaterialStudyProgress()
+    }, 1000)
+    return () => window.clearInterval(id)
+  }, [flushCompletedMaterialStudies, tickMaterialStudyProgress])
   
   // Запуск игрового цикла
   useEffect(() => {

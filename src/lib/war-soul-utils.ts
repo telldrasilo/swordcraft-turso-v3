@@ -7,6 +7,7 @@
 import {
   WarSoulTierInfo,
   WarSoulBonus,
+  WAR_SOUL_WEAPON_POOL_MIN,
   getWarSoulTier,
   getWarSoulTierName,
   getWarSoulTierIcon,
@@ -16,6 +17,7 @@ import {
   getProgressToNextTier,
   isMaxTierReached,
   getNextTierInfo,
+  resolveWarSoulProgressBarMax,
 } from '@/data/war-soul-tiers'
 
 // Re-export функции из war-soul-tiers для удобства
@@ -29,6 +31,8 @@ export {
   getProgressToNextTier,
   isMaxTierReached,
   getNextTierInfo,
+  resolveWarSoulProgressBarMax,
+  WAR_SOUL_WEAPON_POOL_MIN,
 }
 
 export type { WarSoulTierInfo, WarSoulBonus }

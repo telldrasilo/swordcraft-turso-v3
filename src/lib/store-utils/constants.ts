@@ -164,6 +164,60 @@ export const CRIT_SUCCESS_CHANCE = 10
 // МАТЕРИАЛЫ
 // ================================
 
+/**
+ * Минимальная экспертиза по материалу для выбора в крафте v2 (ворота B1).
+ * См. docs/systems/CRAFT_SYSTEM_ROADMAP.md §2, §6.1–6.2.
+ */
+export const MIN_MATERIAL_EXPERTISE_FOR_CRAFT = 10
+
+/** Вехи экспертизы материалов: бонус к множителю качества в прогнозе (средняя по материалам плана). */
+export const MATERIAL_EXPERTISE_MILESTONE_HIGH = 80
+export const MATERIAL_EXPERTISE_MILESTONE_MAX = 100
+
+/** Доп. множитель к expertiseFactor при средней экспертизе ≥ порога (B2 MVP). */
+export const FORECAST_EXPERTISE_MILESTONE_80_EXTRA = 0.012
+export const FORECAST_EXPERTISE_MILESTONE_100_EXTRA = 0.015
+
+/** Стартовый набор материалов: выдаётся после туториала (§6.1 roadmap) */
+export const CRAFT_STARTER_KNOWLEDGE_MATERIAL_IDS = [
+  'iron_ore',
+  'iron_alloy',
+  'birch',
+  'raw_leather',
+] as const
+
+/** Экспертиза, выдаваемая на стартовый набор после обучения */
+export const CRAFT_STARTER_KNOWLEDGE_EXPERTISE = MIN_MATERIAL_EXPERTISE_FOR_CRAFT
+
+// ================================
+// ИЗУЧЕНИЕ МАТЕРИАЛОВ (энциклопедия, §6.3 roadmap)
+// ================================
+
+/** Базовое число параллельных сессий изучения без учёта зданий. */
+export const MATERIAL_STUDY_BASE_SLOTS = 1
+
+/**
+ * Доп. слот за каждые N суммарных уровней разблокированных зданий
+ * (sum(level) по buildings где unlocked).
+ */
+export const MATERIAL_STUDY_BUILDING_LEVELS_PER_EXTRA_SLOT = 6
+
+/** Потолок параллельных сессий изучения. */
+export const MATERIAL_STUDY_MAX_CONCURRENT_SLOTS = 6
+
+/** Ускорение времени изучения за каждого назначенного рабочего: duration / (1 + per * n). */
+export const MATERIAL_STUDY_WORKER_SPEED_PER_ASSIGNED = 0.12
+
+export const MATERIAL_STUDY_MAX_WORKERS_ON_STUDY = 3
+
+/** Шанс «неудачного» завершения: начисляется pity-прирост вместо полного ролла. */
+export const MATERIAL_STUDY_COMPLETION_FAILURE_CHANCE = 0.1
+
+export const MATERIAL_STUDY_FAILURE_PITY_GAIN = 1
+
+/** Доля от типичного ролла при отмене, умножается на прогресс сессии [0–1]. */
+export const MATERIAL_STUDY_CANCEL_PROGRESS_PAYOUT_RATIO = 0.45
+
 /** Названия материалов на русском */
 export const MATERIAL_NAMES: Record<string, string> = {
   iron: 'Железо',
@@ -184,6 +238,80 @@ export const WEAPON_PART_NAMES: Record<string, string> = {
   pommel: 'Навершие',
   wrapping: 'Обмотка',
 }
+
+// ================================
+// РЕМОНТ ОРУЖИЯ (фаза 3: авто-ремонт, осмотр)
+// ================================
+
+/**
+ * Раньше — задержка таймера авто-ремонта. Таймер как основная цена снят (§7 фаза A);
+ * оставлено для совместимости старых сейвов / поиска по коду.
+ * @deprecated
+ */
+export const WEAPON_AUTO_REPAIR_DELAY_MS = 60_000
+
+/** Базовая стоимость авто-ремонта в золоте (основная цена быстрого пути) */
+export const WEAPON_AUTO_REPAIR_GOLD_BASE = 35
+
+/** Доп. золото за единицу атаки оружия (мощность v1 — см. getWeaponRepairPowerScore) */
+export const WEAPON_AUTO_REPAIR_GOLD_PER_ATTACK_POINT = 1
+
+/** Длительность сеанса «осмотреть глубже» после списания материалов (мс) */
+export const WEAPON_DEEP_INSPECT_DURATION_MS = 8_000
+
+/** Расход материалов за запуск глубокого осмотра (кузнец тратит со склада) */
+export const WEAPON_DEEP_INSPECT_MATERIAL_COST = { coal: 2 } as const
+
+/** Доля восстановления разрыва прочности при авто-ремонте */
+export const WEAPON_AUTO_REPAIR_DURABILITY_RESTORE_RATIO = 0.45
+
+/** Множитель эпичности после авто-ремонта (штраф к наградам) */
+export const WEAPON_AUTO_REPAIR_EPIC_MULTIPLIER = 0.98
+
+/** Базовый шанс скрытой метки repair_legacy_resonance после успешного ручного ремонта */
+export const WEAPON_LEGACY_RESONANCE_BASE_CHANCE = 0.06
+
+/** +к шансу за каждый blade bond; верхняя граница бонуса */
+export const WEAPON_LEGACY_RESONANCE_BOND_PER_POINT = 0.01
+export const WEAPON_LEGACY_RESONANCE_BOND_CAP = 0.1
+
+/** Авто-ремонт: слабее шанс той же метки */
+export const WEAPON_AUTO_REPAIR_LEGACY_RESONANCE_BASE = 0.02
+export const WEAPON_AUTO_REPAIR_LEGACY_RESONANCE_BOND_PER_POINT = 0.005
+export const WEAPON_AUTO_REPAIR_LEGACY_RESONANCE_BOND_CAP = 0.05
+
+/** Модель v2: вычитается из baseSuccessChance при неверной гипотезе осмотра (ручной ремонт) */
+export const REPAIR_WRONG_HYPOTHESIS_SUCCESS_PENALTY_POINTS = 12
+
+/**
+ * Успешный ремонт только **базовыми** техниками: шанс начислить шрам памяти клинка за каждый снятый тег.
+ * Если в плане есть хотя бы одна узкоспециализированная техника — шрамы начисляются как раньше (полностью).
+ */
+export const REPAIR_BASIC_SCAR_ON_SUCCESS_CHANCE = 0.35
+
+/**
+ * Средняя точка наценки автоподбора (ориентир); фактическое значение — getRepairAutoPickMaterialMarkup(weapon).
+ * @deprecated для UI — используйте функцию
+ */
+export const REPAIR_AUTO_PICK_MATERIAL_MARKUP = 1.15
+
+/** Нижняя граница множителя материалов при автоподборе (слабое оружие) */
+export const REPAIR_AUTO_PICK_MARKUP_MIN = 1.08
+
+/** Верхняя граница множителя материалов при автоподборе (сильное оружие) */
+export const REPAIR_AUTO_PICK_MARKUP_MAX = 1.35
+
+/** Референс атаки для «низа» шкалы наценки автоподбора */
+export const REPAIR_AUTO_PICK_ATTACK_REF_MIN = 5
+
+/** Референс атаки для «верха» шкалы наценки автоподбора */
+export const REPAIR_AUTO_PICK_ATTACK_REF_MAX = 80
+
+/** Минимальная доля текущей прочности к max для старта экспедиции и сдачи заказа NPC */
+export const GUILD_WEAPON_MIN_DURABILITY_RATIO = 0.15
+
+/** После стольких завершённых экспедиций показать подсказку про «Ремонт», если ещё не показывали */
+export const WEAPON_REPAIR_GUIDANCE_EXPEDITION_MILESTONE = 3
 
 // ================================
 // КОНВЕРСИЯ ТИРОВ

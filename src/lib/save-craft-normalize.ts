@@ -3,7 +3,18 @@
  * Канонический процесс v2 живёт в craftV2Persisted; колонка activeCraft сериализует только ActiveCraftV2 | null.
  */
 
-import { initialActiveCraft, type ActiveCraft } from '@/store/slices/craft-slice'
+import {
+  initialActiveCraft,
+  initialActiveRefining,
+  type ActiveCraft,
+  type ActiveRefining,
+} from '@/store/slices/craft-slice'
+import {
+  migrateActiveCraftForgeMaterials,
+  migrateCraftedWeaponForgeMaterials,
+  migrateCraftPlanForgeMaterials,
+} from '@/lib/craft/forge-material-migrate'
+import { migrateCraftedWeaponV2DamageFields } from '@/lib/weapon-damage/migrate-crafted-weapon-damage'
 import type {
   ActiveCraftV2,
   CraftPlan,
@@ -104,13 +115,22 @@ export function mergeCraftV2PersistedFromSave(
     weaponName:
       partial.weaponName !== undefined ? partial.weaponName : defaultCraftV2Persisted.weaponName,
   }
-  if (
+  const merged =
     (base.activeCraft === null || base.activeCraft === undefined) &&
     isActiveCraftV2Shape(rawActiveCraft)
-  ) {
-    return { ...base, activeCraft: rawActiveCraft as ActiveCraftV2 }
+      ? { ...base, activeCraft: rawActiveCraft as ActiveCraftV2 }
+      : base
+
+  return {
+    ...merged,
+    plan: migrateCraftPlanForgeMaterials(merged.plan),
+    activeCraft: migrateActiveCraftForgeMaterials(merged.activeCraft),
+    completedWeapon: merged.completedWeapon
+      ? migrateCraftedWeaponV2DamageFields(
+          migrateCraftedWeaponForgeMaterials(merged.completedWeapon)
+        )
+      : null,
   }
-  return base
 }
 
 /** Восстановить legacy поле craft-slice при загрузке старого сейва */
@@ -125,5 +145,48 @@ export function mergeLegacyActiveCraftForSlice(raw: unknown): ActiveCraft {
     startTime: typeof o['startTime'] === 'number' ? o['startTime'] : null,
     endTime: typeof o['endTime'] === 'number' ? o['endTime'] : null,
     quality: typeof o['quality'] === 'number' ? o['quality'] : 0,
+  }
+}
+
+/** Слить `activeRefining` из облака/persist (пустой объект и частичные сейвы). */
+export function mergeActiveRefiningFromSave(raw: unknown): ActiveRefining {
+  if (raw == null || typeof raw !== 'object' || Array.isArray(raw)) {
+    return { ...initialActiveRefining }
+  }
+  const o = raw as Partial<ActiveRefining>
+  const amount = typeof o.amount === 'number' && Number.isFinite(o.amount) ? o.amount : initialActiveRefining.amount
+  const progress =
+    typeof o.progress === 'number' && Number.isFinite(o.progress) ? o.progress : initialActiveRefining.progress
+  const sm =
+    typeof o.smeltingOutputMultiplier === 'number' &&
+    Number.isFinite(o.smeltingOutputMultiplier) &&
+    o.smeltingOutputMultiplier > 0
+      ? o.smeltingOutputMultiplier
+      : undefined
+  const startTime =
+    o.startTime === undefined
+      ? initialActiveRefining.startTime
+      : typeof o.startTime === 'number'
+        ? o.startTime
+        : null
+  const endTime =
+    o.endTime === undefined
+      ? initialActiveRefining.endTime
+      : typeof o.endTime === 'number'
+        ? o.endTime
+        : null
+
+  return {
+    ...initialActiveRefining,
+    recipeId: o.recipeId !== undefined ? o.recipeId : initialActiveRefining.recipeId,
+    resourceName:
+      typeof o.resourceName === 'string' && o.resourceName.length > 0
+        ? o.resourceName
+        : initialActiveRefining.resourceName,
+    progress,
+    startTime,
+    endTime,
+    amount,
+    smeltingOutputMultiplier: sm,
   }
 }

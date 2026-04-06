@@ -107,7 +107,7 @@ export function DungeonsScreen() {
     // Износ оружия
     const durabilityLoss = Math.floor(adventure.duration / 60 * 3) + Math.floor(Math.random() * 5)
     
-    // Множитель эпичности растёт с каждым приключением
+    // Скрытый множитель наград (не показывается в UI) растёт с приключениями
     const epicGain = isCrit 
       ? 0.08 + (successCount * 0.03) + (Math.random() * 0.05) // Бонус при крите
       : 0.05 + (successCount * 0.02) + (Math.random() * 0.03)
@@ -315,8 +315,8 @@ export function DungeonsScreen() {
             <ul className="text-xs text-stone-500 space-y-1">
               <li>• <strong className="text-amber-400">Золото</strong> — оплата за аренду вашего оружия искателем</li>
               <li>• <strong className="text-purple-400">Душа Войны</strong> — накапливается на оружии в приключениях</li>
-              <li>• <strong className="text-amber-300">Множитель эпичности</strong> — растёт с каждым приключением, увеличивает эссенцию</li>
-              <li>• <strong className="text-green-400">Прочность</strong> — оружие изнашивается, отремонтируйте в кузнице</li>
+              <li>• <strong className="text-stone-400">Скрытые множители наград</strong> — учитываются в итоге вылазки и при распылении; в интерфейсе не показываются</li>
+              <li>• <strong className="text-green-400">Прочность</strong> — оружие изнашивается; починка — вкладка «Ремонт» в кузнице</li>
               <li>• <strong className="text-red-400">Поломка</strong> — сломанное оружие нельзя отправить в вылазку</li>
               <li>• <strong className="text-blue-400">Распыление</strong> — в Алтаре превращайте оружие в эссенцию душ</li>
             </ul>

@@ -4,6 +4,7 @@
 
 import type { AdventurerExtended } from './adventurer-extended'
 import type { KnownAdventurer } from './known-adventurer'
+import type { ContractedAdventurer } from './contract'
 import type { CraftedWeaponV2 } from './craft-v2'
 import type { ExpeditionEvent } from './expedition-events'
 import type { ModuleExpeditionEventSnapshot } from '@/lib/expedition-module-events-host'
@@ -85,6 +86,8 @@ export interface ExpeditionDevBalanceTweaks {
 export interface StartExpeditionFullOptions {
   contractOverride?: 'exploration' | 'speed'
   devBalance?: ExpeditionDevBalanceTweaks
+  /** Связь с особым заданием гильдии (квест «Эхо забытой кузни» и др.) */
+  linkedQuestId?: string
 }
 
 // ================================
@@ -115,6 +118,8 @@ export interface ActiveExpedition {
   moduleEventSnapshots?: ModuleExpeditionEventSnapshot[]
   /** Сохранённые коэффициенты отладки (влияют на завершение, если заданы) */
   devBalanceTweaks?: ExpeditionDevBalanceTweaks
+  /** Зачёт прогресса особого задания при успешном завершении */
+  linkedQuestId?: string
 }
 
 // ================================
@@ -172,8 +177,10 @@ export interface GuildStats {
 
 export interface GuildState {
   level: number
-  reputation: number // Новое поле: очки репутации гильдии
-  totalReputation: number // Общая заработанная репутация (не уменьшается)
+  /** Прогресс в текущем ранге (очки до ручного повышения ранга или траты у интенданта). Не накопительный total. */
+  reputation: number
+  /** Всего заработано за всё время (монотонно, не уменьшается). */
+  totalReputation: number
 
   // Glory сохраняется для обратной совместимости, но больше не используется для уровней
   glory: number
@@ -188,6 +195,9 @@ export interface GuildState {
 
   activeExpeditions: ActiveExpedition[]
   recoveryQuests: RecoveryQuest[]
+
+  /** Контрактные искатели (персистится вместе с guild) */
+  contractedAdventurers: ContractedAdventurer[]
 
   history: ExpeditionHistoryEntry[]
   stats: GuildStats
@@ -336,6 +346,7 @@ export const initialGuildState: GuildState = {
   maxKnownAdventurers: 5,
   activeExpeditions: [],
   recoveryQuests: [],
+  contractedAdventurers: [],
   history: [],
   stats: {
     totalExpeditions: 0,

@@ -65,7 +65,8 @@ import type { UniqueBonus as UniqueBonusData } from '@/data/unique-bonuses'
 // КОНСТАНТЫ
 // ================================
 
-function mapDataUniqueBonusesToExtended(bonuses: UniqueBonusData[]): UniqueBonus[] {
+/** Каталог `unique-bonuses` → формат `AdventurerExtended.uniqueBonuses` (для генератора и `convertToExtended`). */
+export function mapCatalogUniqueBonusesToExtended(bonuses: UniqueBonusData[]): UniqueBonus[] {
   return bonuses.map(b => {
     const nums = Object.values(b.effect).filter((v): v is number => typeof v === 'number')
     return {
@@ -306,7 +307,7 @@ export function generateExtendedAdventurer(guildLevel: number = 1): AdventurerEx
   const traits = generateTraits(guildLevel)
   
   // Генерация уникальных бонусов (существующая система → формат Extended)
-  const uniqueBonuses = mapDataUniqueBonusesToExtended(generateUniqueBonuses(guildLevel))
+  const uniqueBonuses = mapCatalogUniqueBonusesToExtended(generateUniqueBonuses(guildLevel))
   
   // Генерация сильных сторон
   const strengthIds = generateStrengths(config.maxStrengths)

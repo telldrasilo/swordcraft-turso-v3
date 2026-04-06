@@ -48,10 +48,15 @@ function bandFromBase(
 /** Диапазон для атаки / прочности / души и т.п. */
 export function statRangeFromBase(
   base: number,
-  avgExpertise: number
+  avgExpertise: number,
+  spreadTightness: number = 0,
+  /** §6.13: множитель из агрегата varianceMultiplier (уменьшает разброс при мастерстве). */
+  aggregatedVarianceScale: number = 1
 ): StatRange {
-  const down = craftVarianceDownFactor(avgExpertise)
-  const up = craftVarianceUpFactor(avgExpertise)
+  const t = Math.min(0.35, Math.max(0, spreadTightness))
+  const v = Math.max(0, Math.min(2, aggregatedVarianceScale))
+  const down = craftVarianceDownFactor(avgExpertise) * (1 - t) * v
+  const up = craftVarianceUpFactor(avgExpertise) * (1 - t) * v
   const { min, max, variance } = bandFromBase(base, down, up)
   return { min, max, current: base, variance }
 }
@@ -59,10 +64,16 @@ export function statRangeFromBase(
 /** Вес: меньший относительный разброс. */
 export function weightStatRangeFromBase(
   base: number,
-  avgExpertise: number
+  avgExpertise: number,
+  spreadTightness: number = 0,
+  aggregatedVarianceScale: number = 1
 ): StatRange {
-  const down = craftVarianceDownFactor(avgExpertise) * CRAFT_VARIANCE_WEIGHT_DOWN_SCALE
-  const up = craftVarianceUpFactor(avgExpertise) * CRAFT_VARIANCE_WEIGHT_UP_SCALE
+  const t = Math.min(0.35, Math.max(0, spreadTightness))
+  const v = Math.max(0, Math.min(2, aggregatedVarianceScale))
+  const down =
+    craftVarianceDownFactor(avgExpertise) * (1 - t) * CRAFT_VARIANCE_WEIGHT_DOWN_SCALE * v
+  const up =
+    craftVarianceUpFactor(avgExpertise) * (1 - t) * CRAFT_VARIANCE_WEIGHT_UP_SCALE * v
   const { min, max, variance } = bandFromBase(base, down, up)
   return { min, max, current: base, variance }
 }

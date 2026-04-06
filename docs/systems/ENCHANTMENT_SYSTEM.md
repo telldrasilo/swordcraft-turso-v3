@@ -8,7 +8,7 @@
 
 - фактические боевые действия находятся в `src/store/game-store-composed.ts`;
 - состояние `unlockedEnchantments` сейчас живёт в `src/store/slices/craft-slice.ts`;
-- `src/store/slices/enchantments-slice.ts` существует, но не является главным рабочим контрактом текущей реализации;
+- ~~`src/store/slices/enchantments-slice.ts`~~ — файл удалён (фаза 0); рабочий контракт — `craft-slice` и `game-store-composed.ts`;
 - канонический автономный пакет документации лежит в `docs/Ecnchantment_System/`.
 
 ## Куда смотреть в первую очередь
@@ -66,6 +66,10 @@
 - Zustand persist (всегда)
 - `use-cloud-save.ts` (бэкап + сбор payload; сеть при включённом флаге)
 - при **`NEXT_PUBLIC_CLOUD_SAVE_ENABLED=true`**: `/api/save` и Turso `game_saves`
+
+### Мост от ремонта и повреждений
+
+- **`weaponLegacy.hiddenMarks`** на экземпляре оружия (`CraftedWeaponV2`, persist + облако вместе с `weaponInventory`) — не «поломки» в UI, а **скрытое наследие клинка** для будущей интеграции с чарами (криты ремонта, особые теги). Чтение и эволюция контракта — по мере ТЗ на зачарования; контекст: [DAMAGE_INVESTIGATION_AND_REPAIR_SYSTEM.md](DAMAGE_INVESTIGATION_AND_REPAIR_SYSTEM.md), пакет [docs/Ecnchantment_System/](Ecnchantment_System/).
 
 ## Текущие ограничения
 

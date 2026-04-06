@@ -25,7 +25,7 @@ import {
 export { allMaterials }
 export { materialById }
 
-// Группировка по классам (для энциклопедии и крафта; в т.ч. world-resources)
+// Группировка по классам (для энциклопедии и крафта; в т.ч. добываемые узлы library)
 export const materialsByClass = {
   metal: allMetals,
   mineral: allMaterials.filter(m => m.identity.class === 'mineral'),

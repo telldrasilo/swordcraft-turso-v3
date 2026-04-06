@@ -70,6 +70,8 @@ describe('calculateExpeditionResult', () => {
     expect(r.weaponWear).toBeGreaterThanOrEqual(1)
     expect(r.weaponWear).toBeLessThanOrEqual(50)
     expect(r.warSoul).toBeGreaterThanOrEqual(1)
+    expect(r.guildGloryOnSuccess).toBeGreaterThanOrEqual(0)
+    expect(Array.isArray(r.gloryModifiers)).toBe(true)
     expect(r.levelMatch.match).toBe('optimal')
     expect(r.recommendation.rating).toMatch(/excellent|good|risky|dangerous/)
   })
@@ -123,6 +125,48 @@ describe('calculateExpeditionResult', () => {
     expect(r.successChance).toBeGreaterThanOrEqual(5)
     expect(r.successChance).toBeLessThanOrEqual(95)
     expect(r.commission).toBeGreaterThanOrEqual(0)
+  })
+
+  it('data trait (adventurer.traits catalog) affects calculation via modifiers (wear)', () => {
+    const tpl = requireTemplate(easyHunt, 'oak_grove_hunt_boars_1')
+    const base = testAdventurer(5)
+    const withCautious: AdventurerExtended = {
+      ...base,
+      traits: [
+        {
+          id: 'cautious',
+          name: 'Осторожный',
+          icon: '🛡️',
+          description: 'Бережёт себя и снаряжение',
+          effects: { wear: -20 },
+        },
+      ],
+    }
+    const r0 = calculateExpeditionResult(base, tpl, 3, 12)
+    const r1 = calculateExpeditionResult(withCautious, tpl, 3, 12)
+    expect(r1.weaponWear).toBeLessThan(r0.weaponWear)
+    expect(r1.weaponWearModifiers.some((m) => m.source === 'Осторожный')).toBe(true)
+  })
+
+  it('unique bonus merchant increases blacksmith commission (gold modifier chain)', () => {
+    const tpl = requireTemplate(easyHunt, 'oak_grove_hunt_boars_1')
+    const base = testAdventurer(5)
+    const withMerchant: AdventurerExtended = {
+      ...base,
+      uniqueBonuses: [
+        {
+          id: 'merchant',
+          name: 'Торговец',
+          description: 'Умеет торговаться за награду',
+          type: 'merchant',
+          value: 30,
+        },
+      ],
+    }
+    const r0 = calculateExpeditionResult(base, tpl, 3, 12)
+    const r1 = calculateExpeditionResult(withMerchant, tpl, 3, 12)
+    expect(r1.commission).toBeGreaterThan(r0.commission)
+    expect(r1.goldModifiers.some((m) => m.source === 'Торговец')).toBe(true)
   })
 })
 

@@ -13,6 +13,22 @@
 export type RawResource = 'iron' | 'copper' | 'tin' | 'silver' | 'goldOre' | 'mithril' | 'wood' | 'stone'
 export type RefinedResource = 'ironIngot' | 'copperIngot' | 'tinIngot' | 'bronzeIngot' | 'steelIngot' | 'silverIngot' | 'goldIngot' | 'mithrilIngot' | 'planks' | 'stoneBlocks'
 
+/**
+ * Фаза 3 (`MATERIALS_UNIFICATION_AUDIT`): один канонический `materialId` сырьевой стадии
+ * на каждый `RawResource` — начисления в stash (`getGrantTargetMaterialId`) и маппинг в пул склада
+ * через `MATERIAL_TO_RESOURCE` в `inventory-check.ts`.
+ */
+export const REFINING_INPUT_STAGE_MATERIAL_ID: Record<RawResource, string> = {
+  iron: 'iron_ore',
+  copper: 'copper_ore',
+  tin: 'tin_ore',
+  silver: 'silver_ore',
+  goldOre: 'gold_ore',
+  mithril: 'mithril_ore',
+  wood: 'oak',
+  stone: 'basic_stone',
+}
+
 export interface RefiningRecipe {
   id: string
   name: string

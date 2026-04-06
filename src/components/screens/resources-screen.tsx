@@ -14,15 +14,13 @@ import {
 import { useGameStore, type Resources, type ResourceKey } from '@/store'
 import { TooltipProvider } from '@/components/ui/game-tooltip'
 import { cn } from '@/lib/utils'
-import {
-  ResourceIcon,
-  rarityColors,
-  getResourceIconInfo,
-  getResourceRarity,
-} from '@/components/ui/resource-icon'
+import { rarityColors, getResourceIconInfo, getResourceRarity } from '@/components/ui/resource-icon'
+import { MaterialDisplayIcon } from '@/components/ui/material-display-icon'
 import { materialById } from '@/data/materials/library'
 import type { MaterialNode } from '@/types/materials/material-core'
+import { getMaterialRarity } from '@/types/materials/material-core'
 import { getMaterialName } from '@/modules/expeditions'
+import { getGrantTargetMaterialId } from '@/lib/craft/inventory-check'
 
 type SortKey = 'rarity' | 'quantity' | 'name'
 type FilterBucket = 'all' | 'raw' | 'derived'
@@ -67,7 +65,10 @@ interface StashRow {
   rarityScore: number
   rarityLabel: keyof typeof rarityColors
   bucket: 'raw' | 'derived'
-  isMaterial: boolean
+  /** Канонический материал для значка/имени (как в ENC и getGrantTargetMaterialId) */
+  catalogMaterialId: string | null
+  /** Только для строк из `resources`: эмодзи по ResourceKey */
+  resourceKeyForIcon: ResourceKey | null
 }
 
 function buildRows(resources: Resources, stash: Record<string, number>): StashRow[] {
@@ -77,15 +78,23 @@ function buildRows(resources: Resources, stash: Record<string, number>): StashRo
     if (key === 'gold' || key === 'soulEssence') continue
     const q = resources[key]
     if (q <= 0) continue
+    const catalogId = getGrantTargetMaterialId(key)
+    const catNode = catalogId ? materialById[catalogId] : undefined
     const info = getResourceIconInfo(key)
+    const name = catNode?.identity.name ?? info?.name ?? key
+    const rarityScore = catNode?.economy.rarity ?? resourceRarityNumeric(key)
+    const rarityLabel = catNode
+      ? getMaterialRarity(catNode.economy)
+      : getResourceRarity(key)
     rows.push({
       id: `res:${key}`,
-      name: info?.name ?? key,
+      name,
       quantity: q,
-      rarityScore: resourceRarityNumeric(key),
-      rarityLabel: getResourceRarity(key),
+      rarityScore,
+      rarityLabel,
       bucket: resourceKeyBucket(key),
-      isMaterial: false,
+      catalogMaterialId: catalogId,
+      resourceKeyForIcon: key,
     })
   }
 
@@ -94,11 +103,7 @@ function buildRows(resources: Resources, stash: Record<string, number>): StashRo
     const node = materialById[mid]
     const name = node?.identity.name ?? getMaterialName(mid)
     const rNum = node?.economy.rarity ?? 0
-    let rarityLabel: keyof typeof rarityColors = 'common'
-    if (rNum >= 150) rarityLabel = 'legendary'
-    else if (rNum >= 100) rarityLabel = 'epic'
-    else if (rNum >= 60) rarityLabel = 'rare'
-    else if (rNum >= 30) rarityLabel = 'uncommon'
+    const rarityLabel = node ? getMaterialRarity(node.economy) : ('common' as const)
 
     rows.push({
       id: `mat:${mid}`,
@@ -107,7 +112,8 @@ function buildRows(resources: Resources, stash: Record<string, number>): StashRo
       rarityScore: rNum,
       rarityLabel,
       bucket: node ? materialNodeBucket(node) : 'raw',
-      isMaterial: true,
+      catalogMaterialId: mid,
+      resourceKeyForIcon: null,
     })
   }
 
@@ -156,7 +162,7 @@ export function ResourcesScreen() {
               Склад
             </h2>
             <p className="text-sm text-stone-500 mt-1 max-w-xl">
-              Только то, что у вас есть в наличии. Без дублей с энциклопедией — здесь счётчики и быстрый обзор.
+              Названия и значки совпадают с каталогом материалов (экспедиции, плавка, кузница).
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -200,8 +206,6 @@ export function ResourcesScreen() {
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                 {filtered.map((row) => {
                   const colors = rarityColors[row.rarityLabel]
-                  const stashId = row.id.startsWith('mat:') ? row.id.slice(4) : null
-                  const resId = row.id.startsWith('res:') ? row.id.slice(4) : null
                   return (
                     <motion.div
                       key={row.id}
@@ -216,19 +220,12 @@ export function ResourcesScreen() {
                       )}
                     >
                       <div className="flex justify-center">
-                        {resId ? (
-                          <ResourceIcon id={resId} size="lg" />
-                        ) : (
-                          <div
-                            className={cn(
-                              'w-12 h-12 rounded-lg flex items-center justify-center text-lg font-semibold',
-                              'bg-stone-800/80 text-stone-200 border border-stone-600/50'
-                            )}
-                            title={stashId ?? ''}
-                          >
-                            {row.name.slice(0, 2).toUpperCase()}
-                          </div>
-                        )}
+                        <MaterialDisplayIcon
+                          catalogMaterialId={row.catalogMaterialId}
+                          resourceKeyFallback={row.resourceKeyForIcon}
+                          size="lg"
+                          title={`${row.name}: ${formatQty(row.quantity)}`}
+                        />
                       </div>
                       <div className={cn('text-center font-bold text-lg leading-tight', colors.text)}>
                         {formatQty(row.quantity)}

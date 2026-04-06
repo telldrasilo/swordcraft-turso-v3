@@ -7,21 +7,21 @@ import { generateId, randomInt, randomElement, generateClientName } from './gene
 import { ORDER_MIN_QUALITY, ORDER_MAX_QUALITY } from './constants'
 import { calculateGoldReward, calculateFameReward } from './order-utils'
 import { calculateAttack } from './craft-utils'
-import { RESOURCE_SELL_PRICES } from './constants'
 import type { WeaponRecipe as LegacyWeaponRecipe } from '@/data/weapon-recipes'
 import { weaponRecipes } from '@/data/weapon-recipes'
-import { getRecipeById } from '@/data/recipes'
 import type { RecipeForCraftingCost } from '@/lib/craft/inventory-check'
 import { getCraftingCost } from '@/lib/craft/inventory-check'
 import type { NPCOrder, MaterialAdvance } from '@/types/npc-order'
 import type { UnlockedRecipes } from '@/store/slices/craft-slice'
 import type { Resources } from '@/store/slices/resources-slice'
+import { weaponMaterialTagsAlignForOrders } from '@/lib/craft/weapon-display-meta'
+import { craftingResourceCostMapToGoldApprox } from '@/lib/store-utils/order-material-cost-gold'
 
 export type { MaterialAdvance }
 
-/** Для расчёта стоимости: v2 по id, иначе legacy (iron_* и т.д. есть только в v1). */
+/** Шаблон заказа несёт cost; форма v2 отдельно. */
 function recipeForCraftingCost(recipe: LegacyWeaponRecipe): RecipeForCraftingCost {
-  return getRecipeById(recipe.id) ?? recipe
+  return recipe
 }
 
 // ================================
@@ -70,9 +70,11 @@ export function checkOrderAchievability(
     return { achievable: false, reason: 'Требуется больше славы' }
   }
 
-  // Найти подходящий рецепт
+  // Найти подходящий рецепт (§6.7: заказ может нести `iron`, рецепт — тот же тег или согласованный канон)
   const matchingRecipe = weaponRecipes.find(
-    r => r.type === order.weaponType && r.material === order.material
+    r =>
+      r.type === order.weaponType &&
+      (!order.material || weaponMaterialTagsAlignForOrders(order.material, r.material))
   )
 
   if (!matchingRecipe) {
@@ -80,9 +82,11 @@ export function checkOrderAchievability(
   }
 
   // Проверка, разблокирован ли рецепт
-  const isRecipeUnlocked = context.unlockedRecipes.weaponRecipes.includes(matchingRecipe.id)
-  if (!isRecipeUnlocked) {
-    return { achievable: false, reason: 'Рецепт не разблокирован' }
+  const isShapeUnlocked = context.unlockedRecipes.weaponRecipes.includes(
+    matchingRecipe.shapeRecipeId
+  )
+  if (!isShapeUnlocked) {
+    return { achievable: false, reason: 'Форма оружия не разблокирована' }
   }
 
   // Проверка уровня для рецепта
@@ -137,18 +141,18 @@ export function calculateMaterialCostForOrder(
     return { materials: [], totalCost: 0 }
   }
 
+  const costMap = getCraftingCost(recipeForCraftingCost(recipe), {})
   const materials: { resource: string; amount: number }[] = []
-  let totalCost = 0
-
-  for (const [resource, amount] of Object.entries(recipe.cost)) {
-    if (amount > 0) {
+  for (const [resource, amount] of Object.entries(costMap)) {
+    if (amount && amount > 0) {
       materials.push({ resource, amount })
-      // Рассчитываем стоимость на основе цен продажи ресурсов
-      const resourcePrice = RESOURCE_SELL_PRICES[resource as keyof typeof RESOURCE_SELL_PRICES] || 1
-      totalCost += resourcePrice * amount
     }
   }
+  materials.sort((a, b) => a.resource.localeCompare(b.resource))
 
+  const totalCost = craftingResourceCostMapToGoldApprox(
+    costMap as Record<string, number>
+  )
   return { materials, totalCost }
 }
 
@@ -211,25 +215,25 @@ export function filterRecipesByProgression(
   category: 'basic' | 'progressive' | 'ambitious',
   context: OrderGenerationContext
 ): LegacyWeaponRecipe[] {
-  return weaponRecipes.filter(recipe => {
+  const { unlockedRecipes, playerLevel } = context
+  const shapeOk = (recipe: LegacyWeaponRecipe) =>
+    unlockedRecipes.weaponRecipes.includes(recipe.shapeRecipeId)
+
+  return weaponRecipes.filter((recipe) => {
+    if (!shapeOk(recipe)) return false
+
     switch (category) {
       case 'basic':
-        // Точно может сделать сейчас (рецепт разблокирован и уровень достаточен)
-        return (
-          context.unlockedRecipes.weaponRecipes.includes(recipe.id) &&
-          recipe.requiredLevel <= context.playerLevel
-        )
+        return recipe.requiredLevel <= playerLevel
 
       case 'progressive':
-        // Через 1-2 уровня реально (рецепт может быть ещё не разблокирован, но уровень почти достигнут)
         return (
-          !context.unlockedRecipes.weaponRecipes.includes(recipe.id) &&
-          recipe.requiredLevel <= context.playerLevel + 2 &&
-          recipe.requiredLevel >= context.playerLevel
+          recipe.requiredLevel > playerLevel &&
+          recipe.requiredLevel <= playerLevel + 3
         )
 
       case 'ambitious':
-        // Любые рецепты для мотивации
+        // Любой шаблон с разблокированной формой (сложность уже в tier / cost строки)
         return true
 
       default:
@@ -313,18 +317,9 @@ function generateOrderFromRecipe(
   const maxPossibleAttack = calculateMaxAchievableAttack(recipe, context.playerLevel)
   const minAttack = minQuality > 70 ? randomInt(10, Math.min(maxPossibleAttack, 20 + context.playerLevel)) : undefined
 
-  // Рассчитываем точную стоимость материалов для хранения в заказе
+  // Рассчитываем стоимость материалов для хранения в заказе (те же цены, что и в calculateGoldReward)
   const materialCostMap = getCraftingCost(recipeForCraftingCost(recipe), {})
-  const resourcePrices: Record<string, number> = {
-    iron: 2, wood: 1, stone: 1, coal: 1,
-    ironIngot: 5, steelIngot: 12, bronzeIngot: 8,
-    copper: 3, tin: 3, silver: 10, mithril: 25,
-    leather: 3, planks: 2
-  }
-  const materialCost = Object.entries(materialCostMap).reduce((total, [resource, amount]) => {
-    const price = resourcePrices[resource] || 1
-    return total + (amount || 0) * price
-  }, 0)
+  const materialCost = craftingResourceCostMapToGoldApprox(materialCostMap)
 
   // Награды (передаем recipe для точного расчета стоимости материалов)
   const goldReward = calculateGoldReward(

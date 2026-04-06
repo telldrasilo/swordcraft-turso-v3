@@ -7,11 +7,12 @@
  * - underground.ts — подземные явления (4 события)
  * - miners.ts — шахтёры (4 события)
  *
- * Итого: 8 событий для red_stone_mines
+ * Итого: 11 событий для red_stone_mines
  */
 
 import { redStoneUndergroundEvents } from './underground';
 import { redStoneMinersEvents } from './miners';
+import { redStoneElementalEvents } from './elemental';
 
 // ============================================================================
 // ЭКСПОРТ ВСЕХ СОБЫТИЙ
@@ -43,11 +44,12 @@ export {
 export const redStoneEvents = [
   ...redStoneUndergroundEvents,
   ...redStoneMinersEvents,
+  ...redStoneElementalEvents,
 ];
 
 // Статистика событий локации
 export const redStoneEventsStats = {
-  total: 8,
+  total: 11,
   locationId: 'red_stone_mines',
   byType: {
     positive: 2,

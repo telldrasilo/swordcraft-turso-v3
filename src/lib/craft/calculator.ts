@@ -13,7 +13,8 @@ import type {
   WeaponStats,
   QualityGrade 
 } from '@/types/craft-v2'
-import { getMaterialAsLegacy } from '@/data/materials'
+import { getMaterialAsLegacy, getMaterialById } from '@/data/materials'
+import { scaleCraftSoulCapacityToWeaponPool } from '@/data/war-soul-tiers'
 import { 
   getQualityGrade, 
   getQualityMultiplier, 
@@ -25,6 +26,7 @@ import {
 import type {
   WeaponForecast,
   QualityScore,
+  StatRange,
 } from '@/types/forecast'
 import {
   BALANCE_MATERIAL_NEUTRAL,
@@ -57,6 +59,13 @@ import {
   weightStatRangeFromBase,
 } from './craft-variance'
 import { applyPercentMultiplier, contributionFromMaterialPercent } from './formulas'
+import {
+  aggregateExpertiseImpactsForPlan,
+  buildExpertisePlanRowsFromCraft,
+  materialMasteryEfficiencyFromWasteMultiplier,
+  resolveExpertiseImpactForPlanRow,
+} from './aggregate-expertise-impact'
+import { computeSoulPotential } from '@/lib/war-soul-potential'
 
 /**
  * Полный результат расчёта оружия
@@ -69,6 +78,8 @@ export interface WeaponCalculationResult {
   qualityColor: string
   qualityNameRu: string
   sellPrice: number
+  /** Множитель награды души войны за миссию (Soul Potential). */
+  soulPotential: number
   materials: {
     partId: string
     materialId: string
@@ -84,7 +95,9 @@ export function calculateWeapon(
   recipe: WeaponRecipe,
   materials: MaterialAssignment,
   techniques: Technique[],
-  blacksmithLevel: number
+  blacksmithLevel: number,
+  processingQualityDelta: number = 0,
+  materialExpertise: Record<string, number> = {}
 ): WeaponCalculationResult {
   // 1. Базовые значения из рецепта
   const base = recipe.baseStats
@@ -114,9 +127,13 @@ export function calculateWeapon(
   for (const { material, quantity } of materialData) {
     const effects = material.weaponEffects
     const props = material.properties
+    const node = getMaterialById(material.id)
+    const exp = materialExpertise[material.id] ?? 0
+    const impact = resolveExpertiseImpactForPlanRow(node, exp)
+    const mastery = materialMasteryEfficiencyFromWasteMultiplier(impact.materialWasteMultiplier)
     
     // Атака: база + бонус от материала * вклад части (упрощённо)
-    attack += contributionFromMaterialPercent(
+    attack += mastery * contributionFromMaterialPercent(
       attack,
       effects.attackBonus,
       quantity,
@@ -124,7 +141,7 @@ export function calculateWeapon(
     )
     
     // Прочность
-    durability += contributionFromMaterialPercent(
+    durability += mastery * contributionFromMaterialPercent(
       durability,
       effects.durabilityBonus,
       quantity,
@@ -132,10 +149,10 @@ export function calculateWeapon(
     )
     
     // Вместимость души
-    soulCapacity += effects.soulCapacity * quantity * SOUL_CAPACITY_PER_QUANTITY
+    soulCapacity += mastery * (effects.soulCapacity * quantity * SOUL_CAPACITY_PER_QUANTITY)
     
     // Вес
-    weight += props.weight * quantity * WEIGHT_PER_UNIT_DENSITY
+    weight += mastery * (props.weight * quantity * WEIGHT_PER_UNIT_DENSITY)
     
     // Ремонт
     repairPotential = Math.min(repairPotential, effects.repairPotential)
@@ -177,7 +194,23 @@ export function calculateWeapon(
   enchantPower = Math.round(enchantPower * ENCHANT_POWER_ROUND_DECIMALS) / ENCHANT_POWER_ROUND_DECIMALS
   
   // 4. Рассчитываем качество
-  const quality = calculateQuality(blacksmithLevel, materialData, techniques)
+  let quality = calculateQuality(blacksmithLevel, materialData, techniques)
+  const expertiseRows = buildExpertisePlanRowsFromCraft(recipe, materials)
+  const aggExpertise = aggregateExpertiseImpactsForPlan(expertiseRows, materialExpertise)
+  quality = Math.min(
+    100,
+    Math.max(
+      0,
+      Math.round(
+        quality *
+          (1 + 0.1 * Math.max(0, 1 - aggExpertise.defectRiskMultiplier)) +
+          aggExpertise.qualityBonus * 0.35
+      )
+    )
+  )
+  if (processingQualityDelta) {
+    quality = Math.min(100, Math.max(0, Math.round(quality + processingQualityDelta)))
+  }
   const qualityGrade = getQualityGrade(quality)
   const qualityMultiplier = getQualityMultiplier(quality)
   const qualityColor = getQualityColor(quality)
@@ -187,8 +220,10 @@ export function calculateWeapon(
   attack = Math.round(attack * qualityMultiplier)
   durability = Math.round(durability * qualityMultiplier)
   maxDurability = durability
-  soulCapacity = Math.round(soulCapacity * qualityMultiplier)
-  
+  soulCapacity = scaleCraftSoulCapacityToWeaponPool(
+    Math.round(soulCapacity * qualityMultiplier)
+  )
+
   // 6. Рассчитываем цену
   const sellPrice = calculateSellPrice(
     attack,
@@ -197,7 +232,9 @@ export function calculateWeapon(
     materialData,
     enchantSlots
   )
-  
+
+  const soulPotential = computeSoulPotential(recipe, materials, techniques)
+
   return {
     stats: {
       attack,
@@ -206,6 +243,7 @@ export function calculateWeapon(
       weight,
       balance,
       soulCapacity,
+      soulPotential,
       repairPotential,
       enchantSlots,
       enchantPower,
@@ -216,6 +254,7 @@ export function calculateWeapon(
     qualityColor,
     qualityNameRu,
     sellPrice,
+    soulPotential,
     materials: materialData.map(({ partId, material, quantity }) => ({
       partId,
       materialId: material.id,
@@ -348,17 +387,52 @@ export function calculateForecast(
   materials: MaterialAssignment,
   techniques: Technique[],
   blacksmithLevel: number,
-  materialExpertise: Record<string, number>
+  materialExpertise: Record<string, number>,
+  processingQualityDelta: number = 0,
+  processingForecastSpreadTightness: number = 0
 ): WeaponForecast {
-  const baseResult = calculateWeapon(recipe, materials, techniques, blacksmithLevel)
-  const avgExpertise = calculateAverageExpertise(materials, materialExpertise)
-  const down = craftVarianceDownFactor(avgExpertise)
-  const up = craftVarianceUpFactor(avgExpertise)
+  const expertiseRows = buildExpertisePlanRowsFromCraft(recipe, materials)
+  const aggExpertise = aggregateExpertiseImpactsForPlan(expertiseRows, materialExpertise)
 
-  const attack = statRangeFromBase(baseResult.stats.attack, avgExpertise)
-  const durability = statRangeFromBase(baseResult.stats.durability, avgExpertise)
-  const weight = weightStatRangeFromBase(baseResult.stats.weight, avgExpertise)
-  const soulCapacity = statRangeFromBase(baseResult.stats.soulCapacity, avgExpertise)
+  const baseResult = calculateWeapon(
+    recipe,
+    materials,
+    techniques,
+    blacksmithLevel,
+    processingQualityDelta,
+    materialExpertise
+  )
+  const avgExpertise = calculateAverageExpertise(materials, materialExpertise)
+  const tight = Math.min(0.35, Math.max(0, processingForecastSpreadTightness))
+  const vScale = Math.max(0, Math.min(2, aggExpertise.varianceMultiplier))
+  const down = craftVarianceDownFactor(avgExpertise) * (1 - tight) * vScale
+  const up = craftVarianceUpFactor(avgExpertise) * (1 - tight) * vScale
+
+  const attack = statRangeFromBase(
+    baseResult.stats.attack,
+    avgExpertise,
+    processingForecastSpreadTightness,
+    aggExpertise.varianceMultiplier
+  )
+  const durability = statRangeFromBase(
+    baseResult.stats.durability,
+    avgExpertise,
+    processingForecastSpreadTightness,
+    aggExpertise.varianceMultiplier
+  )
+  const weight = weightStatRangeFromBase(
+    baseResult.stats.weight,
+    avgExpertise,
+    processingForecastSpreadTightness,
+    aggExpertise.varianceMultiplier
+  )
+  const soulPotentialValue = computeSoulPotential(recipe, materials, techniques)
+  const soulPotential: StatRange = {
+    min: soulPotentialValue,
+    max: soulPotentialValue,
+    current: soulPotentialValue,
+    variance: 0,
+  }
 
   const qMin = Math.max(0, Math.round(baseResult.quality * (1 - down)))
   const qMax = Math.min(100, Math.round(baseResult.quality * (1 + up)))
@@ -371,13 +445,13 @@ export function calculateForecast(
     progress: 0.5,
   }
 
-  const predictionAccuracy = 50 + avgExpertise * 0.5
+  const predictionAccuracy = aggExpertise.predictionAccuracy
 
   return {
     attack,
     durability,
     weight,
-    soulCapacity,
+    soulPotential,
     quality,
     predictionAccuracy
   }
@@ -402,7 +476,7 @@ export function rollWeaponOutcome(
   const attack = pickInt(forecast.attack.min, forecast.attack.max)
   const durability = pickInt(forecast.durability.min, forecast.durability.max)
   const maxDurability = durability
-  const soulCapacity = pickInt(forecast.soulCapacity.min, forecast.soulCapacity.max)
+  const soulCapacity = base.stats.soulCapacity
 
   const weight =
     pickInt(
@@ -430,6 +504,7 @@ export function rollWeaponOutcome(
       durability,
       maxDurability,
       soulCapacity,
+      soulPotential: base.soulPotential,
       weight,
       balance: base.stats.balance,
     },
@@ -439,6 +514,7 @@ export function rollWeaponOutcome(
     qualityColor,
     qualityNameRu,
     sellPrice,
+    soulPotential: base.soulPotential,
     materials: base.materials,
   }
 }
