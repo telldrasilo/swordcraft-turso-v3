@@ -35,9 +35,11 @@
  *   чтобы награда NPC не расходилась с локальными таблицами; аванс материалов — тот же мост через
  *   `getCraftingCost` → `craftingResourceCostMapToGoldApprox` в `order-achievable-utils.ts`.
  *
- * - слот верстака ремонта + активный прогон этапов: `repairBenchWeaponId`, `repairTechniqueStageRun` —
- *   persist, `collectSaveData` / `applyLoadedData`, Zod в `save-payload-schema`, колонки в Turso `game_saves`,
- *   `validateSaveData` / `formatSaveData`, нормализация в `normalize-repair-bench-from-save.ts`.
+ * - **STORE_VERSION 25:** в локальном persist добавлены `forgeMainTab: 'bench'` / `forgeBenchSubTab`, миграция со старых `repair`/`reforge`; неперсистящийся `workbenchBarBaseline` (полоса §8.5). В облако эти поля не попадают, пока не занесены в `collectSaveData` / Zod.
+ * - очередь верстака + активный прогон этапов: **`repairQueuePlan`** (сериализованный `workbenchQueue`),
+ *   `repairTechniqueStageRun` — `collectSaveData` / `applyLoadedData`, Zod (`save-payload-schema`, passthrough
+ *   для легаси ключей в POST), колонки в Turso `game_saves` (`lib/db.ts` / миграция D5 без `repairBench*`),
+ *   `validateSaveData` / `formatSaveData`, нормализация в `normalize-repair-bench-from-save.ts` при миграции старых блобов.
  *
  * - новые **техники ремонта** / теги в `repair-techniques-registry` / `damage-tag-registry` / маппинг событий
  *   `event-template-to-damage-tags` — без новых persist-полей на оружии обычно достаточно правок данных; иначе п. 1 и миграции.
@@ -46,6 +48,8 @@
  *   `secondBranchMode`, `thirdBranchMode` (см. `src/types/weapon-enchantment-tree.ts`); живут внутри JSON `weaponInventory`,
  *   отдельных колонок Turso не требуется. При изменении формы — `STORE_VERSION` / merge в store при необходимости.
  *
+ * - **Лента сообщений / квест FF:** `messagesDockEncyclopediaReadUpToTs`, `messagesDockArchivistReadUpToTs` в `forgottenForgePersist` (Zustand persist + облако при включении).
+ * - **Интендант крафта:** `unlockedCraftTechniqueIds` (store persist + `collectSaveData`/`applyLoadedData` + Zod + Turso/route).
  * - **§9.1 / §9.1.1 weaponLegacy на оружии:** `repairResolveCountByTagId`, `archivedDamageTagIds`, опционально
  *   `repairDiagnosisPreciseCountByTagId` / `repairDiagnosisRiskyCountByTagId` / `repairDiagnosisSkippedCountByTagId` —
  *   внутри JSON `weaponInventory` / guild / `craftV2Persisted`; нормализация в `migrateCraftedWeaponV2DamageFields`;

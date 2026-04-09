@@ -63,6 +63,52 @@ export interface BuildMissionDamageTagsInput {
    * (как при генерации миссии). Без поля — квалификация только по основным `effects`.
    */
   expeditionStartedAtMs?: number
+  currentDurability?: number
+  maxDurability?: number
+  existingDamageTagsCount?: number
+  /** Риск миссии в диапазоне [0..1], где 1 — максимально опасно. */
+  missionRisk?: number
+}
+
+function clamp01(v: number): number {
+  return Math.max(0, Math.min(1, v))
+}
+
+/**
+ * Базовая вероятность добавить тег для одного квалифицированного события.
+ * Требование баланса: >80% прочности -> 30%, 50..80% -> 40%.
+ */
+export function getBaseDamageChanceByDurabilityRatio(durabilityRatio: number): number {
+  return durabilityRatio > 0.8 ? 0.3 : 0.4
+}
+
+/**
+ * Нелинейный множитель риска от состояния миссии и уже накопленных тегов.
+ * Модель специально мягкая, чтобы не разгонять накопление в 2-3 тега за одну миссию.
+ */
+export function getNonlinearDamageChanceMultiplier(params: {
+  missionRisk: number
+  existingDamageTagsCount: number
+}): number {
+  const missionRisk = clamp01(params.missionRisk)
+  const tagPressure = Math.pow(Math.min(1, params.existingDamageTagsCount / 6), 1.35)
+  const riskPart = Math.pow(missionRisk, 1.4) * 0.7
+  const tagPart = tagPressure * 0.45
+  return 1 + riskPart + tagPart
+}
+
+export function rollDamageTagChance(params: {
+  durabilityRatio: number
+  missionRisk: number
+  existingDamageTagsCount: number
+}): boolean {
+  const base = getBaseDamageChanceByDurabilityRatio(params.durabilityRatio)
+  const mult = getNonlinearDamageChanceMultiplier({
+    missionRisk: params.missionRisk,
+    existingDamageTagsCount: params.existingDamageTagsCount,
+  })
+  const chance = Math.min(0.85, base * mult)
+  return Math.random() < chance
 }
 
 /**
@@ -72,14 +118,26 @@ export interface BuildMissionDamageTagsInput {
 export function buildActiveDamageTagsFromMissionSnapshots(
   input: BuildMissionDamageTagsInput
 ): ActiveDamageTagEntry[] {
-  const { snapshots, weaponWear, completedAtMs, presentElements, expeditionStartedAtMs } = input
+  const {
+    snapshots,
+    weaponWear,
+    completedAtMs,
+    presentElements,
+    expeditionStartedAtMs,
+    currentDurability = 100,
+    maxDurability = 100,
+    existingDamageTagsCount = 0,
+    missionRisk = 0.3,
+  } = input
   if (!snapshots.length) return []
 
   const severity = weaponWearToSeverity(weaponWear)
+  const durabilityRatio = maxDurability > 0 ? clamp01(currentDurability / maxDurability) : 0
   const sorted = [...snapshots].sort((a, b) => a.order - b.order || a.triggerOffsetSec - b.triggerOffsetSec)
 
   const out: ActiveDamageTagEntry[] = []
   const seenInstance = new Set<string>()
+  let appliedInThisMission = 0
 
   for (const snap of sorted) {
     if (seenInstance.has(snap.instanceId)) continue
@@ -97,12 +155,22 @@ export function buildActiveDamageTagsFromMissionSnapshots(
 
     for (const tagId of mapping.tagIds) {
       if (!isElementalDamageTagAllowedOnLocation(tagId, presentElements)) continue
+      if (
+        !rollDamageTagChance({
+          durabilityRatio,
+          missionRisk,
+          existingDamageTagsCount: existingDamageTagsCount + appliedInThisMission,
+        })
+      ) {
+        continue
+      }
       out.push({
         tagId,
         severity,
         sourceEventTemplateId: snap.templateId,
         appliedAt: completedAtMs,
       })
+      appliedInThisMission += 1
     }
   }
 

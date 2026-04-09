@@ -92,6 +92,8 @@ const CORE_MATERIAL_TO_RESOURCE: Record<string, ResourceKey> = {
   
   // Камень
   'basic_stone': 'stone',
+  /** Булыжник / полевой камень (энциклопедия), пул склада как у базового камня */
+  'fieldstone': 'stone',
   'granite': 'stone',
   'obsidian': 'stone',
   'marble': 'stone',

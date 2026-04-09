@@ -38,7 +38,8 @@ function emptyGuild(): GuildState {
 function mockDeps(over: Partial<GuildExpeditionStoreDeps> = {}): GuildExpeditionStoreDeps {
   return {
     guild: emptyGuild(),
-    repairBenchWeaponId: null,
+    workbenchQueue: [],
+    repairTechniqueStageRun: null,
     weaponInventory: { weapons: [] },
     player: initialPlayer,
     statistics: initialStatistics,

@@ -17,6 +17,11 @@ export interface RepairTechniqueExecutionOptions {
   }
   /** Наценка на материалы плана (автоподбор; см. getRepairAutoPickMaterialMarkup) */
   materialCostMultiplier?: number
+  /**
+   * Сколько этапов верстака уже отработано перед финалом (обычно = числу этапов плана в очереди).
+   * Даёт бонус к `baseSuccessChance` финального броска — см. `REPAIR_WORKBENCH_STAGE_*` в constants.
+   */
+  workbenchCompletedStages?: number
 }
 
 /** Tier §9.1.1 для снятого тега; `null` — не копить счётчики диагностики (старые вызовы без opts). */

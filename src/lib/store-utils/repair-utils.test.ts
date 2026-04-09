@@ -162,7 +162,12 @@ describe('technique plan repair helpers', () => {
   it('mapTechniqueIdsToRepairDiceProfile uses restoration for heavy soul/binding techniques', () => {
     expect(mapTechniqueIdsToRepairDiceProfile(['blade_soul_tending'])).toBe('restoration')
     expect(mapTechniqueIdsToRepairDiceProfile(['binding_relief'])).toBe('restoration')
+    expect(mapTechniqueIdsToRepairDiceProfile(['basic_metal_stress_relief'])).toBe('restoration')
     expect(mapTechniqueIdsToRepairDiceProfile(['edge_truing'])).toBe('standard')
+  })
+
+  it('mapTechniqueIdsToRepairDiceProfile uses quality for basic elemental stabilization', () => {
+    expect(mapTechniqueIdsToRepairDiceProfile(['basic_elemental_stabilization'])).toBe('quality')
   })
 
   it('resolveWeaponRepairPlanEconomy uses standard repair materials for durability maintenance; no gold', () => {

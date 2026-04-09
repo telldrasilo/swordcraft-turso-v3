@@ -97,6 +97,9 @@ interface CraftPlannerProps {
     partMaterialSupply?: Record<string, PartMaterialSupplyEntry>
   }) => void
   onBuyMaterials?: (materials: MaterialToBuy[], totalCost: number) => void
+
+  /** Один фиксированный рецепт (вкладка «Алтарь»): без сетки выбора формы */
+  fixedRecipeId?: string | null
 }
 
 // ================================
@@ -119,9 +122,12 @@ export function CraftPlanner({
   activeOrder = null,
   onStartCraft,
   onBuyMaterials,
+  fixedRecipeId = null,
 }: CraftPlannerProps) {
   // === STATE ===
-  const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null)
+  const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(() =>
+    fixedRecipeId ?? null
+  )
   const [selectedMaterials, setSelectedMaterials] = useState<Record<string, string>>({})
   const [selectedTechniques, setSelectedTechniques] = useState<string[]>([])
   const [shouldPurchaseMaterials, setShouldPurchaseMaterials] = useState(false)
@@ -279,8 +285,14 @@ export function CraftPlanner({
 
     if (shouldPurchaseMaterials) {
       if (!checkResult.canPurchaseMissing) return false
-      if (shouldTakeAdvance) return true
-      return gold >= checkResult.totalPurchaseCost
+      const need = checkResult.totalPurchaseCost
+      if (shouldTakeAdvance && activeOrder) {
+        const maxAdvance = Math.floor(activeOrder.goldReward * 0.5)
+        const alreadyTaken = activeOrder.advanceTaken ?? 0
+        const advanceStillAvailable = Math.max(0, maxAdvance - alreadyTaken)
+        return gold + advanceStillAvailable >= need
+      }
+      return gold >= need
     }
 
     return false
@@ -294,6 +306,7 @@ export function CraftPlanner({
     shouldPurchaseMaterials,
     shouldTakeAdvance,
     gold,
+    activeOrder,
     materialKnowledge,
     materialProcessingPlanValidation,
   ])
@@ -415,32 +428,41 @@ export function CraftPlanner({
   return (
     <div className="space-y-6">
       {/* Выбор рецепта */}
-      <Card className="bg-stone-900/50 border-stone-700">
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Package className="w-5 h-5 text-amber-400" />
-            Выберите рецепт
-          </CardTitle>
-          <CardDescription>
-            Доступно {recipes.length} рецептов
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ScrollArea className="h-[min(55vh,24rem)] sm:min-h-[14rem]">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 pr-3">
-              {recipes.map(recipe => (
-                <RecipeCard
-                  key={recipe.id}
-                  recipe={recipe}
-                  isSelected={selectedRecipeId === recipe.id}
-                  isAvailable={true}
-                  onSelect={() => handleSelectRecipe(recipe.id)}
-                />
-              ))}
-            </div>
-          </ScrollArea>
-        </CardContent>
-      </Card>
+      {!fixedRecipeId ? (
+        <Card className="bg-stone-900/50 border-stone-700">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Package className="w-5 h-5 text-amber-400" />
+              Выберите рецепт
+            </CardTitle>
+            <CardDescription>
+              Доступно {recipes.length} рецептов
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-[min(55vh,24rem)] sm:min-h-[14rem]">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 pr-3">
+                {recipes.map(recipe => (
+                  <RecipeCard
+                    key={recipe.id}
+                    recipe={recipe}
+                    isSelected={selectedRecipeId === recipe.id}
+                    isAvailable={true}
+                    onSelect={() => handleSelectRecipe(recipe.id)}
+                  />
+                ))}
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      ) : selectedRecipe ? (
+        <Card className="bg-stone-900/50 border-amber-900/40">
+          <CardHeader>
+            <CardTitle className="text-lg text-amber-200">{selectedRecipe.name}</CardTitle>
+            <CardDescription>{selectedRecipe.description}</CardDescription>
+          </CardHeader>
+        </Card>
+      ) : null}
       
       {/* Выбор материалов */}
       <AnimatePresence>

@@ -12,6 +12,12 @@ import type { RepairTechniqueDefinition, RepairTechniqueTier } from '@/types/wea
 /** Техника без видимых тегов: только износ прочности; стоимость материалов — как у базового ремонта прочности (`resolveWeaponRepairPlanEconomy`). */
 export const DURABILITY_MAINTENANCE_TECHNIQUE_ID = 'durability_maintenance' as const
 
+/** Базовая: трещина + мороз (ранняя игра). */
+export const BASIC_METAL_STRESS_RELIEF_TECHNIQUE_ID = 'basic_metal_stress_relief' as const
+
+/** Базовая: «ранние» стихии без лейта (пространство / тьма / аркана / скверна — только specialized). */
+export const BASIC_ELEMENTAL_STABILIZATION_TECHNIQUE_ID = 'basic_elemental_stabilization' as const
+
 const T_BASIC: RepairTechniqueTier = 'basic'
 const T_SPEC: RepairTechniqueTier = 'specialized'
 
@@ -36,8 +42,14 @@ export const REPAIR_TECHNIQUE_REGISTRY: RepairTechniqueDefinition[] = [
     id: 'edge_truing',
     name: 'Правка кромки',
     description:
-      'Снятие сколов и выравнивание режущей кромки; подходит для механических повреждений лезвия.',
-    clearsTagIds: ['physical_slash_chip', 'physical_blunt_dull', 'physical_puncture_gouge'],
+      'Снятие сколов, выравнивание кромки, грубая работа с зарубиной и вмятиной на полотне — простой ремонт с раннего уровня.',
+    clearsTagIds: [
+      'physical_slash_chip',
+      'physical_blunt_dull',
+      'physical_puncture_gouge',
+      'physical_gouge_chunk',
+      'physical_impact_dent',
+    ],
     stages: [
       { id: 'edge_inspect', name: 'Осмотр кромки', baseDurationSec: 8, category: 'preparation' },
       { id: 'edge_file', name: 'Правка напильником и бруском', baseDurationSec: 25, category: 'work' },
@@ -51,8 +63,9 @@ export const REPAIR_TECHNIQUE_REGISTRY: RepairTechniqueDefinition[] = [
   {
     id: 'haft_tightening',
     name: 'Перетяжка крепления',
-    description: 'Подтяжка рукояти, гарды и посадки клинка без полной пересборки.',
-    clearsTagIds: ['physical_loose_fitting', 'physical_handle_split'],
+    description:
+      'Подтяжка рукояти, гарды и посадки клинка; базовая рихтовка лёгкого перегиба узла без полной пересборки.',
+    clearsTagIds: ['physical_loose_fitting', 'physical_handle_split', 'physical_bend_warp'],
     stages: [
       { id: 'haft_strip', name: 'Частичная разборка узла', baseDurationSec: 10, category: 'preparation' },
       { id: 'haft_reset', name: 'Подтяжка и подкладки', baseDurationSec: 22, category: 'work' },
@@ -60,6 +73,50 @@ export const REPAIR_TECHNIQUE_REGISTRY: RepairTechniqueDefinition[] = [
     ],
     goldCost: 0,
     materials: { wood: 2 },
+    unlock: 'base',
+    repairTier: T_BASIC,
+  },
+  {
+    id: BASIC_METAL_STRESS_RELIEF_TECHNIQUE_ID,
+    name: 'Снятие усталости металла',
+    description:
+      'Полевой отжиг и аккуратная заправка: трещина в шейке и морозная сетка без дорогой оснастки. Грубее узкой техники — выше риск шрамов.',
+    clearsTagIds: ['physical_crack_fissure', 'elemental_frost_bite'],
+    stages: [
+      { id: 'bm_prep', name: 'Разметка зоны и снятие напряжения', baseDurationSec: 12, category: 'preparation' },
+      { id: 'bm_heat', name: 'Контролируемый нагрев и локальная заплавка', baseDurationSec: 28, category: 'work' },
+      { id: 'bm_fin', name: 'Остывание и контроль кромки', baseDurationSec: 12, category: 'finishing' },
+    ],
+    goldCost: 0,
+    materials: { coal: 1, ironIngot: 1 },
+    unlock: 'base',
+    repairTier: T_BASIC,
+    requiresPrepWarning: true,
+  },
+  {
+    id: BASIC_ELEMENTAL_STABILIZATION_TECHNIQUE_ID,
+    name: 'Стабилизация стихийного следа (базовая)',
+    description:
+      'Промывка, томление и уход по «обычным» следам стихий. Следы пространства, тьмы, арканы и скверны требуют узких техник.',
+    clearsTagIds: [
+      'elemental_fire_scorch',
+      'elemental_water_soak',
+      'elemental_earth_grit',
+      'elemental_air_shear',
+      'elemental_lightning_arc',
+      'elemental_poison_etch',
+      'elemental_light_sear',
+      'elemental_nature_bloom',
+      'elemental_blood_mark',
+      'elemental_corrosion_rot',
+    ],
+    stages: [
+      { id: 'bes_clean', name: 'Очистка и снятие окалины', baseDurationSec: 14, category: 'preparation' },
+      { id: 'bes_stab', name: 'Томление и нейтрализация', baseDurationSec: 26, category: 'work' },
+      { id: 'bes_oil', name: 'Пропитка и контроль', baseDurationSec: 12, category: 'finishing' },
+    ],
+    goldCost: 0,
+    materials: { ironIngot: 1, coal: 1, wood: 1 },
     unlock: 'base',
     repairTier: T_BASIC,
   },
@@ -182,14 +239,8 @@ export const REPAIR_TECHNIQUE_REGISTRY: RepairTechniqueDefinition[] = [
     id: 'elemental_veil_treatment',
     name: 'Стабилизация стихийного следа (II)',
     description:
-      'Работа со следами пространства, тьмы, света, арканы и крови; осторожный отжиг и нейтрализация по §3.1.',
-    clearsTagIds: [
-      'elemental_space_shift',
-      'elemental_darkness_stain',
-      'elemental_light_sear',
-      'elemental_arcane_noise',
-      'elemental_blood_mark',
-    ],
+      'Узкая работа со следами пространства, бездны (тьмы) и арканы — планы искажения и чужой частоты; свет и кровь снимает базовая промывка.',
+    clearsTagIds: ['elemental_space_shift', 'elemental_darkness_stain', 'elemental_arcane_noise'],
     stages: [
       { id: 'ev_mask', name: 'Изоляция зоны и снятие напряжения', baseDurationSec: 18, category: 'preparation' },
       { id: 'ev_rite', name: 'Ритуальная стабилизация / отжиг', baseDurationSec: 32, category: 'work' },

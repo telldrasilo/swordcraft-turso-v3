@@ -40,6 +40,12 @@ import type { WorkersSlice, Worker, WorkerClass, ProductionBuilding } from './sl
 import { initialBuildings, workerClassData } from './slices/workers-slice'
 
 import { createCraftSlice } from './slices/craft-slice'
+import {
+  createInventoryFilterSlice,
+  defaultInventoryFilterState,
+  normalizeInventoryFilterFromMerged,
+} from './slices/inventory-filter-slice'
+import type { InventoryFilterSlice } from './slices/inventory-filter-slice'
 import type {
   CraftSlice,
   ActiveCraft,
@@ -74,7 +80,15 @@ import { normalizeMaterialStudySessionsFromSave } from '@/lib/materials/normaliz
 // ================================
 
 import { mergeActiveRefiningFromSave } from '@/lib/save-craft-normalize'
-import { normalizeRepairTechniqueStageRunFromSave } from '@/lib/normalize-repair-bench-from-save'
+import {
+  normalizeRepairBenchSelectedWeaponIdFromSave,
+  normalizeRepairBenchWeaponIdsFromSave,
+  normalizeRepairTechniqueStageRunFromSave,
+} from '@/lib/normalize-repair-bench-from-save'
+import { normalizeWorkbenchQueueFromSave } from '@/lib/workbench/workbench-queue'
+import { withRecalculatedPowerScore } from '@/lib/craft/weapon-power-score'
+import { appendRepairQueueItemsFromLegacyBenchIds } from '@/lib/workbench/migrate-repair-bench-ids-to-queue'
+import type { WorkbenchBarBaseline } from '@/lib/workbench/workbench-bar-baseline'
 import type { MaterialKnowledge } from '@/types/materials/knowledge'
 import { createDiscoveredMaterialKnowledge } from '@/types/materials/knowledge'
 import type { RefiningRecipe } from '@/data/refining-recipes'
@@ -134,7 +148,11 @@ import {
   MAX_GUILD_LEVEL,
   migrateGuildReputationTierFromLegacy,
 } from '@/lib/guild-reputation-tier'
-import { getIntendantOfferById } from '@/data/guild/intendant-catalog'
+import {
+  getIntendantOfferById,
+  getIntendantRepairTechniqueOffer,
+  getIntendantReforgeTechniqueOffer,
+} from '@/data/guild/intendant-catalog'
 import type { ContractTier } from '@/types/contract'
 import { CONTRACT_REQUIREMENTS } from '@/types/contract'
 import { canOfferContract, createContract, terminateContract } from '@/lib/contract-manager'
@@ -174,8 +192,22 @@ import { initialTutorialState } from './slices/tutorial-slice'
 
 export type GameScreen = 'forge' | 'resources' | 'workers' | 'shop' | 'guild' | 'dungeons' | 'altar' | 'encyclopedia'
 
-/** Вкладки экрана кузницы (синхронизация с `ForgeScreen`) */
-export type ForgeMainTab = 'craft' | 'altar' | 'inventory' | 'repair' | 'reforge'
+/** Вкладки экрана гильдии (заказы / экспедиции / …) */
+export type GuildScreenTab =
+  | 'orders'
+  | 'expeditions'
+  | 'adventurers'
+  | 'intendant'
+  | 'stats'
+
+/** Подвкладки группы «Верстак» (ремонт / перековка) */
+export type ForgeBenchSubTab = 'repair' | 'reforge'
+
+/** Вкладки экрана кузницы (синхронизация с `ForgeScreen`); верстак — одна вкладка `bench`. */
+export type ForgeMainTab = 'craft' | 'altar' | 'inventory' | 'bench'
+
+/** Навигация: основная вкладка или подрежим верстака (`repair` / `reforge` открывают `bench` с нужным sub). */
+export type ForgeTabNavigate = ForgeMainTab | ForgeBenchSubTab
 
 // ================================
 // CROSS-SLICE ACTIONS INTERFACE
@@ -213,6 +245,12 @@ interface CrossSliceActions {
    * базового ремонта прочности на вкладке «Ремонт»). Профиль броска → таблицы `repair-system` в `repair-utils`.
    */
   executeWeaponRepairByTechniques: (
+    weaponId: string,
+    techniqueIds: string[],
+    opts?: import('@/types/repair-execution').RepairTechniqueExecutionOptions
+  ) => ExecuteRepairResult
+  /** Проверка плана и материалов перед стартом этапов (очередь верстака — на текущий склад). */
+  preflightWeaponRepairByTechniques: (
     weaponId: string,
     techniqueIds: string[],
     opts?: import('@/types/repair-execution').RepairTechniqueExecutionOptions
@@ -287,6 +325,8 @@ interface CrossSliceActions {
   spendGuildReputation: (amount: number) => boolean
   /** Повысить ранг гильдии, потратив накопленный прогресс в ранге. */
   guildRankUp: () => boolean
+  /** Отладка: шаг уровня гильдии (±1); сбрасывает прогресс в текущем ранге. */
+  devAdjustGuildLevel: (delta: number) => void
   /** Покупка предложения интенданта за репутацию. */
   purchaseIntendantOffer: (offerId: string) => { success: boolean; reason?: string }
   getAdventurerById: (id: string) => Adventurer | undefined
@@ -306,12 +346,6 @@ interface CrossSliceActions {
   // Repair helpers (мастерство от уровня игрока)
   getRepairOptions: (weaponId: string) => RepairOption[]
   getPlayerLevelForRepair: () => number
-  scheduleWeaponAutoRepair: (
-    weaponId: string,
-    opts?: { mode?: 'next_visit' }
-  ) => { success: boolean; error?: string }
-  settleAutoRepairForgeVisitReady: () => void
-  claimWeaponAutoRepair: (weaponId: string) => { success: boolean; error?: string }
   startWeaponDeepInspect: (weaponId: string) => { success: boolean; error?: string }
   completeWeaponDeepInspect: (weaponId: string) => { success: boolean; error?: string }
 
@@ -321,15 +355,25 @@ interface CrossSliceActions {
   getRecipeSource: (recipeId: string) => RecipeSource | undefined
   setCurrentScreen: (screen: GameScreen) => void
   /** Перейти в кузницу на выбранную вкладку (для ссылок из инвентаря и т.п.) */
-  navigateToForgeTab: (tab: ForgeMainTab) => void
+  navigateToForgeTab: (tab: ForgeTabNavigate) => void
   /** Сброс запроса вкладки после применения в `ForgeScreen` */
   clearForgeTabRequest: () => void
-  /** Текущая подвкладка кузницы (крафт / алтарь / инвентарь / ремонт / перековка) */
-  setForgeMainTab: (tab: ForgeMainTab) => void
+  /** Активная вкладка экрана гильдии (синхрон с `GuildScreen` Tabs) */
+  setGuildScreenTab: (tab: GuildScreenTab) => void
+  /** Ремонт: перейти в гильдию → интендант → фильтр «Техники ремонта», к карточке техники */
+  navigateToGuildIntendantRepairTechnique: (repairTechniqueId: string) => void
+  clearIntendantRepairTechniqueFocus: () => void
+  /** Перековка: гильдия → интендант → фильтр «Перековка», к карточке техники */
+  navigateToGuildIntendantReforgeTechnique: (reforgeTechniqueId: string) => void
+  clearIntendantReforgeTechniqueFocus: () => void
+  /** Текущая подвкладка кузницы; `repair`/`reforge` переключают верстак без смены верхнего ряда */
+  setForgeMainTab: (tab: ForgeTabNavigate) => void
   /** Узел алтаря собран в кузнице (завершение рецепта сборки; вкладка «Алтарь»). */
   setAltarBuiltInForge: (built: boolean) => void
+  /** Полоса очереди: зафиксировать/сбросить baseline (не в persist). */
+  setWorkbenchBarBaseline: (baseline: WorkbenchBarBaseline | null) => void
 
-  /** Перековка: оружие должно стоять на верстаке (`repairBenchWeaponId`). */
+  /** Перековка: применение к клинку из инвентаря (верстак — через очередь или UI выбора). */
   applyReforgeTechnique: (
     weaponId: string,
     techniqueId: string
@@ -384,10 +428,20 @@ interface AdditionalState {
   forgeTabRequest: ForgeMainTab | null
   /** Активная подвкладка кузницы (переживает размонтирование экрана) */
   forgeMainTab: ForgeMainTab
+  /** Подвкладка внутри «Верстак»: ремонт или перековка */
+  forgeBenchSubTab: ForgeBenchSubTab
+  /** Не персистится; зафиксированные доли полосы очереди на старте сессии §8.5 */
+  workbenchBarBaseline: WorkbenchBarBaseline | null
   /** Чертёж и артефакты после квеста «Эхо забытой кузни» (доступ вкладки «Алтарь» в кузнице) */
   altarUnlockedByForgottenForgeQuest: boolean
   /** Узел алтаря собран в кузнице (отдельно от гейта квеста; см. ENCHANTMENT_MODULE_PHASE2) */
   altarBuiltInForge: boolean
+  /** Не персистится; синхрон с вкладками `GuildScreen` */
+  guildScreenTab: GuildScreenTab
+  /** Не персистится; id техники ремонта — проскроллить карточку в интенданте */
+  intendantRepairTechniqueFocusId: string | null
+  /** Не персистится; id техники перековки — проскроллить карточку в интенданте */
+  intendantReforgeTechniqueFocusId: string | null
 }
 
 const initialAdditionalState: AdditionalState = {
@@ -399,8 +453,13 @@ const initialAdditionalState: AdditionalState = {
   shouldPurchaseMaterials: false, // Добавил для галочки закупки
   forgeTabRequest: null,
   forgeMainTab: 'craft',
+  forgeBenchSubTab: 'repair',
+  workbenchBarBaseline: null,
   altarUnlockedByForgottenForgeQuest: false,
   altarBuiltInForge: false,
+  guildScreenTab: 'orders',
+  intendantRepairTechniqueFocusId: null,
+  intendantReforgeTechniqueFocusId: null,
 }
 
 // ================================
@@ -412,6 +471,7 @@ export type GameStore = PlayerSlice &
   ResourcesSlice &
   WorkersSlice &
   CraftSlice &
+  InventoryFilterSlice &
   Omit<OrdersSlice, 'completeOrder'> &
   TutorialActions &
   AdditionalState &
@@ -423,8 +483,8 @@ export type GameStore = PlayerSlice &
 // STORE CREATION
 // ================================
 
-/** 2: ресурсы → stash; 3–4: руда в stash / алиасы; 4: развод металла (крафт → слитки); 8: техники обработки материала в кузне; 10: повреждения/наследие на оружии. 16: квест «Эхо забытой кузни», архивариус. 18: репутация гильдии по рангам + интендант. 19: спец-техники ремонта. 20: спец-техники перековки у интенданта. */
-const STORE_VERSION = 20
+/** … 26: persist фильтров + bench→queue. 27: repairBench* убраны из persist; merge всё ещё читает legacy-ключи из старых блобов. */
+const STORE_VERSION = 27
 const STORE_NAME = 'swordcraft-store-v2'
 
 /** SSR / Node: нельзя трогать `localStorage` — иначе ReferenceError и пустая страница «Error». */
@@ -460,6 +520,8 @@ export const useGameStore = create<GameStore>()(
       
       // Craft slice
       ...createCraftSlice(set as any, get as any, {} as any),
+
+      ...createInventoryFilterSlice(set as any, get as any, {} as any),
 
       // Orders slice
       ...ordersSlice,
@@ -873,15 +935,15 @@ export const useGameStore = create<GameStore>()(
         set((s) => ({
           weaponInventory: {
             ...s.weaponInventory,
-            weapons: s.weaponInventory.weapons.map(w =>
+            weapons: s.weaponInventory.weapons.map((w) =>
               w.id === weaponId
-                ? {
+                ? withRecalculatedPowerScore({
                     ...w,
                     enchantments: [
                       ...(w.enchantments || []),
-                      { id: generateId(), enchantmentId, appliedAt: Date.now() }
+                      { id: generateId(), enchantmentId, appliedAt: Date.now() },
                     ],
-                  }
+                  })
                 : w
             ),
           },
@@ -899,9 +961,12 @@ export const useGameStore = create<GameStore>()(
         set((s) => ({
           weaponInventory: {
             ...s.weaponInventory,
-            weapons: s.weaponInventory.weapons.map(w =>
+            weapons: s.weaponInventory.weapons.map((w) =>
               w.id === weaponId
-                ? { ...w, enchantments: w.enchantments?.filter(e => e.enchantmentId !== enchantmentId) }
+                ? withRecalculatedPowerScore({
+                    ...w,
+                    enchantments: w.enchantments?.filter((e) => e.enchantmentId !== enchantmentId),
+                  })
                 : w
             ),
           },
@@ -929,9 +994,9 @@ export const useGameStore = create<GameStore>()(
         set((s) => ({
           weaponInventory: {
             ...s.weaponInventory,
-            weapons: s.weaponInventory.weapons.map(w =>
+            weapons: s.weaponInventory.weapons.map((w) =>
               w.id === weaponId
-                ? {
+                ? withRecalculatedPowerScore({
                     ...w,
                     warSoul: Math.min(w.maxWarSoul ?? Infinity, w.warSoul + points),
                     currentDurability: newDurability,
@@ -939,7 +1004,7 @@ export const useGameStore = create<GameStore>()(
                     adventureCount: w.adventureCount + 1,
                     activeDamageTags: extra,
                     repairCondition,
-                  }
+                  })
                 : w
             ),
           },
@@ -1136,6 +1201,22 @@ export const useGameStore = create<GameStore>()(
         return true
       },
 
+      devAdjustGuildLevel: (delta: number) => {
+        if (delta === 0) return
+        const s = get()
+        const next = Math.max(1, Math.min(MAX_GUILD_LEVEL, s.guild.level + delta))
+        if (next === s.guild.level) return
+        const levelData = GUILD_LEVELS.find((l) => l.level === next)
+        set({
+          guild: {
+            ...s.guild,
+            level: next,
+            reputation: 0,
+            maxKnownAdventurers: levelData?.maxKnownAdventurers ?? s.guild.maxKnownAdventurers,
+          },
+        })
+      },
+
       purchaseIntendantOffer: (offerId) => {
         const offer = getIntendantOfferById(offerId)
         if (!offer) return { success: false, reason: 'unknown_offer' }
@@ -1154,6 +1235,20 @@ export const useGameStore = create<GameStore>()(
           if (!spent) return { success: false, reason: 'reputation' }
           set((s) => ({
             unlockedRepairTechniqueIds: [...s.unlockedRepairTechniqueIds, offer.targetId],
+          }))
+          return { success: true }
+        }
+        if (offer.kind === 'craft_technique') {
+          if (state.unlockedCraftTechniqueIds.includes(offer.targetId)) {
+            return { success: false, reason: 'already_unlocked' }
+          }
+          if (state.guild.reputation < offer.costReputation) {
+            return { success: false, reason: 'reputation' }
+          }
+          const spent = get().spendGuildReputation(offer.costReputation)
+          if (!spent) return { success: false, reason: 'reputation' }
+          set((s) => ({
+            unlockedCraftTechniqueIds: [...s.unlockedCraftTechniqueIds, offer.targetId],
           }))
           return { success: true }
         }
@@ -1256,21 +1351,56 @@ export const useGameStore = create<GameStore>()(
       setCurrentScreen: (screen) => set({ currentScreen: screen }),
 
       navigateToForgeTab: (tab) =>
-        set({ currentScreen: 'forge', forgeTabRequest: tab, forgeMainTab: tab }),
+        tab === 'repair' || tab === 'reforge'
+          ? set({
+              currentScreen: 'forge',
+              forgeTabRequest: 'bench',
+              forgeMainTab: 'bench',
+              forgeBenchSubTab: tab,
+            })
+          : set({ currentScreen: 'forge', forgeTabRequest: tab, forgeMainTab: tab }),
 
       clearForgeTabRequest: () => set({ forgeTabRequest: null }),
 
-      setForgeMainTab: (tab: ForgeMainTab) => set({ forgeMainTab: tab }),
+      setGuildScreenTab: (tab: GuildScreenTab) => set({ guildScreenTab: tab }),
+
+      navigateToGuildIntendantRepairTechnique: (repairTechniqueId: string) => {
+        const offer = getIntendantRepairTechniqueOffer(repairTechniqueId)
+        if (!offer) return
+        set({
+          currentScreen: 'guild',
+          guildScreenTab: 'intendant',
+          intendantRepairTechniqueFocusId: repairTechniqueId,
+        })
+      },
+
+      clearIntendantRepairTechniqueFocus: () => set({ intendantRepairTechniqueFocusId: null }),
+
+      navigateToGuildIntendantReforgeTechnique: (reforgeTechniqueId: string) => {
+        const offer = getIntendantReforgeTechniqueOffer(reforgeTechniqueId)
+        if (!offer) return
+        set({
+          currentScreen: 'guild',
+          guildScreenTab: 'intendant',
+          intendantReforgeTechniqueFocusId: reforgeTechniqueId,
+        })
+      },
+
+      clearIntendantReforgeTechniqueFocus: () => set({ intendantReforgeTechniqueFocusId: null }),
+
+      setForgeMainTab: (tab) =>
+        tab === 'repair' || tab === 'reforge'
+          ? set({ forgeMainTab: 'bench', forgeBenchSubTab: tab })
+          : set({ forgeMainTab: tab }),
 
       setAltarBuiltInForge: (built: boolean) => set({ altarBuiltInForge: built }),
+
+      setWorkbenchBarBaseline: (baseline) => set({ workbenchBarBaseline: baseline }),
 
       applyReforgeTechnique: (weaponId, techniqueId) => {
         const state = get()
         const weapon = state.weaponInventory.weapons.find((w) => w.id === weaponId)
         if (!weapon) return { ok: false, reason: 'no_weapon' }
-        if (state.repairBenchWeaponId !== weaponId) {
-          return { ok: false, reason: 'not_on_bench' }
-        }
         const result = applyReforgeTechniquePure(weapon, techniqueId, {
           guildLevel: state.guild.level,
           playerLevel: state.player.level,
@@ -1282,7 +1412,7 @@ export const useGameStore = create<GameStore>()(
           weaponInventory: {
             ...s.weaponInventory,
             weapons: s.weaponInventory.weapons.map((w) =>
-              w.id === weaponId ? result.weapon : w
+              w.id === weaponId ? withRecalculatedPowerScore(result.weapon) : w
             ),
           },
         }))
@@ -1317,14 +1447,17 @@ export const useGameStore = create<GameStore>()(
           workers: [],
           buildings: initialBuildings,
           weaponInventory: initialWeaponInventory,
-          repairBenchWeaponId: null,
           repairBenchTechniqueDraft: null,
+          workbenchQueue: [],
+          workbenchSelectedWeaponId: null,
+          workbenchQueueAdvanceBlocked: false,
           repairTechniqueStageRun: null,
           unlockedRecipes: initialUnlockedRecipes,
           recipeSources: [],
           unlockedEnchantments: [],
           unlockedMaterialProcessingTechniqueIds: [],
           unlockedRepairTechniqueIds: [],
+          unlockedCraftTechniqueIds: [],
           unlockedReforgeTechniqueIds: [],
           guild: initialGuildState,
           knownAdventurers: [],
@@ -1335,10 +1468,16 @@ export const useGameStore = create<GameStore>()(
           craftV2Persisted: initialCraftV2Persisted,
           forgeTabRequest: null,
           forgeMainTab: 'craft',
+          forgeBenchSubTab: 'repair',
+          workbenchBarBaseline: null,
           altarUnlockedByForgottenForgeQuest: false,
           altarBuiltInForge: false,
+          guildScreenTab: 'orders',
+          intendantRepairTechniqueFocusId: null,
+          intendantReforgeTechniqueFocusId: null,
           ...initialEncyclopediaState,
           ...initialForgottenForgeQuestSlice,
+          ...defaultInventoryFilterState,
         }
 
         set(initialState as any)
@@ -1365,7 +1504,7 @@ export const useGameStore = create<GameStore>()(
       workers: state.workers,
       buildings: state.buildings,
       maxWorkers: state.maxWorkers,
-      repairBenchWeaponId: state.repairBenchWeaponId,
+      repairQueuePlan: state.workbenchQueue,
       repairTechniqueStageRun: state.repairTechniqueStageRun,
       weaponInventory: state.weaponInventory,
       unlockedRecipes: state.unlockedRecipes,
@@ -1373,13 +1512,19 @@ export const useGameStore = create<GameStore>()(
       unlockedEnchantments: state.unlockedEnchantments,
       unlockedMaterialProcessingTechniqueIds: state.unlockedMaterialProcessingTechniqueIds,
       unlockedRepairTechniqueIds: state.unlockedRepairTechniqueIds,
+      unlockedCraftTechniqueIds: state.unlockedCraftTechniqueIds,
       unlockedReforgeTechniqueIds: state.unlockedReforgeTechniqueIds,
+      inventorySortBy: state.inventorySortBy,
+      inventoryFilterQuality: state.inventoryFilterQuality,
+      inventoryFilterDamage: state.inventoryFilterDamage,
       guild: state.guild,
       knownAdventurers: state.knownAdventurers,
       orders: state.orders,
       activeOrderId: state.activeOrderId,
       tutorial: state.tutorial,
       currentScreen: state.currentScreen,
+      forgeMainTab: state.forgeMainTab,
+      forgeBenchSubTab: state.forgeBenchSubTab,
       craftV2Persisted: state.craftV2Persisted,
       activeRefining: state.activeRefining,
       shouldPurchaseMaterials: state.shouldPurchaseMaterials,
@@ -1392,6 +1537,8 @@ export const useGameStore = create<GameStore>()(
       archivistPendingChoices: state.archivistPendingChoices,
       altarUnlockedByForgottenForgeQuest: state.altarUnlockedByForgottenForgeQuest,
       altarBuiltInForge: state.altarBuiltInForge,
+      messagesDockEncyclopediaReadUpToTs: state.messagesDockEncyclopediaReadUpToTs,
+      messagesDockArchivistReadUpToTs: state.messagesDockArchivistReadUpToTs,
     }),
     migrate: (persistedState, oldVersion) => {
       if (
@@ -1556,6 +1703,68 @@ export const useGameStore = create<GameStore>()(
         }
         return next
       }
+      if (oldVersion < 21) {
+        const next = { ...p } as Record<string, unknown>
+        if (typeof next['messagesDockEncyclopediaReadUpToTs'] !== 'number') {
+          next['messagesDockEncyclopediaReadUpToTs'] = 0
+        }
+        if (typeof next['messagesDockArchivistReadUpToTs'] !== 'number') {
+          next['messagesDockArchivistReadUpToTs'] = 0
+        }
+        return next
+      }
+      if (oldVersion < 22) {
+        const next = { ...p } as Record<string, unknown>
+        if (!Array.isArray(next['unlockedCraftTechniqueIds'])) {
+          next['unlockedCraftTechniqueIds'] = []
+        }
+        return next
+      }
+      if (oldVersion < 23) {
+        const next = { ...p } as Record<string, unknown>
+        if (!Array.isArray(next['repairBenchWeaponIds'])) {
+          next['repairBenchWeaponIds'] = []
+        }
+        if (typeof next['repairBenchSelectedWeaponId'] !== 'string') {
+          next['repairBenchSelectedWeaponId'] = null
+        }
+        if (!Array.isArray(next['repairQueuePlan'])) {
+          next['repairQueuePlan'] = []
+        }
+        return next
+      }
+      if (oldVersion < 24) {
+        const next = { ...p } as Record<string, unknown>
+        const raw = next['repairQueuePlan']
+        next['repairQueuePlan'] = normalizeWorkbenchQueueFromSave(Array.isArray(raw) ? raw : [])
+        next['repairBenchWeaponIds'] = []
+        next['repairBenchSelectedWeaponId'] = null
+        return next
+      }
+      if (oldVersion < 25) {
+        const next = { ...p } as Record<string, unknown>
+        const fm = next['forgeMainTab']
+        if (fm === 'repair' || fm === 'reforge') {
+          next['forgeBenchSubTab'] = fm
+          next['forgeMainTab'] = 'bench'
+        }
+        if (next['forgeBenchSubTab'] !== 'repair' && next['forgeBenchSubTab'] !== 'reforge') {
+          next['forgeBenchSubTab'] = 'repair'
+        }
+        return next
+      }
+      if (oldVersion < 26) {
+        const next = { ...p } as Record<string, unknown>
+        normalizeInventoryFilterFromMerged(next)
+        return next
+      }
+      if (oldVersion < 27) {
+        const next = { ...p } as Record<string, unknown>
+        delete next['repairBenchWeaponIds']
+        delete next['repairBenchSelectedWeaponId']
+        delete next['repairBenchWeaponId']
+        return next
+      }
       return persistedState
     },
     merge: (persistedState: any, currentState) => {
@@ -1569,17 +1778,47 @@ export const useGameStore = create<GameStore>()(
           (merged as any)[key] = persisted[key]
         }
       }
-      const benchId = (merged as { repairBenchWeaponId?: unknown }).repairBenchWeaponId
-      if (benchId != null && typeof benchId !== 'string') {
-        ;(merged as { repairBenchWeaponId: string | null }).repairBenchWeaponId = null
-      }
       const weapons = (merged as { weaponInventory?: { weapons?: { id?: string }[] } })
         .weaponInventory?.weapons ?? []
+      const benchIds = normalizeRepairBenchWeaponIdsFromSave(
+        (merged as { repairBenchWeaponIds?: unknown }).repairBenchWeaponIds,
+        (merged as { repairBenchWeaponId?: unknown }).repairBenchWeaponId,
+        weapons
+      )
+      const rawWorkbenchQueue = (merged as { repairQueuePlan?: unknown }).repairQueuePlan
+      let workbenchQueueNormalized = normalizeWorkbenchQueueFromSave(
+        Array.isArray(rawWorkbenchQueue) ? rawWorkbenchQueue : []
+      )
+      const migrated = appendRepairQueueItemsFromLegacyBenchIds({
+        benchIds,
+        queue: workbenchQueueNormalized,
+      })
+      if (migrated.addedCount > 0) {
+        workbenchQueueNormalized = migrated.queue
+      }
+      ;(merged as { workbenchQueue: typeof workbenchQueueNormalized }).workbenchQueue =
+        workbenchQueueNormalized
+      delete (merged as Record<string, unknown>)['repairQueuePlan']
+      normalizeInventoryFilterFromMerged(merged as Record<string, unknown>)
+      const legacyWorkbenchSelected = normalizeRepairBenchSelectedWeaponIdFromSave(
+        (merged as { repairBenchSelectedWeaponId?: unknown }).repairBenchSelectedWeaponId,
+        benchIds
+      )
+      if (
+        (merged as { workbenchSelectedWeaponId?: string | null }).workbenchSelectedWeaponId == null &&
+        legacyWorkbenchSelected
+      ) {
+        ;(merged as { workbenchSelectedWeaponId: string | null }).workbenchSelectedWeaponId =
+          legacyWorkbenchSelected
+      }
+      delete (merged as Record<string, unknown>)['repairBenchWeaponIds']
+      delete (merged as Record<string, unknown>)['repairBenchSelectedWeaponId']
+      delete (merged as Record<string, unknown>)['repairBenchWeaponId']
       ;(merged as { repairTechniqueStageRun: RepairTechniqueStageRunState | null }).repairTechniqueStageRun =
         normalizeRepairTechniqueStageRunFromSave(
           (merged as { repairTechniqueStageRun?: unknown }).repairTechniqueStageRun,
-          (merged as { repairBenchWeaponId: string | null }).repairBenchWeaponId ?? null,
-          weapons
+          weapons,
+          workbenchQueueNormalized
         )
       merged.guild = {
         ...currentState.guild,
@@ -1624,6 +1863,9 @@ export const useGameStore = create<GameStore>()(
       if (!Array.isArray((merged as { unlockedRepairTechniqueIds?: unknown }).unlockedRepairTechniqueIds)) {
         ;(merged as { unlockedRepairTechniqueIds: string[] }).unlockedRepairTechniqueIds = []
       }
+      if (!Array.isArray((merged as { unlockedCraftTechniqueIds?: unknown }).unlockedCraftTechniqueIds)) {
+        ;(merged as { unlockedCraftTechniqueIds: string[] }).unlockedCraftTechniqueIds = []
+      }
       if (!Array.isArray((merged as { unlockedReforgeTechniqueIds?: unknown }).unlockedReforgeTechniqueIds)) {
         ;(merged as { unlockedReforgeTechniqueIds: string[] }).unlockedReforgeTechniqueIds = []
       }
@@ -1652,9 +1894,32 @@ export const useGameStore = create<GameStore>()(
       }
       ;(merged as { materialKnowledge: Record<string, MaterialKnowledge> }).materialKnowledge = mk
       normalizeWeaponDamageInMergedState(merged as Parameters<typeof normalizeWeaponDamageInMergedState>[0])
-      const m = merged as { forgeMainTab?: ForgeMainTab | 'shop' }
+      const invPower = (merged as { weaponInventory?: WeaponInventory }).weaponInventory
+      if (invPower?.weapons?.length) {
+        ;(merged as { weaponInventory: WeaponInventory }).weaponInventory = {
+          ...invPower,
+          weapons: invPower.weapons.map((w) => withRecalculatedPowerScore(w)),
+        }
+      }
+      const m = merged as {
+        forgeMainTab?: ForgeMainTab | 'shop' | 'repair' | 'reforge'
+        forgeBenchSubTab?: ForgeBenchSubTab
+      }
       if (m.forgeMainTab == null) m.forgeMainTab = 'craft'
       if (m.forgeMainTab === 'shop') m.forgeMainTab = 'craft'
+      if (m.forgeMainTab === 'repair' || m.forgeMainTab === 'reforge') {
+        m.forgeBenchSubTab = m.forgeMainTab
+        m.forgeMainTab = 'bench'
+      }
+      if (m.forgeMainTab === 'bench') {
+        if (m.forgeBenchSubTab !== 'repair' && m.forgeBenchSubTab !== 'reforge') {
+          m.forgeBenchSubTab = 'repair'
+        }
+      } else if (m.forgeBenchSubTab !== 'repair' && m.forgeBenchSubTab !== 'reforge') {
+        m.forgeBenchSubTab = 'repair'
+      }
+      ;(merged as { forgeBenchSubTab: ForgeBenchSubTab }).forgeBenchSubTab =
+        m.forgeBenchSubTab ?? 'repair'
       const ff = merged as {
         forgottenForgeQuest?: ForgottenForgeQuestState
         forgottenForgePhase?: string
@@ -1684,6 +1949,16 @@ export const useGameStore = create<GameStore>()(
       }
       if (typeof ff.altarBuiltInForge !== 'boolean') {
         ff.altarBuiltInForge = false
+      }
+      const mdd = merged as {
+        messagesDockEncyclopediaReadUpToTs?: number
+        messagesDockArchivistReadUpToTs?: number
+      }
+      if (typeof mdd.messagesDockEncyclopediaReadUpToTs !== 'number') {
+        mdd.messagesDockEncyclopediaReadUpToTs = 0
+      }
+      if (typeof mdd.messagesDockArchivistReadUpToTs !== 'number') {
+        mdd.messagesDockArchivistReadUpToTs = 0
       }
       if (m.forgeMainTab === 'altar' && ff.altarUnlockedByForgottenForgeQuest !== true) {
         m.forgeMainTab = 'craft'

@@ -6,7 +6,7 @@
 'use client'
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Shield, Users, Trophy, Map, Scroll, Crown, TrendingUp, ShoppingBag } from 'lucide-react'
+import { Shield, Users, Trophy, Map, Scroll, Crown, TrendingUp, ShoppingBag, Minus, Plus } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
@@ -16,7 +16,7 @@ import { GuildStatsSection } from './presentation/GuildStatsSection'
 import { ContractsSection } from './contracts-section'
 import { ReputationNotificationContainer } from './ReputationNotification'
 import { IntendantSection } from './intendant-section'
-import { useGameStore } from '@/store/game-store-composed'
+import { useGameStore, type GuildScreenTab } from '@/store/game-store-composed'
 import { getMaxActiveExpeditions } from '@/types/guild'
 import {
   getRankUpCost,
@@ -30,6 +30,9 @@ export function GuildScreen() {
   const resources = useGameStore((state) => state.resources)
   const terminateGuildContract = useGameStore((state) => state.terminateGuildContract)
   const guildRankUp = useGameStore((state) => state.guildRankUp)
+  const devAdjustGuildLevel = useGameStore((state) => state.devAdjustGuildLevel)
+  const guildScreenTab = useGameStore((state) => state.guildScreenTab)
+  const setGuildScreenTab = useGameStore((state) => state.setGuildScreenTab)
   const [previousLevel, setPreviousLevel] = useState(guild.level)
   const [showLevelUpNotification, setShowLevelUpNotification] = useState(false)
 
@@ -74,9 +77,33 @@ export function GuildScreen() {
           <div className="flex items-center gap-4">
             <div className="text-right">
               <div className="text-xs text-gray-500">Уровень гильдии</div>
-              <div className="text-2xl font-bold text-amber-300 flex items-center gap-2">
-                <Crown className="w-5 h-5 text-amber-500" />
-                {currentLevel}
+              <div className="text-2xl font-bold text-amber-300 flex items-center justify-end gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 border-stone-600 text-stone-300 hover:bg-stone-800"
+                  title="Понизить уровень (тест)"
+                  aria-label="Понизить уровень гильдии"
+                  disabled={currentLevel <= 1}
+                  onClick={() => devAdjustGuildLevel(-1)}
+                >
+                  <Minus className="h-4 w-4" />
+                </Button>
+                <Crown className="w-5 h-5 text-amber-500 shrink-0" />
+                <span className="min-w-[1.5ch] tabular-nums">{currentLevel}</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 border-stone-600 text-stone-300 hover:bg-stone-800"
+                  title="Повысить уровень (тест)"
+                  aria-label="Повысить уровень гильдии"
+                  disabled={currentLevel >= MAX_GUILD_LEVEL}
+                  onClick={() => devAdjustGuildLevel(1)}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
               </div>
             </div>
           </div>
@@ -176,7 +203,11 @@ export function GuildScreen() {
         </div>
       )}
 
-      <Tabs defaultValue="orders" className="space-y-4">
+      <Tabs
+        value={guildScreenTab}
+        onValueChange={(v) => setGuildScreenTab(v as GuildScreenTab)}
+        className="space-y-4"
+      >
         <TabsList className="grid w-full min-h-11 grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1 h-auto">
           <TabsTrigger value="orders" className="gap-2">
             <Scroll className="w-4 h-4" />

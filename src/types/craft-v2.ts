@@ -529,6 +529,9 @@ export interface CraftedWeaponV2 {
   quality: number
   qualityGrade: QualityGrade
   qualityRank: QualityRank        // Новое: ранг F-S
+
+  /** Сводная мощь для сортировки в инвентаре/верстаке; пересчёт — `recalculateWeaponPowerScore`. */
+  powerScore?: number
   
   // Душа Войны
   warSoul: number

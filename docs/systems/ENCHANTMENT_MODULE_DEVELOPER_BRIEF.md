@@ -315,9 +315,10 @@ WarSoulSynergyRule:
 | Поле / поведение | Смысл |
 |------------------|--------|
 | `weaponReforge` на экземпляре | Состояние баффов и пробуждения шрамов |
-| `buffStat` | Случайная прибавка % в диапазоне из реестра; фиксированная стоимость `warSoul` за применение |
-| `awakenScar` | Списание **всей** текущей `warSoul` на попытку; шанс по формуле данных; при успехе — один шрам помечен, **`scarAwakeningCompleted`** = true (фаза 1 — не более одного успеха на экземпляр) |
-| Верстак | Тот же `repairBenchWeaponId`, что и ремонт |
+| `buffStat` | Случайная прибавка % в диапазоне из реестра; **`warSoulCost`** задаётся в реестре (калибровка к ранней ДВ). Успех `applyReforgeTechniquePure`: поле **`buff`** (ролл %, статы до/после, списание ДВ) |
+| `awakenScar` | Списание **всей** текущей `warSoul` на попытку; шанс: база + вклад «пула» + бонус тира (для uncapped `maxWarSoul` пул через `resolveWarSoulProgressBarMax`, см. `computeAwakenPoolRatio`); выбор шрама — взвешенный по весам наследия. При успехе — один шрам помечен, **`scarAwakeningCompleted`** = true (фаза 1 — не более одного успеха на экземпляр) |
+| Верстак | Тот же слот, что и ремонт: `repairBenchWeaponIds` + `repairBenchSelectedWeaponId`; применение только если id в `repairBenchWeaponIds` |
+| Интендант | `navigateToGuildIntendantReforgeTechnique(techniqueId)` + эфемерный `intendantReforgeTechniqueFocusId` (как для ремонтных техник) |
 | Разблокировка строк реестра | `minGuildLevel` (гильдия); опционально `sourceCraftTechniqueId` — техника обработки материалов доступна, если `unlockedByDefault` в её данных **или** id входит в эффективный список планировщика от **`player.level`** и **`unlockedMaterialProcessingTechniqueIds`** (как в крафте v2), см. [`planner-unlocked-techniques.ts`](../../src/lib/craft/planner-unlocked-techniques.ts) |
 | Гейт экрана «Зачарования» | К перековке **не** применяется (перековка в кузнице независима) |
 

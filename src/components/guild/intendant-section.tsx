@@ -4,9 +4,9 @@
 
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { CheckCircle, Lock, Package, Scroll, ShoppingBag, Sparkles, Wrench } from 'lucide-react'
+import { CheckCircle, Hammer, Lock, Package, Scroll, ShoppingBag, Sparkles, Wrench } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -14,15 +14,17 @@ import { useGameStore } from '@/store'
 import { cn } from '@/lib/utils'
 import {
   INTENDANT_OFFERS,
+  getIntendantRepairTechniqueOffer,
+  getIntendantReforgeTechniqueOffer,
   type IntendantOfferKind,
 } from '@/data/guild/intendant-catalog'
 import { getReforgeTechniqueById } from '@/data/reforge/reforge-techniques-registry'
 import { isReforgeTechniqueUnlocked } from '@/lib/reforge'
 import {
-  rarityBgColors,
-  rarityBorderColors,
-  rarityColors,
-} from '@/data/recipe-shop'
+  intendantRarityBgColors,
+  intendantRarityBorderColors,
+  intendantRarityColors,
+} from '@/data/guild/intendant-pricing'
 
 type FilterTab = 'all' | IntendantOfferKind
 
@@ -34,9 +36,60 @@ export function IntendantSection() {
   const unlockedMaterialProcessingTechniqueIds = useGameStore(
     (state) => state.unlockedMaterialProcessingTechniqueIds
   )
+  const unlockedCraftTechniqueIds = useGameStore((state) => state.unlockedCraftTechniqueIds)
   const unlockedReforgeTechniqueIds = useGameStore((state) => state.unlockedReforgeTechniqueIds)
   const purchaseIntendantOffer = useGameStore((state) => state.purchaseIntendantOffer)
+  const intendantRepairTechniqueFocusId = useGameStore(
+    (state) => state.intendantRepairTechniqueFocusId
+  )
+  const clearIntendantRepairTechniqueFocus = useGameStore(
+    (state) => state.clearIntendantRepairTechniqueFocus
+  )
+  const intendantReforgeTechniqueFocusId = useGameStore(
+    (state) => state.intendantReforgeTechniqueFocusId
+  )
+  const clearIntendantReforgeTechniqueFocus = useGameStore(
+    (state) => state.clearIntendantReforgeTechniqueFocus
+  )
   const [filter, setFilter] = useState<FilterTab>('all')
+
+  useEffect(() => {
+    const techId = intendantRepairTechniqueFocusId
+    if (!techId) return
+    const offer = getIntendantRepairTechniqueOffer(techId)
+    if (!offer) {
+      clearIntendantRepairTechniqueFocus()
+      return
+    }
+    queueMicrotask(() => setFilter('repair_technique'))
+    const id = window.setTimeout(() => {
+      document.getElementById(`intendant-offer-${offer.id}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      })
+      clearIntendantRepairTechniqueFocus()
+    }, 160)
+    return () => window.clearTimeout(id)
+  }, [intendantRepairTechniqueFocusId, clearIntendantRepairTechniqueFocus])
+
+  useEffect(() => {
+    const techId = intendantReforgeTechniqueFocusId
+    if (!techId) return
+    const offer = getIntendantReforgeTechniqueOffer(techId)
+    if (!offer) {
+      clearIntendantReforgeTechniqueFocus()
+      return
+    }
+    queueMicrotask(() => setFilter('reforge_technique'))
+    const id = window.setTimeout(() => {
+      document.getElementById(`intendant-offer-${offer.id}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      })
+      clearIntendantReforgeTechniqueFocus()
+    }, 160)
+    return () => window.clearTimeout(id)
+  }, [intendantReforgeTechniqueFocusId, clearIntendantReforgeTechniqueFocus])
 
   const reforgeCtx = useMemo(
     () => ({
@@ -56,6 +109,9 @@ export function IntendantSection() {
   const isUnlocked = (o: (typeof INTENDANT_OFFERS)[0]) => {
     if (o.kind === 'repair_technique') {
       return unlockedRepairTechniqueIds.includes(o.targetId)
+    }
+    if (o.kind === 'craft_technique') {
+      return unlockedCraftTechniqueIds.includes(o.targetId)
     }
     if (o.kind === 'reforge_technique') {
       const t = getReforgeTechniqueById(o.targetId)
@@ -119,6 +175,16 @@ export function IntendantSection() {
         </Button>
         <Button
           type="button"
+          variant={filter === 'craft_technique' ? 'default' : 'outline'}
+          size="sm"
+          className="gap-1"
+          onClick={() => setFilter('craft_technique')}
+        >
+          <Hammer className="w-4 h-4" />
+          Техники крафта
+        </Button>
+        <Button
+          type="button"
           variant={filter === 'reforge_technique' ? 'default' : 'outline'}
           size="sm"
           className="gap-1"
@@ -138,6 +204,7 @@ export function IntendantSection() {
           return (
             <motion.div
               key={offer.id}
+              id={`intendant-offer-${offer.id}`}
               layout
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
@@ -145,7 +212,7 @@ export function IntendantSection() {
               <Card
                 className={cn(
                   'border transition-all h-full',
-                  rarityBorderColors[offer.rarity],
+                  intendantRarityBorderColors[offer.rarity],
                   unlocked ? 'opacity-90' : ''
                 )}
               >
@@ -155,7 +222,13 @@ export function IntendantSection() {
                       <h3 className="font-semibold text-stone-100 leading-tight">{offer.name}</h3>
                       <p className="text-xs text-stone-500 mt-1 line-clamp-3">{offer.description}</p>
                     </div>
-                    <Badge className={cn('shrink-0', rarityBgColors[offer.rarity], rarityColors[offer.rarity])}>
+                    <Badge
+                      className={cn(
+                        'shrink-0',
+                        intendantRarityBgColors[offer.rarity],
+                        intendantRarityColors[offer.rarity]
+                      )}
+                    >
                       {offer.rarity}
                     </Badge>
                   </div>

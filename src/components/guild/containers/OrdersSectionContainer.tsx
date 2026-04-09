@@ -12,6 +12,8 @@ import { AlertTriangle } from 'lucide-react'
 import type { NPCOrder } from '@/types/npc-order'
 import { type OrderGenerationContext } from '@/lib/store-utils/order-achievable-utils'
 import { hiddenTagsSatisfyOrderMaterial } from '@/lib/craft/weapon-display-meta'
+import { shouldPromptExpeditionWorkbenchQueueDialog, countPlannedWorkbenchItemsForWeapon } from '@/lib/workbench/workbench-expedition-guard'
+import { WorkbenchPlannedQueueAlert } from '@/components/shared/workbench-planned-queue-alert'
 
 export function OrdersSectionContainer() {
   // Store selectors
@@ -24,11 +26,17 @@ export function OrdersSectionContainer() {
   const completeOrder = useGameStore((state) => state.completeOrder)
   const refreshOrders = useGameStore((state) => state.refreshOrders)
   const weaponInventory = useGameStore((state) => state.weaponInventory)
+  const workbenchQueue = useGameStore((state) => state.workbenchQueue)
+  const repairTechniqueStageRun = useGameStore((state) => state.repairTechniqueStageRun)
+  const removeAllPlannedWorkbenchItemsForWeapon = useGameStore(
+    (state) => state.removeAllPlannedWorkbenchItemsForWeapon
+  )
   const resources = useGameStore((state) => state.resources)
   const unlockedRecipes = useGameStore((state) => state.unlockedRecipes)
 
   // Local state
   const [showWeaponSelect, setShowWeaponSelect] = useState<string | null>(null)
+  const [orderWorkbenchWeaponId, setOrderWorkbenchWeaponId] = useState<string | null>(null)
   const [showAdvanceDialog, setShowAdvanceDialog] = useState<NPCOrder | null>(null)
   const [showCancelDialog, setShowCancelDialog] = useState<NPCOrder | null>(null)
 
@@ -117,11 +125,20 @@ export function OrdersSectionContainer() {
     setShowAdvanceDialog(null)
   }
 
+  const finishOrderWithWeapon = (orderId: string, weaponId: string) => {
+    completeOrder(orderId, weaponId)
+    setShowWeaponSelect(null)
+  }
+
   const handleCompleteOrder = (weaponId: string) => {
-    if (showWeaponSelect) {
-      completeOrder(showWeaponSelect, weaponId)
-      setShowWeaponSelect(null)
+    if (!showWeaponSelect) return
+    if (
+      shouldPromptExpeditionWorkbenchQueueDialog(weaponId, workbenchQueue, repairTechniqueStageRun)
+    ) {
+      setOrderWorkbenchWeaponId(weaponId)
+      return
     }
+    finishOrderWithWeapon(showWeaponSelect, weaponId)
   }
 
   const handleCancelWeaponSelect = () => {
@@ -140,6 +157,11 @@ export function OrdersSectionContainer() {
       setShowCancelDialog(null)
     }
   }
+
+  const orderWorkbenchWeaponLabel =
+    orderWorkbenchWeaponId != null
+      ? (weaponInventory.weapons.find((w) => w.id === orderWorkbenchWeaponId)?.fullName ?? '')
+      : ''
 
   return (
     <>
@@ -210,6 +232,28 @@ export function OrdersSectionContainer() {
       )}
 
       {/* Диалог подтверждения отмены заказа */}
+      <WorkbenchPlannedQueueAlert
+        open={!!orderWorkbenchWeaponId && !!showWeaponSelect}
+        onOpenChange={(open) => {
+          if (!open) setOrderWorkbenchWeaponId(null)
+        }}
+        weaponLabel={orderWorkbenchWeaponLabel}
+        plannedCount={
+          orderWorkbenchWeaponId
+            ? countPlannedWorkbenchItemsForWeapon(orderWorkbenchWeaponId, workbenchQueue)
+            : 0
+        }
+        contextLabel="сдачи заказа"
+        onConfirmClearAndContinue={() => {
+          if (!showWeaponSelect || !orderWorkbenchWeaponId) return
+          removeAllPlannedWorkbenchItemsForWeapon(orderWorkbenchWeaponId)
+          const oid = showWeaponSelect
+          const wid = orderWorkbenchWeaponId
+          setOrderWorkbenchWeaponId(null)
+          finishOrderWithWeapon(oid, wid)
+        }}
+      />
+
       {showCancelDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-stone-800 border border-stone-600 rounded-lg max-w-md w-full p-6">

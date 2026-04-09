@@ -17,8 +17,8 @@ function mockState(over: Partial<ReturnType<typeof baseState>> = {}) {
 function baseState() {
   return {
     unlockedRepairTechniqueIds: [] as string[],
-    repairBenchWeaponId: null as string | null,
     repairBenchTechniqueDraft: null as { weaponId: string; techniqueIds: string[] } | null,
+    workbenchQueue: [] as { weaponId: string }[],
     repairTechniqueStageRun: null as import('@/store/slices/craft-slice').RepairTechniqueStageRunState | null,
     weaponInventory: { weapons: [] as import('@/types/craft-v2').CraftedWeaponV2[] },
     player: { level: 1 },
@@ -47,7 +47,8 @@ describe('buildRepairCrossSlice', () => {
     expect(getRepairOptions('none')).toEqual([])
   })
 
-  it('executeWeaponRepairByTechniques rejects wrong technique when no visible tags', () => {
+  it('executeWeaponRepairByTechniques allows durability maintenance when no visible tags', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
     const set = vi.fn()
     const weapon = {
       id: 'w1',
@@ -61,12 +62,40 @@ describe('buildRepairCrossSlice', () => {
     const get = vi.fn(() =>
       mockState({
         weaponInventory: { weapons: [weapon] },
+        resources: {
+          ...initialResources,
+          gold: 5000,
+          ironIngot: 80,
+          coal: 80,
+        },
       })
     )
     const { executeWeaponRepairByTechniques } = buildRepairCrossSlice(set, get)
-    const r = executeWeaponRepairByTechniques('w1', ['edge_truing'])
+    const r = executeWeaponRepairByTechniques('w1', [DURABILITY_MAINTENANCE_TECHNIQUE_ID])
+    expect(r.success).toBe(true)
+  })
+
+  it('executeWeaponRepairByTechniques rejects specialized technique when no visible tags', () => {
+    const set = vi.fn()
+    const weapon = {
+      id: 'w1',
+      recipeId: 'basic_sword',
+      activeDamageTags: [],
+      currentDurability: 50,
+      tier: 1,
+      materials: [{ partId: 'blade', materialId: 'iron', materialName: 'Железо', quantity: 2 }],
+      stats: { durability: 50, maxDurability: 100, attack: 10 },
+    } as unknown as CraftedWeaponV2
+    const get = vi.fn(() =>
+      mockState({
+        weaponInventory: { weapons: [weapon] },
+        unlockedRepairTechniqueIds: ['notch_filing'],
+      })
+    )
+    const { executeWeaponRepairByTechniques } = buildRepairCrossSlice(set, get)
+    const r = executeWeaponRepairByTechniques('w1', ['notch_filing'])
     expect(r.success).toBe(false)
-    expect(r.error).toMatch(/восстановления прочности/i)
+    expect(r.error).toMatch(/только базовые/i)
   })
 
   it('executeWeaponRepairByTechniques with durability maintenance repairs durability when no tags', () => {
@@ -263,58 +292,5 @@ describe('buildRepairCrossSlice', () => {
     const next = updater(state) as typeof state
     const w = next.weaponInventory.weapons.find((x) => x.id === 'w_tag')
     expect(w?.weaponLegacy?.repairDiagnosisSkippedCountByTagId?.physical_slash_chip).toBe(1)
-  })
-
-  it('claimWeaponAutoRepair: skipped диагностика по снятым тегам и списание золота', () => {
-    vi.spyOn(Math, 'random').mockReturnValue(0)
-    const weapon = weaponWithEdgeChipping()
-    const spendResource = vi.fn(() => true)
-    const state = mockState({
-      weaponInventory: { weapons: [weapon] },
-      spendResource,
-    })
-    const get = vi.fn(() => state)
-    const set = vi.fn()
-    const { claimWeaponAutoRepair } = buildRepairCrossSlice(set, get)
-    const r = claimWeaponAutoRepair('w_tag')
-    expect(r.success).toBe(true)
-    expect(spendResource).toHaveBeenCalled()
-    expect(set).toHaveBeenCalled()
-    const updater = set.mock.calls[0][0] as (s: typeof state) => unknown
-    const next = updater(state) as typeof state
-    const w = next.weaponInventory.weapons.find((x) => x.id === 'w_tag')
-    expect(w?.weaponLegacy?.repairDiagnosisSkippedCountByTagId?.physical_slash_chip).toBe(1)
-    expect(w?.activeDamageTags).toEqual([])
-  })
-
-  it('claimWeaponAutoRepair: нехватка золота', () => {
-    const weapon = weaponWithEdgeChipping()
-    const state = mockState({
-      weaponInventory: { weapons: [weapon] },
-      canAfford: vi.fn(() => false),
-    })
-    const get = vi.fn(() => state)
-    const set = vi.fn()
-    const { claimWeaponAutoRepair } = buildRepairCrossSlice(set, get)
-    const r = claimWeaponAutoRepair('w_tag')
-    expect(r.success).toBe(false)
-    expect(r.error).toMatch(/золот/i)
-    expect(set).not.toHaveBeenCalled()
-  })
-
-  it('claimWeaponAutoRepair: блок при ожидании захода в кузницу', () => {
-    const weapon = {
-      ...weaponWithEdgeChipping(),
-      autoRepairAwaitingForgeVisit: true,
-    }
-    const state = mockState({
-      weaponInventory: { weapons: [weapon] },
-    })
-    const get = vi.fn(() => state)
-    const set = vi.fn()
-    const { claimWeaponAutoRepair } = buildRepairCrossSlice(set, get)
-    const r = claimWeaponAutoRepair('w_tag')
-    expect(r.success).toBe(false)
-    expect(set).not.toHaveBeenCalled()
   })
 })

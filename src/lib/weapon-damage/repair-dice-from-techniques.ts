@@ -27,8 +27,16 @@ export function mapTechniqueIdsToRepairDiceProfile(techniqueIds: string[]): Repa
   ) {
     return 'enhancement'
   }
-  if (techniqueIds.some((id) => id === 'blade_soul_tending' || id === 'binding_relief')) {
+  if (
+    techniqueIds.some(
+      (id) =>
+        id === 'blade_soul_tending' || id === 'binding_relief' || id === 'basic_metal_stress_relief'
+    )
+  ) {
     return 'restoration'
+  }
+  if (techniqueIds.includes('basic_elemental_stabilization')) {
+    return 'quality'
   }
   if (techniqueIds.length >= 2 || techniqueIds.includes('frost_crack_seal')) {
     return 'quality'

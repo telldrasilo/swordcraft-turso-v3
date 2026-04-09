@@ -17,6 +17,8 @@ export interface ForgottenForgePersistPayload {
   altarUnlockedByForgottenForgeQuest: boolean
   /** Узел собран в кузнице (синхрон с `altarBuiltInForge` в store) */
   altarBuiltInForge: boolean
+  messagesDockEncyclopediaReadUpToTs: number
+  messagesDockArchivistReadUpToTs: number
 }
 
 export function normalizeForgottenForgePersistFromSave(raw: unknown): ForgottenForgePersistPayload {
@@ -30,6 +32,8 @@ export function normalizeForgottenForgePersistFromSave(raw: unknown): ForgottenF
     archivistPendingChoices: d.archivistPendingChoices,
     altarUnlockedByForgottenForgeQuest: false,
     altarBuiltInForge: false,
+    messagesDockEncyclopediaReadUpToTs: 0,
+    messagesDockArchivistReadUpToTs: 0,
   }
   if (raw == null || typeof raw !== 'object' || Array.isArray(raw)) return base
   const o = raw as Record<string, unknown>
@@ -87,6 +91,15 @@ export function normalizeForgottenForgePersistFromSave(raw: unknown): ForgottenF
     base.altarBuiltInForge = built
   } else if (base.altarUnlockedByForgottenForgeQuest) {
     base.altarBuiltInForge = true
+  }
+
+  const encRead = o['messagesDockEncyclopediaReadUpToTs']
+  if (typeof encRead === 'number' && Number.isFinite(encRead)) {
+    base.messagesDockEncyclopediaReadUpToTs = encRead
+  }
+  const archRead = o['messagesDockArchivistReadUpToTs']
+  if (typeof archRead === 'number' && Number.isFinite(archRead)) {
+    base.messagesDockArchivistReadUpToTs = archRead
   }
 
   return base

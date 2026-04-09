@@ -47,6 +47,7 @@ import {
   validateMaterialProcessingPlan,
 } from '@/data/material-processing-techniques'
 import { getPlannerUnlockedTechniqueIds } from '@/lib/craft/planner-unlocked-techniques'
+import { isForgottenForgeAltarRecipe } from '@/lib/craft/altar-construction'
 
 function buildExpertiseMap(
   knowledge: Record<string, MaterialKnowledge> | undefined
@@ -98,6 +99,12 @@ export interface CraftV2State {
 
   /** Прирост экспертизы по материалам после завершения крафта (для UI при заборе) */
   lastCraftExpertiseGains: CraftExpertiseGainRow[] | null
+
+  /**
+   * Последняя ошибка запуска крафта (не персистится).
+   * Дублирует часть console.warn для отображения в UI (вкладка «Алтарь» и др.).
+   */
+  lastStartCraftError: string | null
 }
 
 export interface UseCraftV2Return {
@@ -122,6 +129,8 @@ export interface UseCraftV2Return {
 
   /** Путь снабжения частей (руда + плавка) перед стартом крафта из контейнера */
   setPartMaterialSupply: (supply: Record<string, PartMaterialSupplyEntry>) => void
+
+  clearLastStartCraftError: () => void
 }
 
 // ================================
@@ -138,6 +147,7 @@ const initialState: CraftV2State = {
   stage: 'planning',
   shouldPurchaseMaterials: false,
   lastCraftExpertiseGains: null,
+  lastStartCraftError: null,
 }
 
 function getRestoredState(): CraftV2State {
@@ -155,6 +165,7 @@ function getRestoredState(): CraftV2State {
     stage: persisted.stage || 'planning',
     shouldPurchaseMaterials: useGameStore.getState().shouldPurchaseMaterials ?? false,
     lastCraftExpertiseGains: null,
+    lastStartCraftError: null,
   }
 }
 
@@ -165,6 +176,45 @@ function finalizeCompletedCraftV2(
   if (!prev.preview || !prev.plan) return null
   const recipe = getRecipeById(prev.plan.recipeId)
   if (!recipe) return null
+
+  if (isForgottenForgeAltarRecipe(recipe.id)) {
+    const gains = buildCraftExpertiseGainRows(prev.plan.materials, {
+      getExpertise: id =>
+        useGameStore.getState().materialKnowledge[id]?.expertise ?? 0,
+      getMaterialDisplayName: id => getMaterialAsLegacy(id)?.name ?? id,
+    })
+    if (gains.length > 0) {
+      queueMicrotask(() => {
+        applyCraftExpertiseGainRows(gains, (id, d) => {
+          useGameStore.getState().addMaterialExpertise(id, d)
+        })
+      })
+    }
+    queueMicrotask(() => {
+      useGameStore.getState().setAltarBuiltInForge(true)
+      useGameStore.getState().setCraftV2Persisted({
+        activeCraft: null,
+        plan: null,
+        completedWeapon: null,
+        stage: 'planning',
+        preview: null,
+        forecast: null,
+        weaponName: null,
+      })
+    })
+    return {
+      ...prev,
+      activeCraft: null,
+      completedWeapon: null,
+      weaponName: null,
+      preview: null,
+      forecast: null,
+      plan: null,
+      stage: 'planning',
+      lastCraftExpertiseGains: gains.length > 0 ? gains : null,
+      lastStartCraftError: null,
+    }
+  }
 
   const techniques = prev.plan.techniques
     .map(id => getTechniqueById(id))
@@ -222,6 +272,7 @@ function finalizeCompletedCraftV2(
     weaponName,
     stage: 'completed',
     lastCraftExpertiseGains: gains.length > 0 ? gains : null,
+    lastStartCraftError: null,
   }
 }
 
@@ -318,7 +369,14 @@ export function useCraftV2(
     
     const recipe = getRecipeById(recipeId)
     if (!recipe) {
-      setState(prev => ({ ...prev, plan: null, preview: null, forecast: null, weaponName: null }))
+      setState(prev => ({
+        ...prev,
+        plan: null,
+        preview: null,
+        forecast: null,
+        weaponName: null,
+        lastStartCraftError: null,
+      }))
       return
     }
     
@@ -350,6 +408,7 @@ export function useCraftV2(
       forecast: null,
       weaponName: null,
       stage: 'planning',
+      lastStartCraftError: null,
     }))
   }, [setState])
   
@@ -486,11 +545,22 @@ export function useCraftV2(
 
     if (!recipeId || Object.keys(materials).length === 0) {
       console.warn('Cannot start craft: missing recipe or materials')
+      setState(prev => ({
+        ...prev,
+        lastStartCraftError:
+          'Выберите рецепт и материалы для всех частей перед запуском.',
+      }))
       return
     }
 
     const recipe = getRecipeById(recipeId)
-    if (!recipe) return
+    if (!recipe) {
+      setState(prev => ({
+        ...prev,
+        lastStartCraftError: 'Рецепт недоступен. Обновите экран кузницы.',
+      }))
+      return
+    }
 
     const know = useGameStore.getState().materialKnowledge
     for (const part of recipe.parts) {
@@ -498,6 +568,11 @@ export function useCraftV2(
       if (!a?.materialId) continue
       if (!isMaterialUnlockedForForge(a.materialId, know)) {
         console.warn('Cannot start craft: material below forge expertise threshold', a.materialId)
+        const label = getMaterialAsLegacy(a.materialId)?.name ?? a.materialId
+        setState(prev => ({
+          ...prev,
+          lastStartCraftError: `Недостаточно знаний по материалу «${label}» для крафта в кузнице (нужна экспертиза в энциклопедии).`,
+        }))
         return
       }
     }
@@ -520,6 +595,12 @@ export function useCraftV2(
     )
     if (!procVal.ok) {
       console.warn(procVal.reason)
+      setState(prev => ({
+        ...prev,
+        lastStartCraftError:
+          procVal.reason ??
+          'План обработки материалов невалиден. Проверьте цепочки плавки и выбранные техники.',
+      }))
       return
     }
 
@@ -536,6 +617,15 @@ export function useCraftV2(
       supply,
       expertiseMap
     )
+    if (stages.length === 0) {
+      setState(prev => ({
+        ...prev,
+        lastStartCraftError:
+          'Не удалось сформировать этапы крафта. Проверьте материалы и техники.',
+      }))
+      return
+    }
+
     const plan = createCraftPlan(
       recipeId,
       materials,
@@ -546,7 +636,7 @@ export function useCraftV2(
       supply,
       expertiseMap
     )
-    
+
     const activeCraft: ActiveCraftV2 = {
       id: `craft_${Date.now()}`,
       plan,
@@ -556,24 +646,25 @@ export function useCraftV2(
       totalDuration: stages.reduce((sum, s) => sum + s.calculatedDuration, 0),
       elapsedTime: 0,
       status: 'running',
-      log: [{
-        timestamp: Date.now(),
-        stageId: 'start',
-        stageName: 'Начало крафта',
-        message: `Начинаю создание ${recipe.name}`,
-        type: 'start',
-      }],
+      log: [
+        {
+          timestamp: Date.now(),
+          stageId: 'start',
+          stageName: 'Начало крафта',
+          message: `Начинаю создание ${recipe.name}`,
+          type: 'start',
+        },
+      ],
     }
-    
-    if (stages.length > 0) {
-      stages[0].status = 'in_progress'
-      stages[0].startTime = Date.now()
-    }
-    
+
+    stages[0].status = 'in_progress'
+    stages[0].startTime = Date.now()
+
     setState(prev => ({
       ...prev,
       activeCraft,
       stage: 'crafting',
+      lastStartCraftError: null,
     }))
   }, [blacksmithLevel, forgeLevel, setState, state.shouldPurchaseMaterials])
   
@@ -586,6 +677,7 @@ export function useCraftV2(
       ...prev,
       activeCraft: null,
       stage: 'planning',
+      lastStartCraftError: null,
     }))
   }, [setState])
   
@@ -635,10 +727,15 @@ export function useCraftV2(
       completedWeapon: null,
       stage: 'planning',
       lastCraftExpertiseGains: null,
+      lastStartCraftError: null,
     }))
 
     return completedWeapon
   }, [state, setState])
+
+  const clearLastStartCraftError = useCallback(() => {
+    setState(prev => ({ ...prev, lastStartCraftError: null }))
+  }, [setState])
   
   const reset = useCallback(() => {
     materialsRef.current = {}
@@ -726,6 +823,7 @@ export function useCraftV2(
     collectWeapon,
     reset,
     setPartMaterialSupply,
+    clearLastStartCraftError,
   }
 }
 

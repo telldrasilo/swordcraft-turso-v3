@@ -18,6 +18,8 @@ import {
 import { getRouteDurationSeconds } from '@/lib/expedition-contract-economy'
 import { getAdventurerFullName } from '@/lib/adventurer-generator'
 import type { CraftedWeaponV2 } from '@/types/craft-v2'
+import type { WorkbenchQueueItem } from '@/lib/workbench/workbench-queue'
+import type { RepairTechniqueStageRunState } from '@/store/slices/craft-slice'
 import type { ActiveDamageTagEntry } from '@/types/weapon-damage'
 import type { AdventurerExtended } from '@/types/adventurer-extended'
 import type {
@@ -45,8 +47,8 @@ import {
 
 export type GuildExpeditionStoreDeps = {
   guild: GuildState
-  /** Верстак ремонта: это оружие нельзя отправить в экспедицию */
-  repairBenchWeaponId: string | null
+  workbenchQueue: WorkbenchQueueItem[]
+  repairTechniqueStageRun: RepairTechniqueStageRunState | null
   weaponInventory: { weapons: CraftedWeaponV2[] }
   player: Player
   statistics: GameStatistics
@@ -104,7 +106,10 @@ export function buildGuildExpeditionCrossSlice<S extends GuildExpeditionStoreDep
         weapon,
         guildLevel: state.guild.level,
         activeExpeditions: state.guild.activeExpeditions,
-        repairBenchWeaponId: state.repairBenchWeaponId ?? null,
+        workbenchEligibility: {
+          workbenchQueue: state.workbenchQueue ?? [],
+          repairTechniqueStageRun: state.repairTechniqueStageRun ?? null,
+        },
       })
       if (!startCheck.can) return false
 
@@ -409,6 +414,7 @@ export function buildGuildExpeditionCrossSlice<S extends GuildExpeditionStoreDep
         const locationForTags =
           expedition.locationId != null ? getLocationById(expedition.locationId) : undefined
         const presentElementsForTags = locationForTags?.presentElements ?? []
+        const missionRisk = Math.max(0, Math.min(1, 1 - adjustedSuccessChance / 100))
         const missionDamageTags = expedition.moduleEventSnapshots?.length
           ? buildActiveDamageTagsFromMissionSnapshots({
               snapshots: expedition.moduleEventSnapshots,
@@ -416,6 +422,10 @@ export function buildGuildExpeditionCrossSlice<S extends GuildExpeditionStoreDep
               completedAtMs,
               presentElements: presentElementsForTags,
               expeditionStartedAtMs: expedition.startedAt,
+              currentDurability: weapon.currentDurability ?? weapon.stats.maxDurability,
+              maxDurability: weapon.stats.maxDurability,
+              existingDamageTagsCount: weapon.activeDamageTags?.length ?? 0,
+              missionRisk,
             })
           : []
         const damageTagLabelsApplied =

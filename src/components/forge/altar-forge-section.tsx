@@ -6,13 +6,14 @@
 'use client'
 
 import { Construction, Sparkles } from 'lucide-react'
-import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useGameStore } from '@/store'
+import { AltarCraftContainer } from '@/components/forge/altar-craft-container'
 
 export function AltarForgeSection() {
   const altarBuiltInForge = useGameStore((s) => s.altarBuiltInForge)
   const setCurrentScreen = useGameStore((s) => s.setCurrentScreen)
+  const playerLevel = useGameStore((s) => s.player.level)
 
   if (altarBuiltInForge) {
     return (
@@ -35,26 +36,19 @@ export function AltarForgeSection() {
   }
 
   return (
-    <div className="space-y-4 max-w-2xl">
+    <div className="space-y-4 max-w-4xl">
       <div>
         <h3 className="text-lg font-semibold text-amber-200 flex items-center gap-2">
           <Construction className="w-5 h-5 text-amber-500" />
-          Сборка алтаря
+          Сборка узла зачарований
         </h3>
         <p className="text-sm text-stone-400 mt-1">
-          Чертёж и артефакты после квеста «Эхо забытой кузни» — здесь будет многоступенчатая сборка
-          узла (крафт v2 / рецепт проекта). Эта вкладка остаётся постоянной точкой входа: позже сюда
-          же лягут улучшения алтаря и расход излишков ресурсов.
+          По чертежу из квеста «Эхо забытой кузни»: три фазы — основание и каркас, крепёж, проводка
+          души (лунное серебро, торф, туманные травы). Заполните слоты материалами со склада и
+          запустите сборку.
         </p>
       </div>
-      <Card className="card-medieval border-amber-900/40 bg-stone-900/50">
-        <CardContent className="p-4 text-sm text-stone-400 space-y-2">
-          <p>
-            Рецепт окончательной сборки и список этапов подключаются в балансе; пока узел не собран,
-            в меню «Зачарования» доступна только подсказка о сборке.
-          </p>
-        </CardContent>
-      </Card>
+      <AltarCraftContainer playerLevel={playerLevel} forgeLevel={1} />
     </div>
   )
 }

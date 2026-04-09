@@ -109,18 +109,32 @@ describe('validateExpeditionStart', () => {
     expect(r.reason).toMatch(/прочност/i)
   })
 
-  it('blocks visible damage tags', () => {
+  it('allows visible damage tags when durability is at least 50%', () => {
     const r = validateExpeditionStart({
       expedition,
       adventurer: adv('a1'),
-      weapon: weapon('w1', 12, 100, {
+      weapon: weapon('w1', 12, 60, {
+        activeDamageTags: [{ tagId: 'physical_slash_chip', severity: 'light', appliedAt: 0 }],
+      }),
+      guildLevel: 3,
+      activeExpeditions: [],
+    })
+    expect(r.can).toBe(true)
+    expect(r.reason).toBe('')
+  })
+
+  it('blocks visible damage tags when durability is below 50%', () => {
+    const r = validateExpeditionStart({
+      expedition,
+      adventurer: adv('a1'),
+      weapon: weapon('w1', 12, 49, {
         activeDamageTags: [{ tagId: 'physical_slash_chip', severity: 'light', appliedAt: 0 }],
       }),
       guildLevel: 3,
       activeExpeditions: [],
     })
     expect(r.can).toBe(false)
-    expect(r.reason).toMatch(/поврежден/i)
+    expect(r.reason).toMatch(/50%/i)
   })
 
   it('blocks needsProperRepair', () => {
@@ -217,14 +231,26 @@ describe('validateExpeditionStart', () => {
     expect(r.reason).toMatch(/Искатель требует/i)
   })
 
-  it('blocks weapon on repair bench', () => {
+  it('blocks weapon in active workbench session queue', () => {
     const r = validateExpeditionStart({
       expedition,
       adventurer: adv('a1'),
       weapon: weapon('w-bench', 12, 50),
       guildLevel: 3,
       activeExpeditions: [],
-      repairBenchWeaponId: 'w-bench',
+      workbenchEligibility: {
+        workbenchQueue: [
+          {
+            kind: 'repair',
+            queueItemId: 'q1',
+            weaponId: 'w-bench',
+            status: 'running',
+            techniqueIds: [],
+            queuedAt: 0,
+          },
+        ],
+        repairTechniqueStageRun: { weaponId: 'w-bench', source: 'queue' },
+      },
     })
     expect(r.can).toBe(false)
     expect(r.reason).toMatch(/верстак/i)

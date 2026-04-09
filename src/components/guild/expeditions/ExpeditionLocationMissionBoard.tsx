@@ -12,6 +12,7 @@ import type { ExpeditionTemplate } from '@/data/expedition-templates'
 import { missionModuleToCalculatorTemplate } from '@/lib/expedition-mission-bridge'
 import {
   getAvailableLocations,
+  getLocationById,
   getMissionsForLocation,
 } from '@/modules/expeditions'
 import { ExpeditionSelectionCard } from './ExpeditionSelectionCard'
@@ -35,6 +36,8 @@ export interface ExpeditionLocationMissionBoardProps {
   onSelectExpedition: (expedition: ExpeditionTemplate) => void
   /** Сброс выбора, если текущая миссия не входит в новую тройку (смена тира / «другие 3») */
   onSelectedMissionInvalidated?: () => void
+  /** Локация активного шага квеста «Эхо забытой кузни» — тир подстроится, миссия попадёт в тройку и подсветится */
+  questLocationId?: string
 }
 
 export function ExpeditionLocationMissionBoard({
@@ -43,9 +46,19 @@ export function ExpeditionLocationMissionBoard({
   canSelectExpedition,
   onSelectExpedition,
   onSelectedMissionInvalidated,
+  questLocationId,
 }: ExpeditionLocationMissionBoardProps) {
   const [tierFilter, setTierFilter] = useState<LocationTierFilter>(1)
   const [poolNonce, setPoolNonce] = useState(0)
+
+  useEffect(() => {
+    if (!questLocationId) return
+    const loc = getLocationById(questLocationId)
+    if (loc && (LOCATION_TIERS as readonly number[]).includes(loc.tier)) {
+      const t = loc.tier as LocationTierFilter
+      queueMicrotask(() => setTierFilter(t))
+    }
+  }, [questLocationId])
 
   const picked = useMemo(() => {
     void poolNonce
@@ -56,8 +69,22 @@ export function ExpeditionLocationMissionBoard({
         templates.push(missionModuleToCalculatorTemplate(m))
       }
     }
-    return shufflePick(templates, 3)
-  }, [guildLevel, tierFilter, poolNonce])
+    let result = shufflePick(templates, 3)
+    if (questLocationId && result.length > 0) {
+      const hasQuest = result.some((e) => e.moduleLocationId === questLocationId)
+      if (!hasQuest) {
+        const questMissions = getMissionsForLocation(questLocationId).map((m) =>
+          missionModuleToCalculatorTemplate(m)
+        )
+        if (questMissions.length > 0) {
+          const pick = questMissions[poolNonce % questMissions.length]
+          const withoutDup = result.filter((e) => e.id !== pick.id)
+          result = [pick, ...withoutDup.slice(0, 2)]
+        }
+      }
+    }
+    return result
+  }, [guildLevel, tierFilter, poolNonce, questLocationId])
 
   useEffect(() => {
     if (!selectedId || picked.length === 0) return
@@ -130,6 +157,9 @@ export function ExpeditionLocationMissionBoard({
                   reason={reason}
                   onSelect={() => onSelectExpedition(expedition)}
                   variant="missionBoard"
+                  questHighlight={
+                    Boolean(questLocationId) && expedition.moduleLocationId === questLocationId
+                  }
                 />
               </div>
             )

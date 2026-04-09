@@ -43,6 +43,7 @@ model GameSave {
   unlockedEnchantments String @default("[]")
   unlockedMaterialProcessingTechniqueIds String @default("[]")
   unlockedRepairTechniqueIds String @default("[]")
+  unlockedCraftTechniqueIds String @default("[]")
   unlockedReforgeTechniqueIds String @default("[]")
 
   // === ГИЛЬДИЯ ===
@@ -68,8 +69,8 @@ model GameSave {
   // === КРАФТ V2 (план, этапы, превью) — синхрон с Turso ALTER craftV2Persisted ===
   craftV2Persisted String @default("{}")
 
-  // === Ремонт: слот верстака (id оружия) — синхрон с Turso ALTER repairBenchWeaponId ===
-  repairBenchWeaponId String?
+  // === Очередь верстака (JSON) — синхрон с Turso repairQueuePlan (D5) ===
+  repairQueuePlan String @default("[]")
   // JSON активного прогона этапов ремонта — синхрон с Turso ALTER repairTechniqueStageRun ===
   repairTechniqueStageRun String?
 

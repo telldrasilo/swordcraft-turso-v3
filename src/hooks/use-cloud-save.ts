@@ -22,9 +22,14 @@ import {
 } from '@/lib/save-craft-normalize'
 import { normalizeMaterialStudySessionsFromSave } from '@/lib/materials/normalize-material-study-sessions'
 import {
-  normalizeRepairBenchWeaponIdFromSave,
+  normalizeRepairBenchSelectedWeaponIdFromSave,
+  normalizeRepairBenchWeaponIdsFromSave,
   normalizeRepairTechniqueStageRunFromSave,
 } from '@/lib/normalize-repair-bench-from-save'
+import {
+  normalizeWorkbenchQueueFromSave,
+} from '@/lib/workbench/workbench-queue'
+import { appendRepairQueueItemsFromLegacyBenchIds } from '@/lib/workbench/migrate-repair-bench-ids-to-queue'
 import type { QuestPhase } from '@/store/slices/forgotten-forge-quest-slice'
 
 interface UseCloudSaveOptions {
@@ -206,6 +211,7 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
       unlockedMaterialProcessingTechniqueIds:
         state.unlockedMaterialProcessingTechniqueIds || [],
       unlockedRepairTechniqueIds: state.unlockedRepairTechniqueIds || [],
+      unlockedCraftTechniqueIds: state.unlockedCraftTechniqueIds || [],
       unlockedReforgeTechniqueIds: state.unlockedReforgeTechniqueIds || [],
       guild: state.guild || {},
       knownAdventurers: state.knownAdventurers || [],
@@ -216,7 +222,7 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
       gameMessages: state.gameMessages || [],
       playTime: state.statistics?.playTime || 0,
       craftV2Persisted: state.craftV2Persisted || null,
-      repairBenchWeaponId: state.repairBenchWeaponId ?? null,
+      repairQueuePlan: state.workbenchQueue ?? [],
       repairTechniqueStageRun: state.repairTechniqueStageRun ?? null,
       saveVersion: 5,
       forgottenForgePersist: {
@@ -226,6 +232,8 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
         archivistPendingChoices: state.archivistPendingChoices,
         altarUnlockedByForgottenForgeQuest: state.altarUnlockedByForgottenForgeQuest,
         altarBuiltInForge: state.altarBuiltInForge,
+        messagesDockEncyclopediaReadUpToTs: state.messagesDockEncyclopediaReadUpToTs ?? 0,
+        messagesDockArchivistReadUpToTs: state.messagesDockArchivistReadUpToTs ?? 0,
       },
     }
   }, [])
@@ -285,14 +293,28 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
     const weaponsForBench = Array.isArray(weaponInvForBench.weapons)
       ? (weaponInvForBench.weapons as { id?: string }[])
       : []
-    const repairBenchWeaponId = normalizeRepairBenchWeaponIdFromSave(
+    const repairBenchWeaponIds = normalizeRepairBenchWeaponIdsFromSave(
+      data.repairBenchWeaponIds,
       data.repairBenchWeaponId,
       weaponsForBench
     )
+    const repairBenchSelectedWeaponId = normalizeRepairBenchSelectedWeaponIdFromSave(
+      data.repairBenchSelectedWeaponId,
+      repairBenchWeaponIds
+    )
+    const workbenchQueueFromCloud = normalizeWorkbenchQueueFromSave(
+      Array.isArray(data.repairQueuePlan) ? data.repairQueuePlan : []
+    )
+    const migratedCloud = appendRepairQueueItemsFromLegacyBenchIds({
+      benchIds: repairBenchWeaponIds,
+      queue: workbenchQueueFromCloud,
+    })
+    const workbenchQueueNormalized =
+      migratedCloud.addedCount > 0 ? migratedCloud.queue : workbenchQueueFromCloud
     const repairTechniqueStageRun = normalizeRepairTechniqueStageRunFromSave(
       data.repairTechniqueStageRun,
-      repairBenchWeaponId,
-      weaponsForBench
+      weaponsForBench,
+      workbenchQueueNormalized
     )
 
     const ffPersist = normalizeForgottenForgePersistFromSave(data.forgottenForgePersist)
@@ -337,6 +359,9 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
       unlockedRepairTechniqueIds: Array.isArray(data.unlockedRepairTechniqueIds)
         ? data.unlockedRepairTechniqueIds
         : [],
+      unlockedCraftTechniqueIds: Array.isArray(data.unlockedCraftTechniqueIds)
+        ? data.unlockedCraftTechniqueIds
+        : [],
       unlockedReforgeTechniqueIds: Array.isArray(data.unlockedReforgeTechniqueIds)
         ? data.unlockedReforgeTechniqueIds
         : [],
@@ -353,7 +378,11 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
         data.craftV2Persisted,
         data.activeCraft
       ),
-      repairBenchWeaponId,
+      workbenchQueue: workbenchQueueNormalized,
+      workbenchSelectedWeaponId:
+        repairBenchSelectedWeaponId && weaponsForBench.some((w) => w.id === repairBenchSelectedWeaponId)
+          ? repairBenchSelectedWeaponId
+          : null,
       repairTechniqueStageRun,
       forgottenForgeQuest: ffPersist.forgottenForgeQuest,
       forgottenForgePhase: ffPersist.forgottenForgePhase as QuestPhase,
@@ -361,6 +390,8 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
       archivistPendingChoices: ffPersist.archivistPendingChoices,
       altarUnlockedByForgottenForgeQuest: ffPersist.altarUnlockedByForgottenForgeQuest,
       altarBuiltInForge: ffPersist.altarBuiltInForge,
+      messagesDockEncyclopediaReadUpToTs: ffPersist.messagesDockEncyclopediaReadUpToTs,
+      messagesDockArchivistReadUpToTs: ffPersist.messagesDockArchivistReadUpToTs,
     })
   }, [])
 

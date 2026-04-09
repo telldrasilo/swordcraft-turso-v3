@@ -23,11 +23,24 @@ describe('saveRequestBodySchema', () => {
     expect(r.success).toBe(true)
   })
 
-  it('accepts repairBenchWeaponId string or null', () => {
-    expect(
-      saveRequestBodySchema.safeParse({ repairBenchWeaponId: 'weapon-uuid-1' }).success
-    ).toBe(true)
-    expect(saveRequestBodySchema.safeParse({ repairBenchWeaponId: null }).success).toBe(true)
+  it('preserves legacy repairBench keys for server-side migration (passthrough)', () => {
+    const r = saveRequestBodySchema.safeParse({
+      repairBenchWeaponIds: ['weapon-1', 'weapon-2'],
+      repairBenchSelectedWeaponId: 'weapon-1',
+      repairQueuePlan: [{ weaponId: 'weapon-1', techniqueIds: ['edge_truing'] }],
+    })
+    expect(r.success).toBe(true)
+    if (r.success) {
+      expect(r.data.repairBenchWeaponIds).toEqual(['weapon-1', 'weapon-2'])
+      expect(r.data.repairBenchSelectedWeaponId).toBe('weapon-1')
+    }
+  })
+
+  it('accepts repairQueuePlan only', () => {
+    const r = saveRequestBodySchema.safeParse({
+      repairQueuePlan: [{ weaponId: 'weapon-1', techniqueIds: ['edge_truing'] }],
+    })
+    expect(r.success).toBe(true)
   })
 
   it('rejects non-object root', () => {

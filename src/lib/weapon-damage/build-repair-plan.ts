@@ -54,8 +54,7 @@ export function getApplicableRepairTechniquesForTags(
   activeTagIds: readonly string[]
 ): RepairTechniqueDefinition[] {
   if (activeTagIds.length === 0) {
-    const d = getRepairTechniqueById(DURABILITY_MAINTENANCE_TECHNIQUE_ID)
-    return d ? [d] : []
+    return REPAIR_TECHNIQUE_REGISTRY.filter((t) => t.repairTier === 'basic')
   }
   const set = new Set(activeTagIds)
   return REPAIR_TECHNIQUE_REGISTRY.filter(

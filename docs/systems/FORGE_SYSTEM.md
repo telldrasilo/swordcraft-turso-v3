@@ -280,18 +280,22 @@
 
 ## Перековка (пре-зачарование, фаза 1)
 
-Отдельная вкладка кузницы **«Перековка»** (`ForgeMainTab === 'reforge'`) — **не** экран ремонта и **не** реестр техник починки/крафта. Канон, критерии и worklog: [ENCHANTMENT_MODULE_PHASE1.md](ENCHANTMENT_MODULE_PHASE1.md).
+Подвкладка **«Перековка»** в группе «Верстак» (`forgeMainTab === 'bench'`, `forgeBenchSubTab === 'reforge'`) — **не** экран ремонта и **не** реестр техник починки/крафта. Канон, критерии и worklog: [ENCHANTMENT_MODULE_PHASE1.md](ENCHANTMENT_MODULE_PHASE1.md).
 
 ### Назначение
 
 - Трата **души войны** (`warSoul`) с **этого** экземпляра ради **постоянного** эффекта на клинок.
-- **Два типа** техник в реестре: `reforgeType: 'buffStat'` (фиксированная цена в ДВ, случайный % к атаке или max прочности, лимит стаков) и `reforgeType: 'awakenScar'` (списание **всей** текущей души на попытку, шанс успеха/неудачи, в фазе 1 — **не более одного** успешного пробуждения на оружие).
+- **Два типа** техник в реестре: `reforgeType: 'buffStat'` (**базовая** цена `warSoulCost` в данных, на практике умножается на ранг души; случайный % к атаке или max прочности, лимит стаков) и `reforgeType: 'awakenScar'` (списание **всей** текущей души на попытку, шанс успеха/неудачи, в фазе 1 — **не более одного** успешного пробуждения на оружие).
 - Доступ **не зависит** от гейта экрана меню «Зачарования» (`canAccessEnchantmentAltarScreen` к перековке не применяется).
 
 ### Верстак и UI
 
-- Клинок должен стоять на **верстаке ремонта**: то же поле `repairBenchWeaponId`, что для [`RepairSection`](../../src/components/forge/repair-section.tsx). Игрок выбирает оружие на вкладке «Ремонт» или переключается на «Перековку» без смены слота.
-- Вкладки: [`forge-screen.tsx`](../../src/components/screens/forge-screen.tsx) (`mainTab === 'reforge'` → [`ReforgeSection`](../../src/components/forge/reforge-section.tsx) → [`reforge-card.tsx`](../../src/components/forge/reforge-card.tsx)).
+- **Очередь верстака** `workbenchQueue` (в persist/облаке ключ `repairQueuePlan`): пункты ремонта и перековки (`repair`, `reforge_buff`, `reforge_awaken`); в один момент **одна** активная работа — этапы в `repairTechniqueStageRun` при `source === 'queue'`. Полоса сегментов и контент подвкладки: [`workbench-shell.tsx`](../../src/components/forge/workbench-shell.tsx), [`workbench-queue-segmented-bar.tsx`](../../src/components/forge/workbench-queue-segmented-bar.tsx).
+- **Ремонт** ([`RepairSection`](../../src/components/forge/repair-section.tsx)): план ремонта и **запуск** сессии очереди. **Перековка** ([`ReforgeSection`](../../src/components/forge/reforge-section.tsx) → [`reforge-card.tsx`](../../src/components/forge/reforge-card.tsx)): постановка в очередь («В очередь»); исполнение по времени — после старта на «Ремонте». Применение после этапов: `applyReforgeTechnique` в store (без обязательного gate «только id с верстака»).
+- `repairBenchWeaponIds` / `repairBenchSelectedWeaponId` остаются для совместимости и части UX ремонта; **инвентарь** кузницы показывает всё оружие. Ограничения гильдии (экспедиции, заказы) завязаны на **очередь** и активный прогон этапов — см. [`guild-weapon-service-eligibility.ts`](../../src/lib/guild-weapon-service-eligibility.ts).
+- При выборе оружия для **экспедиции** или **сдачи заказа**, если у клинка есть только запланированные пункты очереди и сессия не запущена, UI предлагает снять план — [`workbench-planned-queue-alert.tsx`](../../src/components/shared/workbench-planned-queue-alert.tsx) и `removeAllPlannedWorkbenchItemsForWeapon` в store.
+- Навигация: [`forge-screen.tsx`](../../src/components/screens/forge-screen.tsx) — основной ряд вкладок содержит **«Верстак»**; при `forgeMainTab === 'bench'` подвкладки **«Ремонт»** / **«Перековка»** переключают `forgeBenchSubTab` и рендер `RepairSection` / `ReforgeSection`.
+- UI сгруппирован: базовые усиления, углублённые, пробуждение; подтверждение перед пробуждением; разбор шанса (`getAwakenChanceBreakdown`); кнопка перехода к интенданту для заблокированных спец-техник (`navigateToGuildIntendantReforgeTechnique` в store).
 
 ### Данные и логика
 
@@ -299,7 +303,11 @@
 |------|------|
 | Реестр техник, поля разблокировки и баланса | [`src/data/reforge/reforge-techniques-registry.ts`](../../src/data/reforge/reforge-techniques-registry.ts) |
 | Чистая логика: шанс, списание души, эффекты, причины отказа | [`src/lib/reforge/apply.ts`](../../src/lib/reforge/apply.ts) |
+| Разбор шанса пробуждения для подсказок | [`src/lib/reforge/reforge-chance-breakdown.ts`](../../src/lib/reforge/reforge-chance-breakdown.ts) |
 | Публичный API модуля | [`src/lib/reforge/index.ts`](../../src/lib/reforge/index.ts) |
+| Масштаб цены усилений по **тиру души** (0…10) | [`src/lib/reforge/reforge-buff-cost.ts`](../../src/lib/reforge/reforge-buff-cost.ts), коэффициент `REFORGE_BUFF_WAR_SOUL_COST_PER_TIER` в [`constants.ts`](../../src/lib/store-utils/constants.ts) |
+
+**Баланс и шанс:** в реестре задана **база** `warSoulCost` для усилений; фактическая трата ДВ = `max(1, round(база × (1 + tier × REFORGE_BUFF_WAR_SOUL_COST_PER_TIER)))`, где `tier` — текущий тир души на клинке (`getWarSoulTier`). Пробуждение шрама это правило **не** использует (по-прежнему сжигается вся текущая ДВ). Для `maxWarSoul` «без потолка» (`WAR_SOUL_POOL_UNCAPPED`) вклад заполнения пула в шансе пробуждения считается через `resolveWarSoulProgressBarMax` и `computeAwakenPoolRatio`. Выбор шрама — **взвешенный** по весам наследия. Успешный `buff` в `applyReforgeTechniquePure` включает блок `buff` (ролл %, статы до/после, списание ДВ, при множителе > 1 — `baseWarSoulCost` и `warSoulCostTierFactor`).
 
 Состояние на экземпляре — `weaponReforge` в [`craft-v2.ts`](../../src/types/craft-v2.ts) (счётчики баффов, ref-базы для %, `awakenedScarKeys`, `scarAwakeningCompleted`).
 
@@ -312,6 +320,7 @@
 ### Store
 
 - Применение: `applyReforgeTechnique` в [`game-store-composed.ts`](../../src/store/game-store-composed.ts) (чистая функция `applyReforgeTechniquePure` из `src/lib/reforge/apply.ts`).
+- Навигация к офферу перековки у интенданта: `navigateToGuildIntendantReforgeTechnique` / эфемерный `intendantReforgeTechniqueFocusId` (не в `partialize` persist).
 
 ### Связанные документы
 

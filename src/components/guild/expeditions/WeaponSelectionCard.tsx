@@ -82,7 +82,7 @@ export const WeaponSelectionCard: React.FC<WeaponSelectionCardProps> = ({
                 <h4 className="font-semibold text-stone-200 text-sm truncate">{weapon.fullName}</h4>
                 {isRepairBench && (
                   <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-stone-500 text-stone-400 shrink-0">
-                    На ремонте
+                    Верстак
                   </Badge>
                 )}
                 {/* Ранг качества */}

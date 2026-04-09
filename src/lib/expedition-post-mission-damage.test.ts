@@ -9,6 +9,9 @@ import { eventResolutionSeedForSnapshot } from '@/lib/expedition-event-loot'
 import {
   buildActiveDamageTagsFromMissionSnapshots,
   eventTemplateQualifiesForWeaponDamageTags,
+  getBaseDamageChanceByDurabilityRatio,
+  getNonlinearDamageChanceMultiplier,
+  rollDamageTagChance,
   weaponWearToSeverity,
 } from './expedition-post-mission-damage'
 import type { ModuleExpeditionEventSnapshot } from '@/lib/expedition-module-events-host'
@@ -50,6 +53,16 @@ describe('eventTemplateQualifiesForWeaponDamageTags', () => {
 })
 
 describe('buildActiveDamageTagsFromMissionSnapshots', () => {
+  let randomSpy: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0)
+  })
+
+  afterEach(() => {
+    randomSpy.mockRestore()
+  })
+
   const snap = (partial: Partial<ModuleExpeditionEventSnapshot>): ModuleExpeditionEventSnapshot => ({
     instanceId: 'i1',
     templateId: 'event_common_obstacle',
@@ -199,5 +212,79 @@ describe('buildActiveDamageTagsFromMissionSnapshots', () => {
         expect(withAxis.some((t) => t.tagId === tagId)).toBe(true)
       }
     })
+  })
+})
+
+describe('damage tag probability model', () => {
+  it('uses requested base thresholds by durability', () => {
+    expect(getBaseDamageChanceByDurabilityRatio(0.81)).toBe(0.3)
+    expect(getBaseDamageChanceByDurabilityRatio(0.8)).toBe(0.4)
+    expect(getBaseDamageChanceByDurabilityRatio(0.5)).toBe(0.4)
+  })
+
+  it('nonlinear multiplier grows with mission risk and existing tags', () => {
+    const low = getNonlinearDamageChanceMultiplier({ missionRisk: 0.2, existingDamageTagsCount: 0 })
+    const highRisk = getNonlinearDamageChanceMultiplier({ missionRisk: 0.8, existingDamageTagsCount: 0 })
+    const highRiskAndTags = getNonlinearDamageChanceMultiplier({
+      missionRisk: 0.8,
+      existingDamageTagsCount: 5,
+    })
+    expect(highRisk).toBeGreaterThan(low)
+    expect(highRiskAndTags).toBeGreaterThan(highRisk)
+  })
+
+  it('rollDamageTagChance uses computed chance with upper cap', () => {
+    const spy = vi.spyOn(Math, 'random').mockReturnValue(0.99)
+    expect(
+      rollDamageTagChance({
+        durabilityRatio: 0.5,
+        missionRisk: 1,
+        existingDamageTagsCount: 8,
+      })
+    ).toBe(false)
+    spy.mockRestore()
+  })
+
+  it('simulation target: averages 1-3 tags over 3 missions', () => {
+    let seed = 1337
+    const next = () => {
+      seed = (seed * 1664525 + 1013904223) % 4294967296
+      return seed / 4294967296
+    }
+    const spy = vi.spyOn(Math, 'random').mockImplementation(next)
+
+    let totalTags = 0
+    const runs = 6000
+
+    for (let run = 0; run < runs; run++) {
+      let tags = 0
+      let durability = 100
+      const missionRisks = [0.22, 0.35, 0.5]
+      const eventRollsPerMission = 2
+
+      for (const risk of missionRisks) {
+        const ratio = durability / 100
+        for (let i = 0; i < eventRollsPerMission; i++) {
+          if (
+            rollDamageTagChance({
+              durabilityRatio: ratio,
+              missionRisk: risk,
+              existingDamageTagsCount: tags,
+            })
+          ) {
+            tags += 1
+          }
+        }
+        durability = Math.max(50, durability - 10)
+      }
+
+      totalTags += tags
+    }
+
+    spy.mockRestore()
+
+    const avg = totalTags / runs
+    expect(avg).toBeGreaterThanOrEqual(1)
+    expect(avg).toBeLessThanOrEqual(3)
   })
 })

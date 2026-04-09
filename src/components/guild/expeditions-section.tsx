@@ -43,10 +43,8 @@ import { ExpeditionLocationMissionBoard } from './expeditions/ExpeditionLocation
 import { ExpeditionMissionBrief } from './expeditions/ExpeditionMissionBrief'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ForgottenForgeQuestCard } from './forgotten-forge-quest-card'
-import {
-  FORGOTTEN_FORGE_EXPEDITION_LOCATION_BY_STEP,
-  FORGOTTEN_FORGE_QUEST_ID,
-} from '@/data/quests/forgotten-forge'
+import { FORGOTTEN_FORGE_EXPEDITION_LOCATION_BY_STEP } from '@/data/quests/forgotten-forge'
+import { getForgottenForgeLinkedQuestIdForExpedition } from '@/lib/quests/forgotten-forge-expedition-link'
 
 // Автосохранение
 import { debouncedSaveDraft, clearDraft, loadDraft, DraftStatus, getDraftStatus } from '@/lib/expedition-draft'
@@ -59,6 +57,11 @@ import type { ContractTier, ContractedAdventurer } from '@/types/contract'
 import { calculateExpeditionResult, type ExpeditionCalculation } from '@/lib/expedition-calculator-v2'
 import { validateExpeditionStart } from '@/lib/expedition-start-validation'
 import { getWeaponGuildServiceBlockReason } from '@/lib/guild-weapon-service-eligibility'
+import {
+  shouldPromptExpeditionWorkbenchQueueDialog,
+  countPlannedWorkbenchItemsForWeapon,
+} from '@/lib/workbench/workbench-expedition-guard'
+import { WorkbenchPlannedQueueAlert } from '@/components/shared/workbench-planned-queue-alert'
 
 // ExpeditionCard теперь импортируется как ExpeditionSelectionCard
 
@@ -68,7 +71,11 @@ export function ExpeditionsSection() {
   const guild = useGameStore((state) => state.guild)
   const resources = useGameStore((state) => state.resources)
   const weaponInventory = useGameStore((state) => state.weaponInventory)
-  const repairBenchWeaponId = useGameStore((state) => state.repairBenchWeaponId)
+  const workbenchQueue = useGameStore((state) => state.workbenchQueue)
+  const repairTechniqueStageRun = useGameStore((state) => state.repairTechniqueStageRun)
+  const removeAllPlannedWorkbenchItemsForWeapon = useGameStore(
+    (state) => state.removeAllPlannedWorkbenchItemsForWeapon
+  )
   const initializeAdventurers = useGameStore((state) => state.initializeAdventurers)
   const startExpeditionFull = useGameStore((state) => state.startExpeditionFull)
   const offerGuildContract = useGameStore((state) => state.offerGuildContract)
@@ -77,6 +84,13 @@ export function ExpeditionsSection() {
   )
   const forgottenForgeQuest = useGameStore((state) => state.forgottenForgeQuest)
   const forgottenForgePhase = useGameStore((state) => state.forgottenForgePhase)
+
+  const forgottenForgeQuestLocationId = useMemo(() => {
+    if (forgottenForgeQuest.status !== 'active' || forgottenForgePhase !== 'awaiting_expedition') {
+      return undefined
+    }
+    return FORGOTTEN_FORGE_EXPEDITION_LOCATION_BY_STEP[forgottenForgeQuest.step]
+  }, [forgottenForgeQuest.status, forgottenForgeQuest.step, forgottenForgePhase])
 
   const [selectedExpedition, setSelectedExpedition] = useState<ExpeditionTemplate | null>(null)
   const [selectedWeapon, setSelectedWeapon] = useState<CraftedWeaponV2 | null>(null)
@@ -90,8 +104,9 @@ export function ExpeditionsSection() {
 
   const [missionContract, setMissionContract] = useState<'exploration' | 'speed'>('exploration')
   const [expeditionSubTab, setExpeditionSubTab] = useState<'expeditions' | 'special'>('expeditions')
-  const [questExpeditionLink, setQuestExpeditionLink] = useState(false)
   const [showBalancePanel, setShowBalancePanel] = useState(false)
+  const [expeditionWorkbenchQueueWeapon, setExpeditionWorkbenchQueueWeapon] =
+    useState<CraftedWeaponV2 | null>(null)
   const [devBalance, setDevBalance] = useState<ExpeditionDevBalanceTweaks>({
     eventGoldMultiplier: 1,
     qualityShift: 0,
@@ -174,16 +189,10 @@ export function ExpeditionsSection() {
     tickForgottenForgeQuestAvailability()
   }, [tickForgottenForgeQuestAvailability, guild.level])
 
-  // Снять выбор, если клинок отправили на верстак (другая вкладка)
-  useEffect(() => {
-    if (selectedWeapon && repairBenchWeaponId === selectedWeapon.id) {
-      queueMicrotask(() => {
-        setSelectedWeapon(null)
-        setSelectedAdventurer(null)
-        setSelectedExtendedAdventurer(null)
-      })
-    }
-  }, [repairBenchWeaponId, selectedWeapon])
+  const workbenchEligibility = useMemo(
+    () => ({ workbenchQueue, repairTechniqueStageRun }),
+    [workbenchQueue, repairTechniqueStageRun]
+  )
 
   // Проверка возможности выбрать экспедицию
   const canSelectExpedition = (_expedition: ExpeditionTemplate): { can: boolean; reason: string } => {
@@ -195,7 +204,7 @@ export function ExpeditionsSection() {
     if (!selectedExpedition) {
       return { can: false, reason: 'Сначала выберите экспедицию' }
     }
-    const guildBlock = getWeaponGuildServiceBlockReason(weapon, repairBenchWeaponId ?? null)
+    const guildBlock = getWeaponGuildServiceBlockReason(weapon, [], workbenchEligibility)
     if (guildBlock) {
       return { can: false, reason: guildBlock }
     }
@@ -220,20 +229,17 @@ export function ExpeditionsSection() {
     })
   }, [weaponInventory.weapons, guild.activeExpeditions, selectedExpedition])
 
-  /** Показываем также клинок на верстаке, если он отфильтрован (низкая прочность и т.д.) — disabled в UI */
-  const displayWeapons = useMemo(() => {
-    const out = [...baseFilteredWeapons]
-    const ids = new Set(out.map((w) => w.id))
-    if (repairBenchWeaponId && !ids.has(repairBenchWeaponId)) {
-      const bench = weaponInventory.weapons.find((w) => w.id === repairBenchWeaponId)
-      if (bench) out.push(bench)
-    }
-    return out
-  }, [baseFilteredWeapons, repairBenchWeaponId, weaponInventory.weapons])
+  const displayWeapons = baseFilteredWeapons
 
   // Запуск экспедиции (v2 - используем startExpeditionFull)
   const handleStartExpedition = () => {
     if (!selectedExpedition || !selectedWeapon || !selectedAdventurer) return
+
+    const linkedQuestId = getForgottenForgeLinkedQuestIdForExpedition(
+      selectedExpedition,
+      forgottenForgeQuest,
+      forgottenForgePhase
+    )
 
     const success = startExpeditionFull(
       selectedExpedition,
@@ -243,7 +249,7 @@ export function ExpeditionsSection() {
       {
         contractOverride: missionContract,
         ...(EXPEDITION_DEV_UI_ENABLED ? { devBalance } : {}),
-        ...(questExpeditionLink ? { linkedQuestId: FORGOTTEN_FORGE_QUEST_ID } : {}),
+        ...(linkedQuestId ? { linkedQuestId } : {}),
       }
     )
     if (success) {
@@ -255,7 +261,6 @@ export function ExpeditionsSection() {
       setSelectedWeapon(null)
       setSelectedAdventurer(null)
       setSelectedExtendedAdventurer(null)
-      setQuestExpeditionLink(false)
     }
   }
 
@@ -302,24 +307,19 @@ export function ExpeditionsSection() {
       weapon: selectedWeapon,
       guildLevel: guild.level,
       activeExpeditions: guild.activeExpeditions,
-      repairBenchWeaponId: repairBenchWeaponId ?? null,
+      workbenchEligibility,
     })
     if (!base.can) return base
     if (
-      questExpeditionLink &&
       forgottenForgeQuest.status === 'active' &&
-      forgottenForgePhase === 'awaiting_expedition'
+      forgottenForgePhase === 'awaiting_expedition' &&
+      forgottenForgeQuest.step === 5
     ) {
-      const need = FORGOTTEN_FORGE_EXPEDITION_LOCATION_BY_STEP[forgottenForgeQuest.step]
+      const need = FORGOTTEN_FORGE_EXPEDITION_LOCATION_BY_STEP[5]
       const loc = selectedExpedition.moduleLocationId
-      if (need && loc && loc !== need) {
-        return {
-          can: false as const,
-          reason: 'Выберите миссию в локации, указанной в особом задании',
-        }
-      }
       if (
-        forgottenForgeQuest.step === 5 &&
+        need &&
+        loc === need &&
         forgottenForgeQuest.flags.step5Cleanse !== 'magic' &&
         forgottenForgeQuest.flags.step5Cleanse !== 'physical'
       ) {
@@ -336,8 +336,7 @@ export function ExpeditionsSection() {
     selectedAdventurer,
     guild.level,
     guild.activeExpeditions,
-    repairBenchWeaponId,
-    questExpeditionLink,
+    workbenchEligibility,
     forgottenForgeQuest.status,
     forgottenForgeQuest.step,
     forgottenForgeQuest.flags.step5Cleanse,
@@ -409,8 +408,6 @@ export function ExpeditionsSection() {
 
           <TabsContent value="special" className="mt-4 space-y-4">
             <ForgottenForgeQuestCard
-              questExpeditionLink={questExpeditionLink}
-              onQuestExpeditionLinkChange={setQuestExpeditionLink}
               onGoToExpeditionsTab={() => setExpeditionSubTab('expeditions')}
             />
           </TabsContent>
@@ -437,16 +434,10 @@ export function ExpeditionsSection() {
             </div>
           </CardHeader>
           <CardContent>
-            {questExpeditionLink &&
-              forgottenForgeQuest.status === 'active' &&
-              forgottenForgePhase === 'awaiting_expedition' && (
-                <p className="text-xs text-amber-200/90 border border-amber-800/50 rounded-md px-3 py-2 mb-3 bg-amber-950/30">
-                  Включено засчитывание квесту «Эхо забытой кузни». Выберите миссию в нужной локации.
-                </p>
-              )}
             <ExpeditionLocationMissionBoard
               guildLevel={guild.level}
               selectedId={selectedExpedition?.id ?? null}
+              questLocationId={forgottenForgeQuestLocationId}
               canSelectExpedition={canSelectExpedition}
               onSelectedMissionInvalidated={() => {
                 setSelectedExpedition(null)
@@ -486,7 +477,11 @@ export function ExpeditionsSection() {
                   <AnimatePresence mode="popLayout">
                     {displayWeapons.map((weapon) => {
                       const { can, reason } = canSelectWeapon(weapon)
-                      const isRepairBench = repairBenchWeaponId === weapon.id
+                      const isRepairBench = workbenchQueue.some(
+                        (i) =>
+                          i.weaponId === weapon.id &&
+                          (i.status === 'planned' || i.status === 'running')
+                      )
                       return (
                         <WeaponSelectionCard
                           key={weapon.id}
@@ -496,6 +491,17 @@ export function ExpeditionsSection() {
                           reason={reason}
                           isRepairBench={isRepairBench}
                           onSelect={() => {
+                            if (!can) return
+                            if (
+                              shouldPromptExpeditionWorkbenchQueueDialog(
+                                weapon.id,
+                                workbenchQueue,
+                                repairTechniqueStageRun
+                              )
+                            ) {
+                              setExpeditionWorkbenchQueueWeapon(weapon)
+                              return
+                            }
                             setSelectedWeapon(weapon)
                             setSelectedAdventurer(null)
                           }}
@@ -679,6 +685,31 @@ export function ExpeditionsSection() {
           </Card>
         )}
       </div>
+
+      <WorkbenchPlannedQueueAlert
+        open={!!expeditionWorkbenchQueueWeapon}
+        onOpenChange={(open) => {
+          if (!open) setExpeditionWorkbenchQueueWeapon(null)
+        }}
+        weaponLabel={expeditionWorkbenchQueueWeapon?.fullName ?? ''}
+        plannedCount={
+          expeditionWorkbenchQueueWeapon
+            ? countPlannedWorkbenchItemsForWeapon(
+                expeditionWorkbenchQueueWeapon.id,
+                workbenchQueue
+              )
+            : 0
+        }
+        contextLabel="отправки в экспедицию"
+        onConfirmClearAndContinue={() => {
+          const w = expeditionWorkbenchQueueWeapon
+          if (!w) return
+          removeAllPlannedWorkbenchItemsForWeapon(w.id)
+          setExpeditionWorkbenchQueueWeapon(null)
+          setSelectedWeapon(w)
+          setSelectedAdventurer(null)
+        }}
+      />
     </TooltipProvider>
   )
 }

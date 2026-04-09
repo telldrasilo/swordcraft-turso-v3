@@ -8,7 +8,10 @@ import type { Adventurer, ActiveExpedition } from '@/types/guild'
 import { getMaxActiveExpeditions } from '@/types/guild'
 import type { CraftedWeaponV2 } from '@/types/craft-v2'
 import { weaponAttack } from '@/lib/weapon-v2-helpers'
-import { getWeaponGuildServiceBlockReason } from '@/lib/guild-weapon-service-eligibility'
+import {
+  getWeaponGuildServiceBlockReason,
+  type GuildWeaponServiceEligibilityContext,
+} from '@/lib/guild-weapon-service-eligibility'
 
 export interface ValidateExpeditionStartInput {
   expedition: ExpeditionTemplate
@@ -16,8 +19,9 @@ export interface ValidateExpeditionStartInput {
   weapon: CraftedWeaponV2
   guildLevel: number
   activeExpeditions: ActiveExpedition[]
-  /** Оружие на верстаке ремонта нельзя отправить в экспедицию */
-  repairBenchWeaponId?: string | null
+  /** @deprecated не используется в правилах блокировки */
+  repairBenchWeaponIds?: string[]
+  workbenchEligibility?: GuildWeaponServiceEligibilityContext
 }
 
 export interface ValidateExpeditionStartResult {
@@ -28,14 +32,14 @@ export interface ValidateExpeditionStartResult {
 export function validateExpeditionStart(
   input: ValidateExpeditionStartInput
 ): ValidateExpeditionStartResult {
-  const { expedition, adventurer, weapon, guildLevel, activeExpeditions, repairBenchWeaponId } = input
+  const { expedition, adventurer, weapon, guildLevel, activeExpeditions, workbenchEligibility } = input
 
   const maxActive = getMaxActiveExpeditions(guildLevel)
   if (activeExpeditions.length >= maxActive) {
     return { can: false, reason: `Достигнут лимит активных экспедиций (${maxActive})` }
   }
 
-  const guildBlock = getWeaponGuildServiceBlockReason(weapon, repairBenchWeaponId ?? null)
+  const guildBlock = getWeaponGuildServiceBlockReason(weapon, [], workbenchEligibility)
   if (guildBlock) {
     return { can: false, reason: guildBlock }
   }

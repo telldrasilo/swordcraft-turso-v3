@@ -1,79 +1,84 @@
 /**
- * RepairSection - секция ремонта оружия (один клинок на верстаке)
+ * Секция ремонта на верстаке (без оболочки очереди — она в WorkbenchScreen).
  */
 
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { Wrench, CheckCircle, Zap, Package } from 'lucide-react'
-import { useState, useEffect, useMemo } from 'react'
+import { CheckCircle, Zap, Package } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { useGameStore } from '@/store'
-import { useSound } from '@/lib/sounds'
-import { getSmithMastery } from '@/data/repair-system'
+import { hasPlannedOrRunningQueueItemOfKind } from '@/lib/workbench/workbench-queue'
+import type { RepairTechniqueExecutionOptions } from '@/types/repair-execution'
 import { RepairCard } from '@/components/ui/repair-card'
-import { WeaponInventoryCard } from '@/components/forge/weapon-inventory-card'
 import type { RepairResult } from '@/data/repair-system'
+import { WorkbenchQueueBlockOverlay } from '@/components/forge/workbench-queue-block-overlay'
 
-export function RepairSection() {
+export function RepairSection(props: {
+  lastRepair: { weaponName: string; result: RepairResult } | null
+}) {
+  const { lastRepair } = props
   const weaponInventory = useGameStore((state) => state.weaponInventory)
-  const repairBenchWeaponId = useGameStore((state) => state.repairBenchWeaponId)
-  const returnWeaponFromRepairBench = useGameStore((state) => state.returnWeaponFromRepairBench)
-  const player = useGameStore((state) => state.player)
-  const settleAutoRepairForgeVisitReady = useGameStore((state) => state.settleAutoRepairForgeVisitReady)
-  const [lastRepair, setLastRepair] = useState<{ weaponName: string; result: RepairResult } | null>(null)
-  const { play } = useSound()
-
-  useEffect(() => {
-    settleAutoRepairForgeVisitReady()
-  }, [settleAutoRepairForgeVisitReady])
-
-  useEffect(() => {
-    if (
-      repairBenchWeaponId &&
-      !weaponInventory.weapons.some((w) => w.id === repairBenchWeaponId)
-    ) {
-      returnWeaponFromRepairBench()
-    }
-  }, [repairBenchWeaponId, weaponInventory.weapons, returnWeaponFromRepairBench])
+  const workbenchQueue = useGameStore((state) => state.workbenchQueue)
+  const workbenchSelectedWeaponId = useGameStore((state) => state.workbenchSelectedWeaponId)
+  const upsertRepairQueuePlan = useGameStore((state) => state.upsertRepairQueuePlan)
+  const [repairDuplicatePayload, setRepairDuplicatePayload] = useState<{
+    weaponId: string
+    techniqueIds: string[]
+    executionOpts?: RepairTechniqueExecutionOptions
+  } | null>(null)
 
   const benchWeapon = useMemo(() => {
-    if (!repairBenchWeaponId) return undefined
-    return weaponInventory.weapons.find((w) => w.id === repairBenchWeaponId)
-  }, [weaponInventory.weapons, repairBenchWeaponId])
-
-  const mastery = getSmithMastery(Math.max(1, player.level))
+    if (!workbenchSelectedWeaponId) return undefined
+    return weaponInventory.weapons.find((w) => w.id === workbenchSelectedWeaponId)
+  }, [weaponInventory.weapons, workbenchSelectedWeaponId])
 
   return (
     <div className="space-y-4">
-      <Card className="card-medieval bg-stone-800/50">
-        <CardContent className="p-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Wrench className="w-5 h-5 text-amber-500" />
-              <div>
-                <p className="text-sm font-medium text-stone-300">{player.name}</p>
-                <p className="text-xs text-amber-400">
-                  {mastery.name} · ур. {player.level}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 text-xs">
-              <div className="flex items-center gap-1 text-green-400">
-                <CheckCircle className="w-3 h-3" />
-                <span>
-                  {mastery.successBonus >= 0 ? '+' : ''}
-                  {mastery.successBonus}% к успеху
-                </span>
-              </div>
-              <div className="flex items-center gap-1 text-purple-400">
-                <span>{mastery.discountPercent}% скидка на материалы</span>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <AlertDialog
+        open={repairDuplicatePayload != null}
+        onOpenChange={(open) => {
+          if (!open) setRepairDuplicatePayload(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Уже есть ремонт в очереди</AlertDialogTitle>
+            <AlertDialogDescription>
+              Для этого клинка уже запланирован или выполняется ремонт. Добавить ещё один план ремонта?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (repairDuplicatePayload) {
+                  upsertRepairQueuePlan(repairDuplicatePayload)
+                }
+                setRepairDuplicatePayload(null)
+              }}
+            >
+              Добавить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <p className="text-xs text-stone-500">
+        Ремонт шрамов и прочности. Очередь верстака и полоса прогресса — в блоке ниже; перековка — во
+        вкладке справа.
+      </p>
 
       <AnimatePresence>
         {lastRepair && (
@@ -96,48 +101,35 @@ export function RepairSection() {
         )}
       </AnimatePresence>
 
-      {!repairBenchWeaponId || !benchWeapon ? (
+      {!benchWeapon ? (
         <Card className="card-medieval">
-          <CardContent className="p-8 text-center">
-            <div className="w-20 h-20 mx-auto rounded-full bg-stone-800/50 flex items-center justify-center mb-4">
-              <Package className="w-10 h-10 text-stone-600" />
-            </div>
-            <p className="text-stone-400 font-medium">Верстак свободен</p>
+          <CardContent className="p-6 text-center">
+            <Package className="w-12 h-12 mx-auto text-stone-600 mb-3" />
+            <p className="text-stone-400 font-medium">Клинок не выбран</p>
             <p className="text-stone-500 text-sm mt-2 max-w-md mx-auto">
-              Во вкладке «Инвентарь» нажмите «Отправить на ремонт» на карточке клинка — он появится здесь.
-              Одновременно на верстаке только одно оружие.
+              Выберите клинок в узком списке слева (или в карусели на телефоне) — карточка по центру и
+              планирование ремонта станут доступны.
             </p>
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="border-stone-600 text-stone-300 hover:bg-stone-800"
-              onClick={() => returnWeaponFromRepairBench()}
-            >
-              Вернуть в инвентарь
-            </Button>
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,22rem)_1fr] gap-4 items-start">
-            <div className="w-full max-w-md mx-auto lg:mx-0">
-              <WeaponInventoryCard weapon={benchWeapon} context="repairBench" />
-            </div>
-            <RepairCard
-              key={benchWeapon.id}
-              variant="repairWorkbench"
-              compactWeaponChrome
-              weapon={benchWeapon}
-              onRepairDone={(weaponName, result) => {
-                play('craft_complete')
-                setLastRepair({ weaponName, result })
-                setTimeout(() => setLastRepair(null), 3000)
-              }}
-            />
-          </div>
+        <div className="relative isolate rounded-lg [contain:layout]">
+          <RepairCard
+            key={benchWeapon.id}
+            variant="repairWorkbench"
+            compactWeaponChrome
+            weapon={benchWeapon}
+            onQueueAdd={(payload) => {
+              if (hasPlannedOrRunningQueueItemOfKind(workbenchQueue, payload.weaponId, 'repair')) {
+                setRepairDuplicatePayload(payload)
+                return
+              }
+              upsertRepairQueuePlan(payload)
+            }}
+          />
+          {hasPlannedOrRunningQueueItemOfKind(workbenchQueue, benchWeapon.id, 'repair') ? (
+            <WorkbenchQueueBlockOverlay />
+          ) : null}
         </div>
       )}
 

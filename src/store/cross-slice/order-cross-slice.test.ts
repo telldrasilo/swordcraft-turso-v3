@@ -66,8 +66,8 @@ describe('buildOrderCrossSlice', () => {
     const damaged = {
       id: 'w1',
       quality: 80,
-      currentDurability: 100,
-      stats: { attack: 30, maxDurability: 100, durability: 100 },
+      currentDurability: 40,
+      stats: { attack: 30, maxDurability: 100, durability: 40 },
       type: 'sword',
       recipeId: 'iron_sword',
       hiddenTags: ['sword', 'iron'],
@@ -98,6 +98,8 @@ describe('buildOrderCrossSlice', () => {
       () =>
         ({
           weaponInventory: { weapons: [damaged] },
+          workbenchQueue: [],
+          repairTechniqueStageRun: null,
           orders: [order],
           activeOrderId: 'ord1',
           player: { level: 5 },

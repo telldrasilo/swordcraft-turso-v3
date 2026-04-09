@@ -14,6 +14,8 @@ import type { NPCOrder } from '@/store/slices/orders-slice'
 import { useState, useMemo } from 'react'
 import { Sword, Star, Coins, AlertTriangle, CheckCircle2, Package } from 'lucide-react'
 import { calculateGoldRewardRange } from '@/lib/store-utils/order-utils'
+import { shouldPromptExpeditionWorkbenchQueueDialog, countPlannedWorkbenchItemsForWeapon } from '@/lib/workbench/workbench-expedition-guard'
+import { WorkbenchPlannedQueueAlert } from '@/components/shared/workbench-planned-queue-alert'
 
 // Названия типов оружия
 const weaponTypeNames: Record<string, string> = {
@@ -50,9 +52,15 @@ export function ActiveOrdersSection({ onShowDetails }: ActiveOrdersSectionProps)
   const completeOrder = useGameStore((state) => state.completeOrder)
   const weapons = useGameStore((state) => state.weaponInventory.weapons)
   const playerLevel = useGameStore((state) => state.player.level)
+  const workbenchQueue = useGameStore((state) => state.workbenchQueue)
+  const repairTechniqueStageRun = useGameStore((state) => state.repairTechniqueStageRun)
+  const removeAllPlannedWorkbenchItemsForWeapon = useGameStore(
+    (state) => state.removeAllPlannedWorkbenchItemsForWeapon
+  )
   
   const [showCancelDialog, setShowCancelDialog] = useState<NPCOrder | null>(null)
   const [showWeaponSelect, setShowWeaponSelect] = useState(false)
+  const [forgeOrderWorkbenchWeaponId, setForgeOrderWorkbenchWeaponId] = useState<string | null>(null)
 
   // Подходящие оружия для заказа (с использованием hiddenTags)
   const suitableWeapons = useMemo(() => {
@@ -114,18 +122,48 @@ export function ActiveOrdersSection({ onShowDetails }: ActiveOrdersSectionProps)
   }
 
   const handleWeaponSelect = (weaponId: string) => {
-    if (activeOrderId) {
-      completeOrder(activeOrderId, weaponId)
-      setShowWeaponSelect(false)
+    if (!activeOrderId) return
+    if (shouldPromptExpeditionWorkbenchQueueDialog(weaponId, workbenchQueue, repairTechniqueStageRun)) {
+      setForgeOrderWorkbenchWeaponId(weaponId)
+      return
     }
+    completeOrder(activeOrderId, weaponId)
+    setShowWeaponSelect(false)
   }
 
   const handleCancelWeaponSelect = () => {
     setShowWeaponSelect(false)
   }
 
+  const forgeOrderWeaponLabel =
+    forgeOrderWorkbenchWeaponId != null
+      ? (weapons.find((w) => w.id === forgeOrderWorkbenchWeaponId)?.fullName ?? '')
+      : ''
+
   return (
     <>
+      <WorkbenchPlannedQueueAlert
+        open={!!forgeOrderWorkbenchWeaponId && !!activeOrderId}
+        onOpenChange={(open) => {
+          if (!open) setForgeOrderWorkbenchWeaponId(null)
+        }}
+        weaponLabel={forgeOrderWeaponLabel}
+        plannedCount={
+          forgeOrderWorkbenchWeaponId
+            ? countPlannedWorkbenchItemsForWeapon(forgeOrderWorkbenchWeaponId, workbenchQueue)
+            : 0
+        }
+        contextLabel="сдачи заказа"
+        onConfirmClearAndContinue={() => {
+          if (!activeOrderId || !forgeOrderWorkbenchWeaponId) return
+          removeAllPlannedWorkbenchItemsForWeapon(forgeOrderWorkbenchWeaponId)
+          const wid = forgeOrderWorkbenchWeaponId
+          setForgeOrderWorkbenchWeaponId(null)
+          completeOrder(activeOrderId, wid)
+          setShowWeaponSelect(false)
+        }}
+      />
+
       <Card className="card-medieval border-amber-600/30 bg-amber-900/10">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">

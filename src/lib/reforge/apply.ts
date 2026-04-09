@@ -5,13 +5,15 @@
 
 import type { CraftedWeaponV2, WeaponReforgeState } from '@/types/craft-v2'
 import type { WeaponLegacy } from '@/types/weapon-damage'
-import { getWarSoulTier } from '@/data/war-soul-tiers'
+import { getWarSoulTier, resolveWarSoulProgressBarMax } from '@/data/war-soul-tiers'
+import { isWarSoulPoolUncapped } from '@/data/war-soul-balance'
 import { getMaterialProcessingTechniqueById } from '@/data/material-processing-techniques'
 import { getPlannerUnlockedTechniqueIds } from '@/lib/craft/planner-unlocked-techniques'
 import {
   getReforgeTechniqueById,
   type ReforgeTechniqueEntry,
 } from '@/data/reforge/reforge-techniques-registry'
+import { resolveBuffReforgeWarSoulCost, getBuffReforgeCostMultiplier } from '@/lib/reforge/reforge-buff-cost'
 
 export type ReforgeFailReason =
   | 'no_weapon'
@@ -25,11 +27,26 @@ export type ReforgeFailReason =
   | 'all_scars_awakened'
   | 'scar_awakening_already_done'
 
+export interface ReforgeBuffApplyDetails {
+  buffPercentRolled: number
+  statKind: 'attack' | 'maxDurability'
+  attackBefore?: number
+  attackAfter?: number
+  maxDurabilityBefore?: number
+  maxDurabilityAfter?: number
+  warSoulSpent: number
+  /** База из реестра до множителя тира души. */
+  baseWarSoulCost?: number
+  /** Множитель 1 + tier × REFORGE_BUFF_WAR_SOUL_COST_PER_TIER. */
+  warSoulCostTierFactor?: number
+}
+
 export type ApplyReforgeResult =
   | {
       ok: true
       weapon: CraftedWeaponV2
       outcome: 'buff' | 'awaken_success' | 'awaken_fail'
+      buff?: ReforgeBuffApplyDetails
       /** 0..1 для awaken */
       roll?: number
       chance?: number
@@ -97,10 +114,23 @@ export function listScarCandidates(legacy: WeaponLegacy): { key: string; weight:
   return out
 }
 
+/**
+ * Доля «наполнения» души для модификатора шанса пробуждения.
+ * При технически неограниченном пуле (`maxWarSoul` ≈ MAX_SAFE_INTEGER) отношение warSoul/maxWarSoul ≈ 0;
+ * вместо этого нормализуем по порогу следующего тира (`resolveWarSoulProgressBarMax`), как в UI прогресса ДВ.
+ */
+export function computeAwakenPoolRatio(weapon: CraftedWeaponV2): number {
+  if (isWarSoulPoolUncapped(weapon.maxWarSoul)) {
+    const barMax = resolveWarSoulProgressBarMax(weapon.warSoul, weapon.maxWarSoul)
+    return barMax > 0 ? Math.min(1, weapon.warSoul / barMax) : 0
+  }
+  const maxPool = weapon.maxWarSoul > 0 ? weapon.maxWarSoul : 1
+  return Math.min(1, weapon.warSoul / maxPool)
+}
+
 export function computeAwakenScarChance(weapon: CraftedWeaponV2, technique: ReforgeTechniqueEntry): number {
   const base = technique.awakenBaseChance ?? 0.1
-  const maxPool = weapon.maxWarSoul > 0 ? weapon.maxWarSoul : 1
-  const poolRatio = Math.min(1, weapon.warSoul / maxPool)
+  const poolRatio = computeAwakenPoolRatio(weapon)
   const tier = getWarSoulTier(weapon.warSoul, weapon.maxWarSoul).tier
   const tierBonus = tier * 0.015
   return Math.min(0.9, base + poolRatio * 0.25 + tierBonus)
@@ -125,10 +155,10 @@ function rollBuffPercent(technique: ReforgeTechniqueEntry, random: () => number)
   return technique.buffPercentPerStack ?? 2
 }
 
-function applyBuffStat(
+function applyBuffStatWithPercent(
   weapon: CraftedWeaponV2,
   technique: ReforgeTechniqueEntry,
-  random: () => number
+  p: number
 ): CraftedWeaponV2 | { error: ReforgeFailReason } {
   const stat = technique.buffStat
   const maxStacks = technique.maxStacks ?? 5
@@ -138,7 +168,6 @@ function applyBuffStat(
     const stacks = wr.attackBonusStacks ?? 0
     if (stacks >= maxStacks) return { error: 'max_stacks' }
     const refBase = wr.attackRefBase ?? weapon.stats.attack
-    const p = rollBuffPercent(technique, random)
     const newAttack = Math.max(1, Math.round(weapon.stats.attack + (refBase * p) / 100))
     return mergeReforge(
       {
@@ -156,7 +185,6 @@ function applyBuffStat(
     const stacks = wr.maxDurabilityBonusStacks ?? 0
     if (stacks >= maxStacks) return { error: 'max_stacks' }
     const refBase = wr.maxDurabilityRefBase ?? weapon.stats.maxDurability
-    const p = rollBuffPercent(technique, random)
     const oldMax = weapon.stats.maxDurability || 1
     const newMax = Math.max(1, Math.round(weapon.stats.maxDurability + (refBase * p) / 100))
     const scale = oldMax > 0 ? newMax / oldMax : 1
@@ -182,7 +210,7 @@ function applyBuffStat(
   return { error: 'technique_not_found' }
 }
 
-/** Случайный непробуждённый шрам (равновесие между кандидатами с весами). */
+/** Случайный непробуждённый шрам с учётом весов наследия. */
 function pickRandomUnawakenedScarKey(
   legacy: WeaponLegacy,
   wr: WeaponReforgeState | undefined,
@@ -191,8 +219,14 @@ function pickRandomUnawakenedScarKey(
   const awakened = wr?.awakenedScarKeys ?? {}
   const pool = listScarCandidates(legacy).filter((c) => !awakened[c.key])
   if (pool.length === 0) return null
-  const idx = Math.floor(random() * pool.length)
-  return pool[idx].key
+  const total = pool.reduce((s, c) => s + c.weight, 0)
+  if (total <= 0) return pool[0]?.key ?? null
+  let r = random() * total
+  for (const c of pool) {
+    r -= c.weight
+    if (r <= 0) return c.key
+  }
+  return pool[pool.length - 1].key
 }
 
 /**
@@ -211,17 +245,37 @@ export function applyReforgeTechniquePure(
   }
 
   if (technique.reforgeType === 'buffStat') {
-    if (weapon.warSoul < technique.warSoulCost) {
+    const baseCost = technique.warSoulCost
+    const spent = resolveBuffReforgeWarSoulCost(weapon, baseCost)
+    const tierFactor = getBuffReforgeCostMultiplier(weapon.warSoul, weapon.maxWarSoul)
+    if (weapon.warSoul < spent) {
       return { ok: false, reason: 'insufficient_war_soul' }
     }
-    const next = applyBuffStat(weapon, technique, random)
+    const attackBefore = weapon.stats.attack
+    const maxDurabilityBefore = weapon.stats.maxDurability
+    const p = rollBuffPercent(technique, random)
+    const next = applyBuffStatWithPercent(weapon, technique, p)
     if ('error' in next) return { ok: false, reason: next.error }
-    const spent = technique.warSoulCost
     const withSoul: CraftedWeaponV2 = {
       ...next,
       warSoul: Math.max(0, next.warSoul - spent),
     }
-    return { ok: true, weapon: withSoul, outcome: 'buff' }
+    const statKind = technique.buffStat === 'maxDurability' ? 'maxDurability' : 'attack'
+    const buff: ReforgeBuffApplyDetails = {
+      buffPercentRolled: Math.round(p * 100) / 100,
+      statKind,
+      warSoulSpent: spent,
+      baseWarSoulCost: baseCost,
+      warSoulCostTierFactor: Math.round(tierFactor * 1000) / 1000,
+    }
+    if (statKind === 'attack') {
+      buff.attackBefore = attackBefore
+      buff.attackAfter = withSoul.stats.attack
+    } else {
+      buff.maxDurabilityBefore = maxDurabilityBefore
+      buff.maxDurabilityAfter = withSoul.stats.maxDurability
+    }
+    return { ok: true, weapon: withSoul, outcome: 'buff', buff }
   }
 
   if (technique.reforgeType === 'awakenScar') {

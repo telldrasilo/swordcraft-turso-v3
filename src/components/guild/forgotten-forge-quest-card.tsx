@@ -1,6 +1,6 @@
 'use client'
 
-import { ScrollText, Map, Shield, Sparkles } from 'lucide-react'
+import { ScrollText, Map, Sparkles, FastForward } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -16,21 +16,22 @@ import {
 import { getLocationById } from '@/modules/expeditions/data/locations'
 import { getForgottenForgeProgressLine } from '@/store/slices/forgotten-forge-quest-slice'
 
+const IS_DEV = process.env.NODE_ENV === 'development'
+
 type Props = {
-  questExpeditionLink: boolean
-  onQuestExpeditionLinkChange: (v: boolean) => void
   onGoToExpeditionsTab: () => void
 }
 
 export function ForgottenForgeQuestCard(props: Props) {
-  const { questExpeditionLink, onQuestExpeditionLinkChange, onGoToExpeditionsTab } = props
+  const { onGoToExpeditionsTab } = props
 
   const forgottenForgeQuest = useGameStore((s) => s.forgottenForgeQuest)
   const forgottenForgePhase = useGameStore((s) => s.forgottenForgePhase)
-  const setMessagesDockChannel = useGameStore((s) => s.setMessagesDockChannel)
+  const openMessagesDock = useGameStore((s) => s.openMessagesDock)
   const setForgottenForgeStep3Insurance = useGameStore((s) => s.setForgottenForgeStep3Insurance)
   const setForgottenForgeStep5Cleanse = useGameStore((s) => s.setForgottenForgeStep5Cleanse)
   const setForgottenForgeStep6Anselm = useGameStore((s) => s.setForgottenForgeStep6Anselm)
+  const completeForgottenForgeQuestDev = useGameStore((s) => s.completeForgottenForgeQuestDev)
 
   const q = forgottenForgeQuest
   const progress = getForgottenForgeProgressLine(q.step, q.status)
@@ -163,45 +164,34 @@ export function ForgottenForgeQuestCard(props: Props) {
           </div>
         )}
 
-        <div className="flex flex-col sm:flex-row gap-2 pt-1">
+        <div className="flex flex-col sm:flex-row flex-wrap gap-2 pt-1">
           <Button
             type="button"
             variant="secondary"
             className="gap-2"
-            onClick={() => {
-              setMessagesDockChannel('archivist')
-            }}
+            onClick={() => openMessagesDock('archivist')}
           >
             <ScrollText className="w-4 h-4" />
-            Чат с архивариусом
+            Поговорить с архивариусом
           </Button>
           <Button type="button" variant="outline" className="gap-2" onClick={onGoToExpeditionsTab}>
             <Map className="w-4 h-4" />
             К экспедициям
           </Button>
+          {IS_DEV ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="gap-2 border-amber-700/60 text-amber-100/90 hover:bg-amber-950/40"
+              title="Только dev-сборка: завершить квест и выдать чертёж алтаря"
+              onClick={() => completeForgottenForgeQuestDev()}
+            >
+              <FastForward className="w-4 h-4" />
+              Тест: завершить цепочку
+            </Button>
+          ) : null}
         </div>
 
-        {forgottenForgePhase === 'awaiting_expedition' && q.status === 'active' && (
-          <div className="rounded-md border border-amber-900/40 bg-amber-950/20 px-3 py-2 space-y-2">
-            <div className="flex items-start gap-2">
-              <Shield className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-              <p className="text-xs text-stone-400 leading-snug">
-                Включите «Засчитать квесту», затем выберите миссию в нужной локации и отправьте экспедицию.
-                Без этого флага успех в той же локации не продвинет квест.
-              </p>
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <Label htmlFor="ff-quest-link" className="text-stone-200 text-sm">
-                Засчитать квесту
-              </Label>
-              <Switch
-                id="ff-quest-link"
-                checked={questExpeditionLink}
-                onCheckedChange={onQuestExpeditionLinkChange}
-              />
-            </div>
-          </div>
-        )}
       </CardContent>
     </Card>
   )

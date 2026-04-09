@@ -209,6 +209,9 @@ Type EnchantmentEffect = damage | defense | speed | regen | lifesteal | burn | s
 - `CraftedWeaponV2.enchantments?: WeaponEnchantment[]`
 - `CraftedWeaponV2.stats.enchantSlots`
 - `CraftedWeaponV2.stats.enchantPower`
+- `CraftedWeaponV2.powerScore?: number` — сводная «мощь» для сортировки/UI; формула в `docs/utils/FORMULAS.md`, расчёт `recalculateWeaponPowerScore`.
+
+**Фильтры инвентаря/верстака (persist):** `inventorySortBy`, `inventoryFilterQuality`, `inventoryFilterDamage` — `src/store/slices/inventory-filter-slice.ts`.
 
 **Новый модуль зачарований (фаза 0+, канон `docs/systems/ENCHANTMENT_AWAKENING_CONCEPT.md`):** черновые типы в [`src/types/weapon-enchantment-tree.ts`](../src/types/weapon-enchantment-tree.ts) (`WeaponAwakeningLevel`, `EnchantmentTreeStep`, режимы ветвления); на **`CraftedWeaponV2`** опционально `awakeningLevel`, `enchantmentTreeSteps`, `secondBranchMode`, `thirdBranchMode`. Поля древа хранятся в JSON оружия внутри `weaponInventory` (отдельных колонок облака не требуется). Legacy-массив `enchantments[]` сохраняется до полной замены контента.
 

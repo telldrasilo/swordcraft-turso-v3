@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Bell, ChevronLeft, ChevronRight, BookOpen, ScrollText } from 'lucide-react'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useGameStore, type GameScreen } from '@/store'
@@ -9,6 +9,7 @@ import type { GameMessagesDockChannel } from '@/types/forgotten-forge-quest'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
+import { computeMessagesDockUnreadCount } from '@/lib/messages-dock-unread'
 
 const KNOWN_SCREENS: GameScreen[] = [
   'forge',
@@ -51,21 +52,21 @@ function DockChannelTabs(props: {
       type="button"
       onClick={() => onChannel(ch)}
       title={label}
+      aria-label={label}
       className={cn(
-        'flex flex-col items-center justify-center gap-0.5 rounded-md px-1.5 py-2 text-[10px] font-medium leading-tight transition-colors w-full',
+        'flex flex-col items-center justify-center rounded-md px-1.5 py-2 transition-colors w-full',
         channel === ch
           ? 'bg-amber-900/50 text-amber-100 border border-amber-700/60'
           : 'text-stone-500 hover:text-stone-300 border border-transparent'
       )}
     >
       <Icon className="w-4 h-4 shrink-0" aria-hidden />
-      <span className="text-center max-w-[4.5rem]">{label}</span>
     </button>
   )
   return (
     <div
       className={cn(
-        'flex flex-col gap-1 border-l border-stone-800/80 bg-stone-950/90 py-2 pl-1 pr-1 shrink-0 w-[76px]',
+        'flex flex-col gap-1 border-l border-stone-800/80 bg-stone-950/90 py-2 pl-1 pr-1 shrink-0 w-12',
         className
       )}
       role="tablist"
@@ -82,14 +83,47 @@ export function GameMessagesDock() {
   const [open, setOpen] = useState(false)
   const [desktopCollapsed, setDesktopCollapsed] = useState(false)
   const rawMessages = useGameStore((s) => s.gameMessages)
-  const gameMessages = Array.isArray(rawMessages) ? rawMessages : []
+  const gameMessages = useMemo(
+    () => (Array.isArray(rawMessages) ? rawMessages : []),
+    [rawMessages]
+  )
   const setCurrentScreen = useGameStore((s) => s.setCurrentScreen)
   const setEncyclopediaFocusMaterialId = useGameStore((s) => s.setEncyclopediaFocusMaterialId)
   const channel = useGameStore((s) => s.messagesDockChannel)
   const setMessagesDockChannel = useGameStore((s) => s.setMessagesDockChannel)
+  const messagesDockOpenNonce = useGameStore((s) => s.messagesDockOpenNonce)
+  const encyclopediaReadUpToTs = useGameStore((s) => s.messagesDockEncyclopediaReadUpToTs)
+  const archivistReadUpToTs = useGameStore((s) => s.messagesDockArchivistReadUpToTs)
+  const markMessagesDockRead = useGameStore((s) => s.markMessagesDockRead)
   const archivistThread = useGameStore((s) => s.archivistDialogue.thread)
   const archivistPending = useGameStore((s) => s.archivistPendingChoices)
   const selectArchivistChoice = useGameStore((s) => s.selectArchivistChoice)
+
+  const unreadCount = useMemo(
+    () =>
+      computeMessagesDockUnreadCount({
+        gameMessages,
+        archivistThread,
+        encyclopediaReadUpToTs: encyclopediaReadUpToTs ?? 0,
+        archivistReadUpToTs: archivistReadUpToTs ?? 0,
+      }),
+    [gameMessages, archivistThread, encyclopediaReadUpToTs, archivistReadUpToTs]
+  )
+
+  useEffect(() => {
+    if (messagesDockOpenNonce === 0) return
+    queueMicrotask(() => {
+      setOpen(true)
+      setDesktopCollapsed(false)
+      markMessagesDockRead()
+    })
+  }, [messagesDockOpenNonce, markMessagesDockRead])
+
+  const dockVisible = isMobile ? open : !desktopCollapsed
+  useEffect(() => {
+    if (!dockVisible) return
+    markMessagesDockRead()
+  }, [dockVisible, gameMessages, archivistThread, markMessagesDockRead])
 
   const sorted = [...gameMessages].sort((a, b) => b.ts - a.ts).slice(0, MAX_VISIBLE)
   const filtered = sorted.filter((m) =>
@@ -98,7 +132,7 @@ export function GameMessagesDock() {
 
   const encyclopediaList = (
     <ul
-      className="space-y-2 text-xs max-h-[min(70vh,520px)] overflow-y-auto pr-1"
+      className="scrollbar-dock-subtle space-y-2 text-xs max-h-[min(70vh,520px)] overflow-y-auto pr-1"
       aria-label="Сообщения энциклопедии"
     >
       {filtered.length === 0 ? (
@@ -144,7 +178,7 @@ export function GameMessagesDock() {
 
   const archivistPanel = (
     <div className="flex flex-col h-full min-h-0">
-      <div className="flex-1 overflow-y-auto space-y-2 pr-1 text-xs max-h-[min(70vh,520px)]">
+      <div className="scrollbar-dock-subtle flex-1 overflow-y-auto space-y-2 pr-1 text-xs max-h-[min(70vh,520px)]">
         {archivistThread.length === 0 ? (
           <p className="text-stone-500 py-4 text-center">Диалогов пока нет</p>
         ) : (
@@ -210,14 +244,18 @@ export function GameMessagesDock() {
             size="icon"
             className={cn(
               'relative fixed bottom-24 right-4 z-40 h-11 w-11 rounded-full border-amber-800/50 bg-stone-950/95 shadow-lg',
-              sorted.length > 0 && 'ring-2 ring-amber-700/40'
+              unreadCount > 0 && 'ring-2 ring-amber-700/40'
             )}
-            aria-label={`Сообщения (${sorted.length})`}
+            aria-label={
+              unreadCount > 0
+                ? `Сообщения, непрочитанных: ${unreadCount > 9 ? 'больше 9' : unreadCount}`
+                : 'Сообщения'
+            }
           >
             <Bell className="w-5 h-5 text-amber-400" />
-            {sorted.length > 0 && (
+            {unreadCount > 0 && (
               <span className="absolute -top-1 -right-1 min-w-[18px] rounded-full bg-amber-700 px-1 text-[10px] font-bold text-amber-50">
-                {sorted.length > 9 ? '9+' : sorted.length}
+                {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             )}
           </Button>
@@ -247,13 +285,17 @@ export function GameMessagesDock() {
           size="icon"
           className="relative h-9 w-9 shrink-0 rounded-md border-amber-800/50 bg-stone-900/90 text-amber-200 hover:text-amber-100 hover:bg-stone-800"
           onClick={() => setDesktopCollapsed(false)}
-          aria-label="Развернуть ленту событий"
+          aria-label={
+            unreadCount > 0
+              ? `Развернуть ленту событий, непрочитанных: ${unreadCount > 9 ? 'больше 9' : unreadCount}`
+              : 'Развернуть ленту событий'
+          }
           title="Развернуть события"
         >
           <ChevronLeft className="h-4 w-4" aria-hidden />
-          {sorted.length > 0 && (
+          {unreadCount > 0 && (
             <span className="absolute -top-1 -right-1 min-w-[16px] rounded-full bg-amber-700 px-0.5 text-[9px] font-bold leading-tight text-amber-50">
-              {sorted.length > 9 ? '9+' : sorted.length}
+              {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
         </Button>
@@ -283,7 +325,7 @@ export function GameMessagesDock() {
             <ChevronRight className="h-4 w-4" aria-hidden />
           </Button>
         </div>
-        <div className="flex-1 overflow-y-auto p-2 min-h-0">{mainContent}</div>
+        <div className="scrollbar-dock-subtle flex-1 overflow-y-auto p-2 min-h-0">{mainContent}</div>
       </div>
       {dockTabs}
     </aside>

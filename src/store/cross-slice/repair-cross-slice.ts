@@ -3,41 +3,46 @@
  * Вызывается из game-store-composed; get/set — Zustand API полного стора.
  */
 
-import type { RepairType, ExecuteRepairResult } from '@/data/repair-system'
+import type { RepairType, ExecuteRepairResult, WeaponRepairCalc } from '@/data/repair-system'
+import { describeTechniqueRepairFailureMessage } from '@/lib/weapon-damage/repair-failure-copy'
 import type { CraftingCost, Resources, ResourceKey } from '@/store/slices/resources-slice'
 import type { RepairTechniqueStageRunState, WeaponInventory } from '@/store/slices/craft-slice'
 import type { CraftedWeaponV2 } from '@/types/craft-v2'
-import { getWeaponAutoRepairGoldCost } from '@/lib/store-utils/repair-balance'
+import type { ActiveDamageTagEntry } from '@/types/weapon-damage'
+import { withRecalculatedPowerScore } from '@/lib/craft/weapon-power-score'
 import {
   getRepairOptionsForWeapon,
   craftedWeaponV2ToWeaponRepairCalc,
   mapTechniqueIdsToRepairDiceProfile,
   pickRepairDiceProfileAllowedByTags,
   repairDiceProfileToRepairType,
+  assertRepairPlanCostsMet,
   executeRepairWithPlanCosts,
   resolveWeaponRepairPlanEconomy,
   scaleMaterialCostRecord,
 } from '@/lib/store-utils/repair-utils'
+import type { RepairExecutionRollModifiers } from '@/lib/store-utils/repair-utils'
 import {
   buildWeaponRepairPlan,
   getUncoveredActiveTags,
   isRepairTechniqueUnlocked,
   repairPlanUsesOnlyBasicTechniques,
 } from '@/lib/weapon-damage/build-repair-plan'
-import { DURABILITY_MAINTENANCE_TECHNIQUE_ID } from '@/data/weapon-damage/repair-techniques-registry'
 import {
-  WEAPON_AUTO_REPAIR_DURABILITY_RESTORE_RATIO,
-  WEAPON_AUTO_REPAIR_EPIC_MULTIPLIER,
-  WEAPON_AUTO_REPAIR_LEGACY_RESONANCE_BASE,
-  WEAPON_AUTO_REPAIR_LEGACY_RESONANCE_BOND_CAP,
-  WEAPON_AUTO_REPAIR_LEGACY_RESONANCE_BOND_PER_POINT,
+  DURABILITY_MAINTENANCE_TECHNIQUE_ID,
+  getRepairTechniqueById,
+} from '@/data/weapon-damage/repair-techniques-registry'
+import {
   WEAPON_DEEP_INSPECT_DURATION_MS,
   WEAPON_DEEP_INSPECT_MATERIAL_COST,
   REPAIR_WRONG_HYPOTHESIS_SUCCESS_PENALTY_POINTS,
+  REPAIR_WORKBENCH_STAGE_SUCCESS_BONUS_CAP,
+  REPAIR_WORKBENCH_STAGE_SUCCESS_BONUS_PER_STAGE,
   WEAPON_LEGACY_RESONANCE_BASE_CHANCE,
   WEAPON_LEGACY_RESONANCE_BOND_CAP,
   WEAPON_LEGACY_RESONANCE_BOND_PER_POINT,
   REPAIR_BASIC_SCAR_ON_SUCCESS_CHANCE,
+  WEAPON_DURABILITY_MAINTENANCE_RESTORE_MULT,
 } from '@/lib/store-utils/constants'
 import {
   appendHiddenMark,
@@ -52,6 +57,122 @@ import { diagnosisTierForRemovedTag } from '@/types/repair-execution'
 
 const HEAVY_REPAIR_TYPES: RepairType[] = ['quality', 'restoration', 'enhancement']
 
+type PreparedTechniqueRepair =
+  | { ok: false; error: string }
+  | {
+      ok: true
+      weaponId: string
+      weapon: CraftedWeaponV2
+      techniqueIds: string[]
+      opts?: RepairTechniqueExecutionOptions
+      playerLevel: number
+      materialsForPlan: Record<string, number>
+      model: WeaponRepairCalc
+      repairType: RepairType
+      damageTags: ActiveDamageTagEntry[]
+      rollModifiers: RepairExecutionRollModifiers | undefined
+      resources: Resources
+      materialStash: Record<string, number>
+    }
+
+function prepareTechniqueRepairExecution(
+  state: RepairStoreSlice,
+  weaponId: string,
+  techniqueIds: string[],
+  opts?: RepairTechniqueExecutionOptions
+): PreparedTechniqueRepair {
+  const weapon = state.weaponInventory.weapons.find((w) => w.id === weaponId)
+  if (!weapon) {
+    return { ok: false, error: 'Оружие не найдено' }
+  }
+
+  const damageTags = weapon.activeDamageTags ?? []
+  const tagIds = damageTags.map((e) => e.tagId)
+  const noTagsSelectedOnlyBasic =
+    tagIds.length === 0 &&
+    techniqueIds.length > 0 &&
+    techniqueIds.every((tid) => {
+      const t = getRepairTechniqueById(tid)
+      return t?.repairTier === 'basic'
+    })
+
+  if (tagIds.length === 0 && !noTagsSelectedOnlyBasic) {
+    return {
+      ok: false,
+      error: 'Без видимых повреждений доступны только базовые техники восстановления',
+    }
+  }
+
+  const unlockedRepair = state.unlockedRepairTechniqueIds ?? []
+  for (const tid of techniqueIds) {
+    if (!isRepairTechniqueUnlocked(tid, unlockedRepair)) {
+      return {
+        ok: false,
+        error: 'Техника не разблокирована. Купите её у интенданта гильдии.',
+      }
+    }
+  }
+
+  const plan = buildWeaponRepairPlan(techniqueIds)
+  if (!plan) {
+    return { ok: false, error: 'Некорректный набор техник' }
+  }
+
+  if (tagIds.length > 0) {
+    const uncovered = getUncoveredActiveTags(tagIds, techniqueIds)
+    if (uncovered.length > 0) {
+      return {
+        ok: false,
+        error: 'Выберите техники, закрывающие все видимые повреждения',
+      }
+    }
+  }
+
+  const playerLevel = Math.max(1, state.player?.level ?? 1)
+  const { materials: planMaterialsRaw } = resolveWeaponRepairPlanEconomy(weapon, plan, playerLevel)
+  let materialsForPlan = { ...planMaterialsRaw }
+  if (opts?.materialCostMultiplier && opts.materialCostMultiplier !== 1) {
+    materialsForPlan = scaleMaterialCostRecord(materialsForPlan, opts.materialCostMultiplier)
+  }
+
+  const model = craftedWeaponV2ToWeaponRepairCalc(weapon)
+  const preferred = mapTechniqueIdsToRepairDiceProfile(techniqueIds)
+  const repairType = repairDiceProfileToRepairType(
+    pickRepairDiceProfileAllowedByTags(preferred, damageTags)
+  )
+
+  let successChanceDelta = 0
+  const stageCount = opts?.workbenchCompletedStages
+  if (typeof stageCount === 'number' && stageCount > 0) {
+    successChanceDelta += Math.min(
+      REPAIR_WORKBENCH_STAGE_SUCCESS_BONUS_CAP,
+      stageCount * REPAIR_WORKBENCH_STAGE_SUCCESS_BONUS_PER_STAGE
+    )
+  }
+  if (
+    opts?.diagnosis?.mode === 'manual_inspection' &&
+    tagIds.some((tid) => opts.diagnosis?.hypothesisByTagId?.[tid] === false)
+  ) {
+    successChanceDelta -= REPAIR_WRONG_HYPOTHESIS_SUCCESS_PENALTY_POINTS
+  }
+
+  return {
+    ok: true,
+    weaponId,
+    weapon,
+    techniqueIds,
+    opts,
+    playerLevel,
+    materialsForPlan,
+    model,
+    repairType,
+    damageTags,
+    rollModifiers: successChanceDelta !== 0 ? { successChanceDelta } : undefined,
+    resources: state.resources,
+    materialStash: state.materialStash,
+  }
+}
+
 function manualLegacyResonanceChance(bladeBondBefore: number): number {
   return (
     WEAPON_LEGACY_RESONANCE_BASE_CHANCE +
@@ -62,20 +183,10 @@ function manualLegacyResonanceChance(bladeBondBefore: number): number {
   )
 }
 
-function autoLegacyResonanceChance(bladeBondBefore: number): number {
-  return (
-    WEAPON_AUTO_REPAIR_LEGACY_RESONANCE_BASE +
-    Math.min(
-      WEAPON_AUTO_REPAIR_LEGACY_RESONANCE_BOND_CAP,
-      bladeBondBefore * WEAPON_AUTO_REPAIR_LEGACY_RESONANCE_BOND_PER_POINT
-    )
-  )
-}
-
 /** Минимальный контракт стора для блока ремонта (без циклического импорта GameStore). */
 export type RepairStoreSlice = {
   unlockedRepairTechniqueIds: string[]
-  repairBenchWeaponId: string | null
+  workbenchQueue: { weaponId: string }[]
   weaponInventory: {
     weapons: import('@/types/craft-v2').CraftedWeaponV2[]
   }
@@ -92,116 +203,92 @@ export function buildRepairCrossSlice(
   get: () => RepairStoreSlice
 ) {
   return {
+    preflightWeaponRepairByTechniques: (
+      weaponId: string,
+      techniqueIds: string[],
+      opts?: RepairTechniqueExecutionOptions
+    ): ExecuteRepairResult => {
+      const prep = prepareTechniqueRepairExecution(get(), weaponId, techniqueIds, opts)
+      if (!prep.ok) return { success: false, error: prep.error }
+      const gate = assertRepairPlanCostsMet(
+        prep.model,
+        prep.repairType,
+        prep.playerLevel,
+        prep.resources,
+        prep.materialStash,
+        prep.damageTags,
+        prep.materialsForPlan
+      )
+      if (!gate.ok) return { success: false, error: gate.error }
+      return { success: true }
+    },
+
     executeWeaponRepairByTechniques: (
       weaponId: string,
       techniqueIds: string[],
       opts?: RepairTechniqueExecutionOptions
     ): ExecuteRepairResult => {
-      const state = get()
-      const weapon = state.weaponInventory.weapons.find((w) => w.id === weaponId)
-      if (!weapon) {
-        return { success: false, error: 'Оружие не найдено' }
-      }
+      const prep = prepareTechniqueRepairExecution(get(), weaponId, techniqueIds, opts)
+      if (!prep.ok) return { success: false, error: prep.error }
 
-      const damageTags = weapon.activeDamageTags ?? []
-      const tagIds = damageTags.map((e) => e.tagId)
-      const noTagsDurabilityOk =
-        tagIds.length === 0 &&
-        techniqueIds.length === 1 &&
-        techniqueIds[0] === DURABILITY_MAINTENANCE_TECHNIQUE_ID
-
-      if (tagIds.length === 0 && !noTagsDurabilityOk) {
-        return {
-          success: false,
-          error: 'Без видимых повреждений доступна только техника восстановления прочности',
-        }
-      }
-
-      const unlockedRepair = get().unlockedRepairTechniqueIds ?? []
-      for (const tid of techniqueIds) {
-        if (!isRepairTechniqueUnlocked(tid, unlockedRepair)) {
-          return {
-            success: false,
-            error: 'Техника не разблокирована. Купите её у интенданта гильдии.',
-          }
-        }
-      }
-
-      const plan = buildWeaponRepairPlan(techniqueIds)
-      if (!plan) {
-        return { success: false, error: 'Некорректный набор техник' }
-      }
-
-      if (tagIds.length > 0) {
-        const uncovered = getUncoveredActiveTags(tagIds, techniqueIds)
-        if (uncovered.length > 0) {
-          return {
-            success: false,
-            error: 'Выберите техники, закрывающие все видимые повреждения',
-          }
-        }
-      }
-
-      const playerLevel = Math.max(1, state.player?.level ?? 1)
-      const { materials: planMaterialsRaw } = resolveWeaponRepairPlanEconomy(
-        weapon,
-        plan,
-        playerLevel
-      )
-      let materialsForPlan = { ...planMaterialsRaw }
-      if (opts?.materialCostMultiplier && opts.materialCostMultiplier !== 1) {
-        materialsForPlan = scaleMaterialCostRecord(
-          materialsForPlan,
-          opts.materialCostMultiplier
-        )
-      }
-
-      const model = craftedWeaponV2ToWeaponRepairCalc(weapon)
-      const preferred = mapTechniqueIdsToRepairDiceProfile(techniqueIds)
-      const repairType = repairDiceProfileToRepairType(
-        pickRepairDiceProfileAllowedByTags(preferred, damageTags)
+      const rawExec = executeRepairWithPlanCosts(
+        prep.model,
+        prep.repairType,
+        prep.playerLevel,
+        prep.resources,
+        prep.materialStash,
+        prep.damageTags,
+        prep.materialsForPlan,
+        prep.rollModifiers
       )
 
-      let successChanceDelta = 0
-      if (
-        opts?.diagnosis?.mode === 'manual_inspection' &&
-        tagIds.some((tid) => opts.diagnosis?.hypothesisByTagId?.[tid] === false)
-      ) {
-        successChanceDelta -= REPAIR_WRONG_HYPOTHESIS_SUCCESS_PENALTY_POINTS
+      let result: ExecuteRepairResult = rawExec
+      if (!rawExec.success && rawExec.result) {
+        result = {
+          ...rawExec,
+          error: describeTechniqueRepairFailureMessage({
+            repairCalc: prep.model,
+            roll: rawExec.result,
+            opts,
+            activeTagIds: prep.damageTags.map((e) => e.tagId),
+            workbenchQueueFinale: (opts?.workbenchCompletedStages ?? 0) > 0,
+          }),
+        }
       }
-
-      const result = executeRepairWithPlanCosts(
-        model,
-        repairType,
-        playerLevel,
-        state.resources,
-        state.materialStash,
-        damageTags,
-        materialsForPlan,
-        successChanceDelta !== 0 ? { successChanceDelta } : undefined
-      )
 
       const roll = result.result
       if (result.success && roll) {
-        const cost: CraftingCost = { ...materialsForPlan }
+        const cost: CraftingCost = { ...prep.materialsForPlan }
         if (!get().spendCraftingCostWithStash(cost)) {
           return { success: false, error: 'Не удалось списать ресурсы' }
         }
       }
 
       if (roll) {
+        const isDurabilityOnlyMaintenance =
+          techniqueIds.length === 1 && techniqueIds[0] === DURABILITY_MAINTENANCE_TECHNIQUE_ID
+        const durabilityRestoredApplied = isDurabilityOnlyMaintenance
+          ? Math.max(
+              0,
+              Math.floor(roll.durabilityRestored * WEAPON_DURABILITY_MAINTENANCE_RESTORE_MULT)
+            )
+          : roll.durabilityRestored
         set(
           (s: {
             weaponInventory: WeaponInventory
-            repairBenchWeaponId: string | null
             repairBenchTechniqueDraft: { weaponId: string; techniqueIds: string[] } | null
             repairTechniqueStageRun: RepairTechniqueStageRunState | null
           }) => {
-            const clearBench = roll.success && s.repairBenchWeaponId === weaponId
+            const stageRun = s.repairTechniqueStageRun
+            const clearAdhocRun =
+              roll.success &&
+              stageRun?.weaponId === weaponId &&
+              stageRun.source !== 'queue'
+            const clearDraft =
+              roll.success && s.repairBenchTechniqueDraft?.weaponId === weaponId
             return {
-              repairBenchWeaponId: clearBench ? null : s.repairBenchWeaponId,
-              repairBenchTechniqueDraft: clearBench ? null : s.repairBenchTechniqueDraft,
-              repairTechniqueStageRun: clearBench ? null : s.repairTechniqueStageRun,
+              repairBenchTechniqueDraft: clearDraft ? null : s.repairBenchTechniqueDraft,
+              repairTechniqueStageRun: clearAdhocRun ? null : s.repairTechniqueStageRun,
               weaponInventory: {
                 ...s.weaponInventory,
                 weapons: s.weaponInventory.weapons.map((w) => {
@@ -209,18 +296,18 @@ export function buildRepairCrossSlice(
                   const cur = w.currentDurability ?? w.stats.durability
               const newDur = Math.min(
                 roll.maxDurabilityAfter,
-                Math.max(0, cur + roll.durabilityRestored)
+                Math.max(0, cur + durabilityRestoredApplied)
               )
               let nextLegacy = ensureWeaponLegacy(w.weaponLegacy)
               const bladeBondBefore = nextLegacy.bladeBondRepairCount ?? 0
               let bladeBondRepairCount = bladeBondBefore
-              if (roll.success && HEAVY_REPAIR_TYPES.includes(repairType)) {
+              if (roll.success && HEAVY_REPAIR_TYPES.includes(prep.repairType)) {
                 bladeBondRepairCount = bladeBondBefore + 1
               }
               if (roll.success && Math.random() < manualLegacyResonanceChance(bladeBondBefore)) {
                 nextLegacy = appendHiddenMark(nextLegacy, REPAIR_LEGACY_RESONANCE_ID)
               }
-              const prevTagIds = damageTags.map((e) => e.tagId)
+              const prevTagIds = prep.damageTags.map((e) => e.tagId)
               if (roll.success && prevTagIds.length > 0) {
                 const counts = { ...(nextLegacy.repairResolveCountByTagId ?? {}) }
                 const archived = [...(nextLegacy.archivedDamageTagIds ?? [])]
@@ -259,7 +346,7 @@ export function buildRepairCrossSlice(
                   elementalScarWeights: scars.elementalScarWeights,
                 }
               }
-              return {
+              return withRecalculatedPowerScore({
                 ...w,
                 currentDurability: newDur,
                 stats: {
@@ -280,8 +367,8 @@ export function buildRepairCrossSlice(
                   ...nextLegacy,
                   bladeBondRepairCount,
                 },
-                  }
-                })
+              })
+                }),
               },
             }
           }
@@ -303,156 +390,6 @@ export function buildRepairCrossSlice(
 
     /** Уровень персонажа игрока — основа мастерства починки (см. `getSmithMastery`). */
     getPlayerLevelForRepair: () => Math.max(1, get().player?.level ?? 1),
-
-    /**
-     * Очередь «готово при следующем заходе в кузницу» (`settleAutoRepairForgeVisitReady`).
-     * Быстрый авто-ремонт — только через `claimWeaponAutoRepair` за золото (без таймера).
-     */
-    scheduleWeaponAutoRepair: (
-      weaponId: string,
-      opts?: { mode?: 'next_visit' }
-    ): { success: boolean; error?: string } => {
-      const mode = opts?.mode ?? 'next_visit'
-      const state = get()
-      const weapon = state.weaponInventory.weapons.find((w) => w.id === weaponId)
-      if (!weapon) return { success: false, error: 'Оружие не найдено' }
-      if (mode !== 'next_visit') {
-        return { success: false, error: 'Доступна только очередь «при следующем заходе в кузницу»' }
-      }
-      if (weapon.autoRepairAwaitingForgeVisit) {
-        return { success: false, error: 'Уже в очереди (ожидание кузницы)' }
-      }
-      const cur = weapon.currentDurability ?? weapon.stats.durability
-      const maxD = weapon.stats.maxDurability
-      const tags = weapon.activeDamageTags ?? []
-      if (tags.length === 0 && cur >= maxD) {
-        return { success: false, error: 'Нечего чинить' }
-      }
-      set((s: { weaponInventory: WeaponInventory }) => ({
-        weaponInventory: {
-          ...s.weaponInventory,
-          weapons: s.weaponInventory.weapons.map((w: CraftedWeaponV2) =>
-            w.id === weaponId
-              ? { ...w, autoRepairAwaitingForgeVisit: true, autoRepairReadyAt: undefined }
-              : w
-          ),
-        },
-      }))
-      return { success: true }
-    },
-
-    /** Вызывать при открытии кузницы: переводит «ожидание захода» в готовность к `claim`. */
-    settleAutoRepairForgeVisitReady: () => {
-      set((s: { weaponInventory: WeaponInventory }) => ({
-        weaponInventory: {
-          ...s.weaponInventory,
-          weapons: s.weaponInventory.weapons.map((w: CraftedWeaponV2) => {
-            if (!w.autoRepairAwaitingForgeVisit) return w
-            return {
-              ...w,
-              autoRepairAwaitingForgeVisit: false,
-              autoRepairReadyAt: Date.now(),
-            }
-          }),
-        },
-      }))
-    },
-
-    /**
-     * Мгновенный авто-ремонт за золото: частичная прочность, снятие тегов, мягкий штраф к эпичности;
-     * мета диагностики — skipped (как раньше).
-     */
-    claimWeaponAutoRepair: (weaponId: string): { success: boolean; error?: string } => {
-      const state = get()
-      const weapon = state.weaponInventory.weapons.find((w) => w.id === weaponId)
-      if (!weapon) return { success: false, error: 'Оружие не найдено' }
-      if (weapon.autoRepairAwaitingForgeVisit) {
-        return {
-          success: false,
-          error: 'Сначала зайдите в кузницу — очередь обновится на вкладке ремонта',
-        }
-      }
-      const tags = weapon.activeDamageTags ?? []
-      const cur = weapon.currentDurability ?? weapon.stats.durability
-      const maxD = weapon.stats.maxDurability
-      if (tags.length === 0 && cur >= maxD) {
-        set((s: { weaponInventory: WeaponInventory }) => ({
-          weaponInventory: {
-            ...s.weaponInventory,
-            weapons: s.weaponInventory.weapons.map((w: CraftedWeaponV2) =>
-              w.id === weaponId
-                ? { ...w, autoRepairReadyAt: undefined, autoRepairAwaitingForgeVisit: undefined }
-                : w
-            ),
-          },
-        }))
-        return { success: true }
-      }
-      const goldCost = getWeaponAutoRepairGoldCost(weapon)
-      if (goldCost > 0) {
-        if (!state.canAfford({ gold: goldCost })) {
-          return { success: false, error: 'Недостаточно золота для авто-ремонта' }
-        }
-        if (!get().spendResource('gold', goldCost)) {
-          return { success: false, error: 'Не удалось списать золото' }
-        }
-      }
-      const gap = maxD - cur
-      const restored = gap > 0 ? Math.max(0, Math.floor(gap * WEAPON_AUTO_REPAIR_DURABILITY_RESTORE_RATIO)) : 0
-      const newDur = Math.min(maxD, cur + restored)
-      let nextLegacy = ensureWeaponLegacy(weapon.weaponLegacy)
-      const bladeBondBefore = nextLegacy.bladeBondRepairCount ?? 0
-      if (Math.random() < autoLegacyResonanceChance(bladeBondBefore)) {
-        nextLegacy = appendHiddenMark(nextLegacy, REPAIR_LEGACY_RESONANCE_ID)
-      }
-      const autoN = (nextLegacy.autoRepairCompletedCount ?? 0) + 1
-      const newEpic = Math.max(1, weapon.epicMultiplier * WEAPON_AUTO_REPAIR_EPIC_MULTIPLIER)
-      const prevTagIds = tags.map((e) => e.tagId)
-      if (prevTagIds.length > 0) {
-        const counts = { ...(nextLegacy.repairResolveCountByTagId ?? {}) }
-        const archived = [...(nextLegacy.archivedDamageTagIds ?? [])]
-        for (const tid of prevTagIds) {
-          counts[tid] = (counts[tid] ?? 0) + 1
-          if (!archived.includes(tid)) archived.push(tid)
-        }
-        nextLegacy = {
-          ...nextLegacy,
-          repairResolveCountByTagId: counts,
-          archivedDamageTagIds: archived,
-        }
-        nextLegacy = incrementRepairDiagnosisCountsForTags(nextLegacy, prevTagIds, 'skipped')
-        const scars = incrementScarWeightsFromClearedTags(
-          nextLegacy.physicalScarWeights,
-          nextLegacy.elementalScarWeights,
-          prevTagIds
-        )
-        nextLegacy = {
-          ...nextLegacy,
-          physicalScarWeights: scars.physicalScarWeights,
-          elementalScarWeights: scars.elementalScarWeights,
-        }
-      }
-      set((s: { weaponInventory: WeaponInventory }) => ({
-        weaponInventory: {
-          ...s.weaponInventory,
-          weapons: s.weaponInventory.weapons.map((w: CraftedWeaponV2) => {
-            if (w.id !== weaponId) return w
-            return {
-              ...w,
-              currentDurability: newDur,
-              stats: { ...w.stats, durability: newDur },
-              activeDamageTags: [],
-              repairCondition: 'ok',
-              epicMultiplier: newEpic,
-              autoRepairReadyAt: undefined,
-              autoRepairAwaitingForgeVisit: undefined,
-              weaponLegacy: { ...nextLegacy, autoRepairCompletedCount: autoN },
-            }
-          }),
-        },
-      }))
-      return { success: true }
-    },
 
     /**
      * Старт глубокого осмотра: списание материалов, таймер на экземпляре (`deepInspectReadyAt`).

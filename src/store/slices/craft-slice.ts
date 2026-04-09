@@ -18,10 +18,31 @@ import type { CraftedWeaponV2 } from '@/types/craft-v2'
 import type { ActiveDamageTagEntry } from '@/types/weapon-damage'
 import type { RepairTechniqueExecutionOptions } from '@/types/repair-execution'
 import type { RefiningRecipe } from '@/data/refining-recipes'
+import {
+  createRepairWorkbenchQueueItem,
+  createReforgeAwakenWorkbenchQueueItem,
+  createReforgeBuffWorkbenchQueueItem,
+  removeAllPlannedQueueItemsForWeapon,
+  reorderPlannedWorkbenchQueueItems,
+  type WorkbenchQueueItem,
+  type WorkbenchQueueItemKind,
+  type WorkbenchQueueItemStatus,
+} from '@/lib/workbench/workbench-queue'
+import { withRecalculatedPowerScore } from '@/lib/craft/weapon-power-score'
 
 // ================================
 // ТИПЫ
 // ================================
+
+export type {
+  WorkbenchQueueItem,
+  WorkbenchRepairQueueItem,
+  WorkbenchReforgeAwakenQueueItem,
+  WorkbenchReforgeBuffQueueItem,
+  WorkbenchQueueItemKind,
+  WorkbenchQueueItemStatus,
+  RepairQueuePlanItem,
+} from '@/lib/workbench/workbench-queue'
 
 /** Тип оружия */
 export type WeaponType = 'sword' | 'dagger' | 'axe' | 'mace' | 'spear' | 'hammer' | 'bow' | 'staff'
@@ -85,23 +106,42 @@ export interface RecipeSource {
   obtainedAt: number
 }
 
+/** Источник многоэтапного прогона: очередь ремонта или отдельная сессия на карточке */
+export type RepairTechniqueStageRunSource = 'queue' | 'adhoc'
+
 /** Активный таймер этапов ремонта по техникам (переживает смену вкладки кузницы) */
 export interface RepairTechniqueStageRunState {
   weaponId: string
   startedAt: number
   techniqueIds: string[]
   executionOpts?: RepairTechniqueExecutionOptions
+  /** По умолчанию ведёт себя как прежний прогон без поля в JSON */
+  source?: RepairTechniqueStageRunSource
+  /** Позиция очереди верстака (для обновления статуса по `queueItemId`). */
+  activeQueueItemId?: string
+  /** Перековка из очереди: этапы в UI как у ремонта, затем apply. */
+  workbenchReforge?: { kind: 'reforge_buff' | 'reforge_awaken'; techniqueId: string }
 }
 
 /** Состояние крафта */
 export interface CraftState {
-  /** Оружие на верстаке «Ремонт» (не показывается в списке инвентаря кузницы) */
-  repairBenchWeaponId: string | null
   /**
    * Выбранные техники до запуска ремонта (черновик; тот же клинок на верстаке).
    * Не персистится.
    */
   repairBenchTechniqueDraft: { weaponId: string; techniqueIds: string[] } | null
+  /**
+   * Очередь верстака (ремонт / перековка). В JSON persist и облаке ключ — `repairQueuePlan`.
+   */
+  workbenchQueue: WorkbenchQueueItem[]
+  /**
+   * Выбранное оружие в UI верстака (создание задачи, детали). Не persist.
+   */
+  workbenchSelectedWeaponId: string | null
+  /**
+   * После «стоп очереди»: не запускать следующий пункт автоматически (не persist).
+   */
+  workbenchQueueAdvanceBlocked: boolean
   /**
    * Запущенные этапы ремонта: время старта и параметры для завершения после таймера.
    * Персистится (Zustand persist + облако при включённом Turso).
@@ -116,6 +156,8 @@ export interface CraftState {
   unlockedMaterialProcessingTechniqueIds: string[]
   /** Узкоспециализированные техники ремонта, купленные у интенданта (`repairTier: specialized`). */
   unlockedRepairTechniqueIds: string[]
+  /** Спец-техники крафта, купленные у интенданта (`craft_technique`). */
+  unlockedCraftTechniqueIds: string[]
   /** Спец-техники перековки, купленные у интенданта (`reforgeTier: specialized`); дублирует/дополняет разблокировку через кузню. */
   unlockedReforgeTechniqueIds: string[]
 }
@@ -152,8 +194,34 @@ export interface CraftActions {
   ) => boolean
   /** Поставить клинок на верстак ремонта (заменяет предыдущий слот). */
   sendWeaponToRepairBench: (weaponId: string) => { success: boolean; error?: string }
-  /** Убрать клинок с верстака без ремонта. */
-  returnWeaponFromRepairBench: () => void
+  /** Выбрать активный клинок из очереди верстака. */
+  selectRepairBenchWeapon: (weaponId: string) => { success: boolean; error?: string }
+  /** Убрать клинок с верстака без ремонта (очередь + выбор UI). */
+  returnWeaponFromRepairBench: (weaponId?: string) => void
+  /** Добавить/обновить план ремонта для клинка. */
+  upsertRepairQueuePlan: (payload: {
+    weaponId: string
+    techniqueIds: string[]
+    executionOpts?: RepairTechniqueExecutionOptions
+  }) => { success: boolean; error?: string }
+  /** Удалить запланированный пункт очереди верстака по id. */
+  removeWorkbenchPlannedItem: (queueItemId: string) => void
+  /** Очистить весь план ремонта. */
+  clearRepairQueuePlan: () => void
+  /** Обновить статус позиции в очереди верстака по `queueItemId`. */
+  setWorkbenchQueueItemStatus: (
+    queueItemId: string,
+    status: WorkbenchQueueItemStatus,
+    errorMessage?: string
+  ) => void
+  /** Добавить перековку в конец очереди верстака. */
+  enqueueWorkbenchReforge: (payload: {
+    weaponId: string
+    techniqueId: string
+    kind: 'reforge_buff' | 'reforge_awaken'
+  }) => void
+  /** Снять все запланированные пункты очереди для клинка (экспедиция §6.1). */
+  removeAllPlannedWorkbenchItemsForWeapon: (weaponId: string) => void
   setRepairBenchTechniqueDraft: (
     draft: { weaponId: string; techniqueIds: string[] } | null
   ) => void
@@ -162,8 +230,24 @@ export interface CraftActions {
     techniqueIds: string[]
     executionOpts?: RepairTechniqueExecutionOptions
     startedAt?: number
+    source?: RepairTechniqueStageRunSource
+    activeQueueItemId?: string
+    workbenchReforge?: { kind: 'reforge_buff' | 'reforge_awaken'; techniqueId: string }
   }) => void
   clearRepairTechniqueStageRun: () => void
+  setWorkbenchSelectedWeaponId: (weaponId: string | null) => void
+  reorderWorkbenchQueue: (fromIndex: number, toIndex: number) => void
+  updateWorkbenchPlannedItem: (
+    queueItemId: string,
+    patch: {
+      kind: WorkbenchQueueItemKind
+      techniqueIds?: string[]
+      techniqueId?: string
+      executionOpts?: RepairTechniqueExecutionOptions
+    }
+  ) => { success: boolean; error?: string }
+  cancelActiveWorkbenchStageRun: () => void
+  setWorkbenchQueueAdvanceBlocked: (blocked: boolean) => void
 }
 
 /** Полный тип slice */
@@ -214,8 +298,10 @@ export const createCraftSlice: StateCreator<
   CraftSlice
 > = (set, get) => ({
   // State
-  repairBenchWeaponId: null,
   repairBenchTechniqueDraft: null,
+  workbenchQueue: [],
+  workbenchSelectedWeaponId: null,
+  workbenchQueueAdvanceBlocked: false,
   repairTechniqueStageRun: null,
   activeRefining: initialActiveRefining,
   weaponInventory: initialWeaponInventory,
@@ -224,6 +310,7 @@ export const createCraftSlice: StateCreator<
   unlockedEnchantments: [],
   unlockedMaterialProcessingTechniqueIds: [],
   unlockedRepairTechniqueIds: [],
+  unlockedCraftTechniqueIds: [],
   unlockedReforgeTechniqueIds: [],
 
   // Actions - Переработка
@@ -276,12 +363,19 @@ export const createCraftSlice: StateCreator<
     
     // Начисление золота делается в game-store
     set((state) => {
-      const onBench = state.repairBenchWeaponId === weaponId
+      const inWorkbench = state.workbenchQueue.some((item) => item.weaponId === weaponId)
+      const clearSel = state.workbenchSelectedWeaponId === weaponId
       return {
-        repairBenchWeaponId: onBench ? null : state.repairBenchWeaponId,
-        repairBenchTechniqueDraft: onBench ? null : state.repairBenchTechniqueDraft,
+        workbenchSelectedWeaponId: clearSel ? null : state.workbenchSelectedWeaponId,
+        repairBenchTechniqueDraft:
+          state.repairBenchTechniqueDraft?.weaponId === weaponId
+            ? null
+            : state.repairBenchTechniqueDraft,
+        workbenchQueue: inWorkbench
+          ? state.workbenchQueue.filter((item) => item.weaponId !== weaponId)
+          : state.workbenchQueue,
         repairTechniqueStageRun:
-          onBench || state.repairTechniqueStageRun?.weaponId === weaponId
+          state.repairTechniqueStageRun?.weaponId === weaponId
             ? null
             : state.repairTechniqueStageRun,
         weaponInventory: {
@@ -295,12 +389,13 @@ export const createCraftSlice: StateCreator<
 
   getWeaponById: (weaponId) => get().weaponInventory.weapons.find(w => w.id === weaponId),
 
-  addWeapon: (weapon) => set((state) => ({
-    weaponInventory: {
-      ...state.weaponInventory,
-      weapons: [...state.weaponInventory.weapons, weapon],
-    }
-  })),
+  addWeapon: (weapon) =>
+    set((state) => ({
+      weaponInventory: {
+        ...state.weaponInventory,
+        weapons: [...state.weaponInventory.weapons, withRecalculatedPowerScore(weapon)],
+      },
+    })),
 
   removeWeapon: (weaponId) => {
     const state = get()
@@ -308,12 +403,19 @@ export const createCraftSlice: StateCreator<
     if (!weapon) return false
     
     set((state) => {
-      const onBench = state.repairBenchWeaponId === weaponId
+      const inWorkbench = state.workbenchQueue.some((item) => item.weaponId === weaponId)
+      const clearSel = state.workbenchSelectedWeaponId === weaponId
       return {
-        repairBenchWeaponId: onBench ? null : state.repairBenchWeaponId,
-        repairBenchTechniqueDraft: onBench ? null : state.repairBenchTechniqueDraft,
+        workbenchSelectedWeaponId: clearSel ? null : state.workbenchSelectedWeaponId,
+        repairBenchTechniqueDraft:
+          state.repairBenchTechniqueDraft?.weaponId === weaponId
+            ? null
+            : state.repairBenchTechniqueDraft,
+        workbenchQueue: inWorkbench
+          ? state.workbenchQueue.filter((item) => item.weaponId !== weaponId)
+          : state.workbenchQueue,
         repairTechniqueStageRun:
-          onBench || state.repairTechniqueStageRun?.weaponId === weaponId
+          state.repairTechniqueStageRun?.weaponId === weaponId
             ? null
             : state.repairTechniqueStageRun,
         weaponInventory: {
@@ -328,20 +430,139 @@ export const createCraftSlice: StateCreator<
   sendWeaponToRepairBench: (weaponId) => {
     const w = get().weaponInventory.weapons.find((x) => x.id === weaponId)
     if (!w) return { success: false, error: 'Оружие не найдено' }
+    set((state) => ({
+      workbenchSelectedWeaponId: weaponId,
+      repairBenchTechniqueDraft:
+        state.repairBenchTechniqueDraft?.weaponId === weaponId
+          ? state.repairBenchTechniqueDraft
+          : null,
+      repairTechniqueStageRun:
+        state.repairTechniqueStageRun?.weaponId === weaponId ? state.repairTechniqueStageRun : null,
+    }))
+    return { success: true }
+  },
+
+  selectRepairBenchWeapon: (weaponId) => {
+    const state = get()
+    if (!state.weaponInventory.weapons.some((w) => w.id === weaponId)) {
+      return { success: false, error: 'Оружие не найдено' }
+    }
     set({
-      repairBenchWeaponId: weaponId,
-      repairBenchTechniqueDraft: null,
-      repairTechniqueStageRun: null,
+      workbenchSelectedWeaponId: weaponId,
+      repairBenchTechniqueDraft:
+        state.repairBenchTechniqueDraft?.weaponId === weaponId
+          ? state.repairBenchTechniqueDraft
+          : null,
+      repairTechniqueStageRun:
+        state.repairTechniqueStageRun?.weaponId === weaponId ? state.repairTechniqueStageRun : null,
     })
     return { success: true }
   },
 
-  returnWeaponFromRepairBench: () =>
-    set({
-      repairBenchWeaponId: null,
-      repairBenchTechniqueDraft: null,
-      repairTechniqueStageRun: null,
+  returnWeaponFromRepairBench: (weaponId) =>
+    set((state) => {
+      const targetId = weaponId ?? state.workbenchSelectedWeaponId
+      if (!targetId) return {}
+      const nextWorkbenchSel =
+        state.workbenchSelectedWeaponId === targetId ? null : state.workbenchSelectedWeaponId
+      return {
+        workbenchSelectedWeaponId: nextWorkbenchSel,
+        repairBenchTechniqueDraft:
+          state.repairBenchTechniqueDraft?.weaponId === targetId
+            ? null
+            : state.repairBenchTechniqueDraft,
+        repairTechniqueStageRun:
+          state.repairTechniqueStageRun?.weaponId === targetId
+            ? null
+            : state.repairTechniqueStageRun,
+        workbenchQueue: state.workbenchQueue.filter((item) => item.weaponId !== targetId),
+      }
     }),
+
+  upsertRepairQueuePlan: ({ weaponId, techniqueIds, executionOpts }) => {
+    if (techniqueIds.length === 0) {
+      return { success: false, error: 'Выберите техники ремонта перед добавлением в очередь' }
+    }
+    const state = get()
+    if (!state.weaponInventory.weapons.some((w) => w.id === weaponId)) {
+      return { success: false, error: 'Оружие не найдено' }
+    }
+    set((s) => {
+      const idx = s.workbenchQueue.findIndex((item) => item.weaponId === weaponId && item.kind === 'repair')
+      if (idx >= 0) {
+        const existing = s.workbenchQueue[idx]
+        if (existing.kind !== 'repair') {
+          return {}
+        }
+        const nextItem: WorkbenchQueueItem = {
+          ...existing,
+          techniqueIds: [...techniqueIds],
+          ...(executionOpts ? { executionOpts } : {}),
+          status: 'planned',
+          queuedAt: Date.now(),
+          errorMessage: undefined,
+        }
+        const next = [...s.workbenchQueue]
+        next[idx] = nextItem
+        return { workbenchQueue: next }
+      }
+      const nextItem = createRepairWorkbenchQueueItem({
+        weaponId,
+        techniqueIds,
+        ...(executionOpts ? { executionOpts } : {}),
+      })
+      return { workbenchQueue: [...s.workbenchQueue, nextItem] }
+    })
+    return { success: true }
+  },
+
+  removeWorkbenchPlannedItem: (queueItemId) =>
+    set((state) => {
+      const target = state.workbenchQueue.find((i) => i.queueItemId === queueItemId)
+      if (!target || target.status !== 'planned') return {}
+      return {
+        workbenchQueue: state.workbenchQueue.filter((item) => item.queueItemId !== queueItemId),
+        repairTechniqueStageRun:
+          state.repairTechniqueStageRun?.activeQueueItemId === queueItemId
+            ? null
+            : state.repairTechniqueStageRun,
+      }
+    }),
+
+  enqueueWorkbenchReforge: ({ weaponId, techniqueId, kind }) =>
+    set((state) => ({
+      workbenchQueue: [
+        ...state.workbenchQueue,
+        kind === 'reforge_buff'
+          ? createReforgeBuffWorkbenchQueueItem({ weaponId, techniqueId })
+          : createReforgeAwakenWorkbenchQueueItem({ weaponId, techniqueId }),
+      ],
+    })),
+
+  removeAllPlannedWorkbenchItemsForWeapon: (weaponId) =>
+    set((state) => ({
+      workbenchQueue: removeAllPlannedQueueItemsForWeapon(state.workbenchQueue, weaponId),
+    })),
+
+  clearRepairQueuePlan: () =>
+    set((state) => ({
+      workbenchQueue: state.workbenchQueue.filter((item) => item.status !== 'planned'),
+      repairTechniqueStageRun:
+        state.repairTechniqueStageRun?.source === 'queue' ? null : state.repairTechniqueStageRun,
+    })),
+
+  setWorkbenchQueueItemStatus: (queueItemId, status, errorMessage) =>
+    set((state) => ({
+      workbenchQueue: state.workbenchQueue.map((item) =>
+        item.queueItemId !== queueItemId
+          ? item
+          : {
+              ...item,
+              status,
+              ...(errorMessage ? { errorMessage } : { errorMessage: undefined }),
+            }
+      ),
+    })),
 
   setRepairBenchTechniqueDraft: (draft) => set({ repairBenchTechniqueDraft: draft }),
 
@@ -353,12 +574,89 @@ export const createCraftSlice: StateCreator<
         startedAt,
         techniqueIds: payload.techniqueIds,
         executionOpts: payload.executionOpts,
+        ...(payload.source ? { source: payload.source } : {}),
+        ...(payload.activeQueueItemId ? { activeQueueItemId: payload.activeQueueItemId } : {}),
+        ...(payload.workbenchReforge ? { workbenchReforge: payload.workbenchReforge } : {}),
       },
       repairBenchTechniqueDraft: null,
+      workbenchQueueAdvanceBlocked: false,
     })
   },
 
   clearRepairTechniqueStageRun: () => set({ repairTechniqueStageRun: null }),
+
+  setWorkbenchSelectedWeaponId: (weaponId) => set({ workbenchSelectedWeaponId: weaponId }),
+
+  reorderWorkbenchQueue: (fromIndex, toIndex) =>
+    set((state) => {
+      const next = reorderPlannedWorkbenchQueueItems(state.workbenchQueue, fromIndex, toIndex)
+      if (!next) return {}
+      return { workbenchQueue: next }
+    }),
+
+  updateWorkbenchPlannedItem: (queueItemId, patch) => {
+    const state = get()
+    const idx = state.workbenchQueue.findIndex((i) => i.queueItemId === queueItemId)
+    if (idx < 0) return { success: false, error: 'Пункт не найден' }
+    const item = state.workbenchQueue[idx]
+    if (item.status !== 'planned') return { success: false, error: 'Можно менять только запланированные задачи' }
+    if (item.kind !== patch.kind) return { success: false, error: 'Несовпадение типа задачи' }
+
+    let nextItem: WorkbenchQueueItem
+    if (patch.kind === 'repair') {
+      const techniqueIds = patch.techniqueIds ?? (item.kind === 'repair' ? item.techniqueIds : [])
+      if (techniqueIds.length === 0) {
+        return { success: false, error: 'Выберите техники ремонта' }
+      }
+      nextItem = {
+        kind: 'repair',
+        queueItemId: item.queueItemId,
+        weaponId: item.weaponId,
+        status: 'planned',
+        queuedAt: Date.now(),
+        techniqueIds: [...techniqueIds],
+        ...(patch.executionOpts ? { executionOpts: patch.executionOpts } : {}),
+      }
+    } else {
+      const techniqueId = patch.techniqueId ?? (item.kind !== 'repair' ? item.techniqueId : '')
+      if (!techniqueId) return { success: false, error: 'Выберите технику перековки' }
+      const base = {
+        queueItemId: item.queueItemId,
+        weaponId: item.weaponId,
+        status: 'planned' as const,
+        queuedAt: Date.now(),
+        techniqueId,
+      }
+      nextItem =
+        patch.kind === 'reforge_buff'
+          ? { kind: 'reforge_buff', ...base }
+          : { kind: 'reforge_awaken', ...base }
+    }
+
+    set((s) => ({
+      workbenchQueue: s.workbenchQueue.map((i) => (i.queueItemId === queueItemId ? nextItem : i)),
+    }))
+    return { success: true }
+  },
+
+  cancelActiveWorkbenchStageRun: () =>
+    set((state) => {
+      const run = state.repairTechniqueStageRun
+      if (!run?.activeQueueItemId) {
+        return { repairTechniqueStageRun: null }
+      }
+      const qid = run.activeQueueItemId
+      return {
+        repairTechniqueStageRun: null,
+        workbenchQueue: state.workbenchQueue.map((item) =>
+          item.queueItemId === qid && item.status === 'running'
+            ? { ...item, status: 'planned' as const, errorMessage: undefined }
+            : item
+        ),
+      }
+    }),
+
+  setWorkbenchQueueAdvanceBlocked: (blocked) => set({ workbenchQueueAdvanceBlocked: blocked }),
 
   // Actions - Рецепты
   unlockRecipe: (recipeId, source) => {
@@ -432,16 +730,18 @@ export const createCraftSlice: StateCreator<
     set((state) => ({
       weaponInventory: {
         ...state.weaponInventory,
-        weapons: state.weaponInventory.weapons.map(w => 
-          w.id === weaponId ? {
-            ...w,
-            warSoul: Math.min(w.maxWarSoul ?? Infinity, w.warSoul + points),
-            currentDurability: newDurability,
-            epicMultiplier: newEpicMultiplier,
-            adventureCount: w.adventureCount + 1,
-            activeDamageTags: extra,
-            repairCondition,
-          } : w
+        weapons: state.weaponInventory.weapons.map((w) =>
+          w.id === weaponId
+            ? withRecalculatedPowerScore({
+                ...w,
+                warSoul: Math.min(w.maxWarSoul ?? Infinity, w.warSoul + points),
+                currentDurability: newDurability,
+                epicMultiplier: newEpicMultiplier,
+                adventureCount: w.adventureCount + 1,
+                activeDamageTags: extra,
+                repairCondition,
+              })
+            : w
         ),
       }
     }))

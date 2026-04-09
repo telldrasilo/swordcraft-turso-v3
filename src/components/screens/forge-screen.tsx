@@ -5,7 +5,7 @@
 
 'use client'
 
-import { Flame, Hammer, Package, Sparkles, Star, Wrench } from 'lucide-react'
+import { Flame, Package, Sparkles, Star, Wrench } from 'lucide-react'
 import { useMemo, useEffect } from 'react'
 import { getAvailableRecipes } from '@/data/recipes'
 import { Badge } from '@/components/ui/badge'
@@ -19,15 +19,14 @@ import { InventorySection, ActiveOrdersSection } from '@/components/forge'
 // Импорт новой системы крафта v2
 import { CraftContainerV2 } from '@/components/forge/craft-v2'
 
-import { RepairSection } from '@/components/forge/repair-section'
-import { ReforgeSection } from '@/components/forge/reforge-section'
+import { WorkbenchScreen } from '@/components/forge/workbench-screen'
 import { AltarForgeSection } from '@/components/forge/altar-forge-section'
 
 export function ForgeScreen() {
   // Используем индивидуальные селекторы
   const player = useGameStore((state) => state.player)
   const weapons = useGameStore((state) => state.weaponInventory.weapons)
-  const repairBenchWeaponId = useGameStore((state) => state.repairBenchWeaponId)
+  const workbenchQueue = useGameStore((state) => state.workbenchQueue)
   const setCurrentScreen = useGameStore((state) => state.setCurrentScreen)
   const forgeTabRequest = useGameStore((state) => state.forgeTabRequest)
   const clearForgeTabRequest = useGameStore((state) => state.clearForgeTabRequest)
@@ -49,15 +48,18 @@ export function ForgeScreen() {
       clearForgeTabRequest()
     })
   }, [forgeTabRequest, clearForgeTabRequest])
-  
+
   // Мемоизированные доступные рецепты
   const availableRecipes = useMemo(
     () => getAvailableRecipes(player.level, []),
     [player.level]
   )
-  
-  const weaponCount = weapons.filter((w) => w.id !== repairBenchWeaponId).length
-  
+
+  const weaponCount = weapons.length
+  const workbenchQueueBadgeCount = workbenchQueue.filter(
+    (i) => i.status === 'planned' || i.status === 'running'
+  ).length
+
   return (
     <div className="p-4 md:p-6 space-y-6">
         {/* Заголовок */}
@@ -85,7 +87,7 @@ export function ForgeScreen() {
         <ActiveOrdersSection onShowDetails={() => setCurrentScreen('guild')} />
 
         {/* Основные вкладки */}
-        <div className="flex gap-2 border-b border-stone-700 pb-2 overflow-x-auto">
+        <div className="flex flex-wrap items-end gap-2 border-b border-stone-700 pb-2">
           <Button
             variant="ghost"
             className={cn(
@@ -133,49 +135,34 @@ export function ForgeScreen() {
               </Badge>
             )}
           </Button>
-          <Button
-            variant="ghost"
-            className={cn(
-              'rounded-none border-b-2 transition-all whitespace-nowrap',
-              mainTab === 'repair'
-                ? 'border-amber-500 text-amber-300 bg-amber-900/20'
-                : 'border-transparent text-stone-500 hover:text-stone-300'
-            )}
-            onClick={() => setForgeMainTab('repair')}
-          >
-            <Wrench className="w-4 h-4 mr-2" />
-            Ремонт
-            {repairBenchWeaponId != null && (
-              <Badge className="ml-2 bg-amber-800 text-amber-100 text-xs">1</Badge>
-            )}
-          </Button>
+
           <Button
             type="button"
-            data-tutorial="reforge-tab"
+            data-tutorial="workbench-main-tab"
             variant="ghost"
             className={cn(
               'rounded-none border-b-2 transition-all whitespace-nowrap',
-              mainTab === 'reforge'
+              mainTab === 'bench'
                 ? 'border-amber-500 text-amber-300 bg-amber-900/20'
                 : 'border-transparent text-stone-500 hover:text-stone-300'
             )}
-            onClick={() => setForgeMainTab('reforge')}
+            onClick={() => setForgeMainTab('bench')}
           >
-            <Hammer className="w-4 h-4 mr-2" />
-            Перековка
-            {repairBenchWeaponId != null && (
-              <Badge className="ml-2 bg-amber-800 text-amber-100 text-xs">1</Badge>
-            )}
+            <Wrench className="w-4 h-4 mr-2" />
+            <span>Верстак</span>
+            {workbenchQueueBadgeCount > 0 ? (
+              <Badge className="ml-2 bg-amber-800 text-amber-100 text-xs shrink-0">
+                {workbenchQueueBadgeCount}
+              </Badge>
+            ) : null}
           </Button>
         </div>
         
         {/* Контент вкладок */}
         {mainTab === 'inventory' ? (
           <InventorySection />
-        ) : mainTab === 'repair' ? (
-          <RepairSection />
-        ) : mainTab === 'reforge' ? (
-          <ReforgeSection />
+        ) : mainTab === 'bench' ? (
+          <WorkbenchScreen />
         ) : mainTab === 'altar' ? (
           <AltarForgeSection />
         ) : mainTab === 'craft' ? (

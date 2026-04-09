@@ -21,7 +21,10 @@ import type {
   ContractTier,
 } from '@/types/contract'
 import type { CraftedWeaponV2 } from '@/types/craft-v2'
-import { validateExpeditionStart } from '@/lib/expedition-start-validation'
+import {
+  validateExpeditionStart,
+  type ValidateExpeditionStartInput,
+} from '@/lib/expedition-start-validation'
 import { weaponAttack } from '@/lib/weapon-v2-helpers'
 import {
   ADVENTURER_LIFETIME,
@@ -189,7 +192,8 @@ export const canStartExpedition = (
   weapon: CraftedWeaponV2,
   guildLevel: number,
   activeExpeditions: ActiveExpedition[],
-  repairBenchWeaponId?: string | null
+  _repairBenchWeaponIds?: string[],
+  workbenchEligibility?: ValidateExpeditionStartInput['workbenchEligibility']
 ): { can: boolean; reason: string } =>
   validateExpeditionStart({
     expedition,
@@ -197,7 +201,7 @@ export const canStartExpedition = (
     weapon,
     guildLevel,
     activeExpeditions,
-    repairBenchWeaponId: repairBenchWeaponId ?? null,
+    workbenchEligibility,
   })
 
 // ================================

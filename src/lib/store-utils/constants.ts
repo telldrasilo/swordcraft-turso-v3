@@ -60,6 +60,12 @@ export const TIER_MULTIPLIERS: Record<string, number> = {
   mythic: 8,
 }
 
+/**
+ * Перековка (усиление статов): надбавка к базовой цене в ДВ за каждый **тир души** на клинке (0…10).
+ * Итог: `round(реестр.warSoulCost * (1 + tier * этот коэффициент))`. Пробуждение шрама не масштабируется.
+ */
+export const REFORGE_BUFF_WAR_SOUL_COST_PER_TIER = 0.08
+
 // ================================
 // КАЧЕСТВО ОРУЖИЯ
 // ================================
@@ -284,10 +290,25 @@ export const WEAPON_AUTO_REPAIR_LEGACY_RESONANCE_BOND_CAP = 0.05
 export const REPAIR_WRONG_HYPOTHESIS_SUCCESS_PENALTY_POINTS = 12
 
 /**
+ * Очередь верстака: за каждый завершённый по таймеру этап плана к финальному броску успеха
+ * добавляется столько процентных пунктов (логика «промежуточная работа стабилизирует клинок»).
+ */
+export const REPAIR_WORKBENCH_STAGE_SUCCESS_BONUS_PER_STAGE = 4
+
+/** Потолок суммарного бонуса от этапов верстака к финальному броску (% пунктов). */
+export const REPAIR_WORKBENCH_STAGE_SUCCESS_BONUS_CAP = 24
+
+/**
  * Успешный ремонт только **базовыми** техниками: шанс начислить шрам памяти клинка за каждый снятый тег.
  * Если в плане есть хотя бы одна узкоспециализированная техника — шрамы начисляются как раньше (полностью).
  */
-export const REPAIR_BASIC_SCAR_ON_SUCCESS_CHANCE = 0.35
+export const REPAIR_BASIC_SCAR_ON_SUCCESS_CHANCE = 0.3
+
+/**
+ * Только `durability_maintenance`: доля восстановленной прочности от броска (остальной ремонт — полный roll).
+ * «Немного» относительно полноценного ремонта по тегам.
+ */
+export const WEAPON_DURABILITY_MAINTENANCE_RESTORE_MULT = 0.62
 
 /**
  * Средняя точка наценки автоподбора (ориентир); фактическое значение — getRepairAutoPickMaterialMarkup(weapon).

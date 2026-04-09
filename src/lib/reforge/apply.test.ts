@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { applyReforgeTechniquePure, listScarCandidates } from '@/lib/reforge/apply'
+import {
+  applyReforgeTechniquePure,
+  computeAwakenPoolRatio,
+  computeAwakenScarChance,
+  listScarCandidates,
+} from '@/lib/reforge/apply'
+import { getReforgeTechniqueById } from '@/data/reforge/reforge-techniques-registry'
+import { resolveBuffReforgeWarSoulCost } from '@/lib/reforge/reforge-buff-cost'
 import type { CraftedWeaponV2 } from '@/types/craft-v2'
 import { canAccessEnchantmentAltarScreen } from '@/lib/enchantment-screen-access'
+import { WAR_SOUL_POOL_UNCAPPED } from '@/data/war-soul-balance'
 
 function baseWeapon(over: Partial<CraftedWeaponV2> = {}): CraftedWeaponV2 {
   return {
@@ -54,14 +62,22 @@ const ctx = {
 }
 
 describe('applyReforgeTechniquePure', () => {
-  it('buff attack: spends fixed war soul and adds random % in range (min when rng=0)', () => {
+  it('buff attack: spends war soul scaled by soul tier and adds random % in range (min when rng=0)', () => {
     const w = baseWeapon()
+    const baseCost = getReforgeTechniqueById('reforge_buff_attack_01')?.warSoulCost ?? 280
+    const cost = resolveBuffReforgeWarSoulCost(w, baseCost)
     const r = applyReforgeTechniquePure(w, 'reforge_buff_attack_01', ctx, () => 0)
     expect(r.ok).toBe(true)
     if (!r.ok) return
     expect(r.outcome).toBe('buff')
-    expect(r.weapon.warSoul).toBe(200_000 - 5_000)
+    expect(r.weapon.warSoul).toBe(200_000 - cost)
     expect(r.weapon.stats.attack).toBe(101)
+    expect(r.buff?.statKind).toBe('attack')
+    expect(r.buff?.buffPercentRolled).toBe(1)
+    expect(r.buff?.attackBefore).toBe(100)
+    expect(r.buff?.attackAfter).toBe(101)
+    expect(r.buff?.warSoulSpent).toBe(cost)
+    expect(r.buff?.baseWarSoulCost).toBe(baseCost)
   })
 
   it('buff attack: respects max stacks', () => {
@@ -76,6 +92,37 @@ describe('applyReforgeTechniquePure', () => {
     expect(fail.ok).toBe(false)
     if (fail.ok) return
     expect(fail.reason).toBe('max_stacks')
+  })
+
+  it('awakenScar: weighted pick favors high scar weight (rng draws near zero)', () => {
+    const w = baseWeapon({
+      weaponLegacy: {
+        hiddenMarks: [],
+        physicalScarWeights: { light: 1, heavy: 100 },
+      },
+    })
+    const r = applyReforgeTechniquePure(w, 'reforge_awaken_scar_01', ctx, () => 0)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.weapon.weaponReforge?.awakenedScarKeys?.['physical:heavy']).toBe(true)
+  })
+
+  it('awakenScar: weighted pick can select lighter scar with high first draw', () => {
+    const w = baseWeapon({
+      weaponLegacy: {
+        hiddenMarks: [],
+        physicalScarWeights: { light: 1, heavy: 100 },
+      },
+    })
+    let n = 0
+    const r = applyReforgeTechniquePure(w, 'reforge_awaken_scar_01', ctx, () => {
+      n += 1
+      if (n === 1) return 0.995
+      return 0
+    })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.weapon.weaponReforge?.awakenedScarKeys?.['physical:light']).toBe(true)
   })
 
   it('fails when insufficient war soul for buff', () => {
@@ -175,6 +222,43 @@ describe('applyReforgeTechniquePure', () => {
     expect(r.ok).toBe(false)
     if (r.ok) return
     expect(r.reason).toBe('scar_awakening_already_done')
+  })
+})
+
+describe('computeAwakenPoolRatio', () => {
+  it('is positive for uncapped pool and mid-tier soul', () => {
+    const w = baseWeapon({
+      warSoul: 5_000,
+      maxWarSoul: WAR_SOUL_POOL_UNCAPPED,
+    })
+    const ratio = computeAwakenPoolRatio(w)
+    expect(ratio).toBeGreaterThan(0)
+    expect(ratio).toBeLessThanOrEqual(1)
+  })
+
+  it('matches warSoul/maxWarSoul for capped finite pool', () => {
+    const w = baseWeapon({ warSoul: 200_000, maxWarSoul: 500_000 })
+    expect(computeAwakenPoolRatio(w)).toBe(0.4)
+  })
+})
+
+describe('computeAwakenScarChance', () => {
+  it('uncapped pool gets non-zero pool contribution at low soul vs broken warSoul/max ratio', () => {
+    const tech = getReforgeTechniqueById('reforge_awaken_scar_01')
+    expect(tech).toBeDefined()
+    if (!tech) return
+    const uncapped = baseWeapon({
+      warSoul: 8_000,
+      maxWarSoul: WAR_SOUL_POOL_UNCAPPED,
+    })
+    const cappedMax = 500_000
+    const fauxCapped = baseWeapon({
+      warSoul: uncapped.warSoul,
+      maxWarSoul: cappedMax,
+    })
+    const chanceUnc = computeAwakenScarChance(uncapped, tech)
+    const chanceFaux = computeAwakenScarChance(fauxCapped, tech)
+    expect(chanceUnc).toBeGreaterThan(chanceFaux)
   })
 })
 

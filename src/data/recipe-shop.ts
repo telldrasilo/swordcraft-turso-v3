@@ -1,18 +1,19 @@
 /**
  * Система покупки и получения рецептов для SwordCraft: Idle Forge
  * 
- * Рецепты можно получить:
- * - Купить у торговца за золото
- * - Получить как награду за заказ NPC
- * - Найти в экспедиции
- * - Разблокировать по уровню кузнеца
+ * LEGACY-реестр источников рецептов для контуров order/expedition.
+ * Покупки у интенданта и UI-токены редкости вынесены в:
+ * - src/data/guild/intendant-pricing.ts
+ *
+ * Важно: файл сохранён для обратной совместимости старых импортов
+ * в системах наград, пока они не будут полностью мигрированы.
  */
 
 // ================================
 // ТИПЫ
 // ================================
 
-export type RecipeSource = 'purchase' | 'order' | 'expedition' | 'level'
+export type RecipeSource = 'order' | 'expedition' | 'level'
 
 export interface RecipePrice {
   recipeId: string
@@ -30,25 +31,6 @@ export interface RecipePrice {
 // ================================
 
 export const weaponRecipePrices: RecipePrice[] = [
-  // Формы оружия (v2 id в allRecipes). Материал задаётся при крафте частей.
-  {
-    recipeId: 'long_sword',
-    name: 'Длинный меч',
-    source: 'purchase',
-    gold: 200,
-    requiredLevel: 5,
-    rarity: 'uncommon',
-    description: 'Чертёж удлинённого меча. Можно купить у торговца.',
-  },
-  {
-    recipeId: 'battle_axe',
-    name: 'Боевой топор',
-    source: 'purchase',
-    gold: 250,
-    requiredLevel: 5,
-    rarity: 'uncommon',
-    description: 'Чертёж тяжёлого топора. Можно купить у торговца.',
-  },
   {
     recipeId: 'long_sword',
     name: 'Длинный меч (награда гвардии)',
@@ -122,28 +104,6 @@ export const weaponRecipePrices: RecipePrice[] = [
 // ================================
 
 export const refiningRecipePrices: RecipePrice[] = [
-  // === БРОНЗА (Покупка) ===
-  {
-    recipeId: 'bronze_ingot',
-    name: 'Бронзовый слиток',
-    source: 'purchase',
-    gold: 100,
-    requiredLevel: 5,
-    rarity: 'uncommon',
-    description: 'Рецепт бронзового сплава. Основы металлургии.'
-  },
-  
-  // === СТАЛЬ (Покупка) ===
-  {
-    recipeId: 'steel_ingot',
-    name: 'Стальной слиток',
-    source: 'purchase',
-    gold: 200,
-    requiredLevel: 8,
-    rarity: 'rare',
-    description: 'Рецепт закалённой стали. Требует мастерства.'
-  },
-  
   // === СЕРЕБРО (Экспедиция) ===
   {
     recipeId: 'silver_ingot',
@@ -193,7 +153,7 @@ export function getRecipesBySource(source: RecipeSource): RecipePrice[] {
 }
 
 export function getPurchasableRecipes(): RecipePrice[] {
-  return getRecipesBySource('purchase')
+  return []
 }
 
 export function getOrderRecipes(): RecipePrice[] {
@@ -204,41 +164,14 @@ export function getExpeditionRecipes(): RecipePrice[] {
   return getRecipesBySource('expedition')
 }
 
-// Редкость → цвет
-export const rarityColors = {
-  common: 'text-stone-300',
-  uncommon: 'text-green-400',
-  rare: 'text-blue-400',
-  epic: 'text-purple-400',
-  legendary: 'text-amber-400'
-}
-
-export const rarityBgColors = {
-  common: 'bg-stone-700/50',
-  uncommon: 'bg-green-900/30',
-  rare: 'bg-blue-900/30',
-  epic: 'bg-purple-900/30',
-  legendary: 'bg-amber-900/30'
-}
-
-export const rarityBorderColors = {
-  common: 'border-stone-600',
-  uncommon: 'border-green-600',
-  rare: 'border-blue-600',
-  epic: 'border-purple-600',
-  legendary: 'border-amber-600'
-}
-
 // Источник → иконка
 export const sourceIcons = {
-  purchase: '🛒',
   order: '📜',
   expedition: '🗺️',
   level: '⭐'
 }
 
 export const sourceNames = {
-  purchase: 'Покупка',
   order: 'Заказ',
   expedition: 'Экспедиция',
   level: 'Уровень'

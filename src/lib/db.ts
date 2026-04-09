@@ -11,10 +11,14 @@
  * 3) POST/GET/INSERT/UPDATE/formatSaveData/createNewSave в src/app/api/save/route.ts
  * 4) saveRequestBodySchema (и при необходимости validateSaveData) в src/lib/save-payload-schema.ts
  * 5) Клиент: collectSaveData / applyLoadedData в src/hooks/use-cloud-save.ts и partialize в game-store-composed.ts
+ *    (легаси repairBench* в JSON больше не пишутся с D5)
  * 6) Нормализация крафта v2 в JSON: src/lib/save-craft-normalize.ts
  */
 
 import { createClient, type Client } from '@libsql/client'
+import { normalizeRepairBenchWeaponIdsFromSave } from '@/lib/normalize-repair-bench-from-save'
+import { normalizeWorkbenchQueueFromSave } from '@/lib/workbench/workbench-queue'
+import { appendRepairQueueItemsFromLegacyBenchIds } from '@/lib/workbench/migrate-repair-bench-ids-to-queue'
 
 const globalForDb = globalThis as unknown as {
   turso: Client | null | undefined
@@ -42,6 +46,7 @@ CREATE TABLE IF NOT EXISTS game_saves (
   unlockedEnchantments TEXT DEFAULT '[]',
   unlockedMaterialProcessingTechniqueIds TEXT DEFAULT '[]',
   unlockedRepairTechniqueIds TEXT DEFAULT '[]',
+  unlockedCraftTechniqueIds TEXT DEFAULT '[]',
   unlockedReforgeTechniqueIds TEXT DEFAULT '[]',
   guild TEXT DEFAULT '{}',
   knownAdventurers TEXT DEFAULT '[]',
@@ -52,7 +57,7 @@ CREATE TABLE IF NOT EXISTS game_saves (
   updatedAt TEXT DEFAULT (datetime('now')),
   playTime INTEGER DEFAULT 0,
   saveVersion INTEGER DEFAULT 2,
-  repairBenchWeaponId TEXT DEFAULT NULL,
+  repairQueuePlan TEXT DEFAULT '[]',
   repairTechniqueStageRun TEXT DEFAULT NULL,
   forgottenForgePersist TEXT DEFAULT NULL
 );
@@ -160,15 +165,15 @@ async function ensureGameSavesColumns(db: Client): Promise<void> {
       args: [],
     })
   }
-  if (!names.has('unlockedReforgeTechniqueIds')) {
+  if (!names.has('unlockedCraftTechniqueIds')) {
     await db.execute({
-      sql: "ALTER TABLE game_saves ADD COLUMN unlockedReforgeTechniqueIds TEXT DEFAULT '[]'",
+      sql: "ALTER TABLE game_saves ADD COLUMN unlockedCraftTechniqueIds TEXT DEFAULT '[]'",
       args: [],
     })
   }
-  if (!names.has('repairBenchWeaponId')) {
+  if (!names.has('unlockedReforgeTechniqueIds')) {
     await db.execute({
-      sql: 'ALTER TABLE game_saves ADD COLUMN repairBenchWeaponId TEXT DEFAULT NULL',
+      sql: "ALTER TABLE game_saves ADD COLUMN unlockedReforgeTechniqueIds TEXT DEFAULT '[]'",
       args: [],
     })
   }
@@ -178,11 +183,91 @@ async function ensureGameSavesColumns(db: Client): Promise<void> {
       args: [],
     })
   }
+  if (!names.has('repairQueuePlan')) {
+    await db.execute({
+      sql: "ALTER TABLE game_saves ADD COLUMN repairQueuePlan TEXT DEFAULT '[]'",
+      args: [],
+    })
+  }
   if (!names.has('forgottenForgePersist')) {
     await db.execute({
       sql: 'ALTER TABLE game_saves ADD COLUMN forgottenForgePersist TEXT DEFAULT NULL',
       args: [],
     })
+  }
+
+  await migrateLegacyRepairBenchColumnsOnce(db)
+}
+
+function dbJsonParseColumn(raw: unknown, fallback: unknown): unknown {
+  if (raw == null || raw === '') return fallback
+  if (typeof raw !== 'string') return raw
+  try {
+    return JSON.parse(raw) as unknown
+  } catch {
+    return fallback
+  }
+}
+
+/** D5: перенос repairBench* в repairQueuePlan и удаление колонок (идемпотентно). */
+async function migrateLegacyRepairBenchColumnsOnce(db: Client): Promise<void> {
+  const info = await db.execute({ sql: 'PRAGMA table_info(game_saves)', args: [] })
+  const columnNames = new Set<string>()
+  for (const r of info.rows) {
+    const row = r as Record<string, unknown>
+    const n = row['name']
+    if (typeof n === 'string' && n) columnNames.add(n)
+  }
+  if (
+    !columnNames.has('repairBenchWeaponIds') &&
+    !columnNames.has('repairBenchWeaponId') &&
+    !columnNames.has('repairBenchSelectedWeaponId')
+  ) {
+    return
+  }
+
+  const all = await db.execute({ sql: 'SELECT * FROM game_saves', args: [] })
+  for (const row of all.rows) {
+    const id = row['id']
+    if (typeof id !== 'string') continue
+    const weaponInventory = dbJsonParseColumn(row['weaponInventory'], {
+      weapons: [],
+    }) as { weapons?: { id?: string }[] }
+    const weapons = weaponInventory.weapons ?? []
+    const benchIds = normalizeRepairBenchWeaponIdsFromSave(
+      dbJsonParseColumn(row['repairBenchWeaponIds'], []),
+      row['repairBenchWeaponId'],
+      weapons
+    )
+    const queue = normalizeWorkbenchQueueFromSave(dbJsonParseColumn(row['repairQueuePlan'], []))
+    const { queue: merged, addedCount } = appendRepairQueueItemsFromLegacyBenchIds({
+      benchIds,
+      queue,
+    })
+    if (addedCount > 0) {
+      await db.execute({
+        sql: 'UPDATE game_saves SET repairQueuePlan = ? WHERE id = ?',
+        args: [JSON.stringify(merged), id],
+      })
+    }
+  }
+
+  const dropLegacyCols = [
+    'repairBenchSelectedWeaponId',
+    'repairBenchWeaponIds',
+    'repairBenchWeaponId',
+  ] as const
+  for (const col of dropLegacyCols) {
+    const pragma = await db.execute({ sql: 'PRAGMA table_info(game_saves)', args: [] })
+    const fresh = new Set<string>()
+    for (const r of pragma.rows) {
+      const row = r as Record<string, unknown>
+      const n = row['name']
+      if (typeof n === 'string' && n) fresh.add(n)
+    }
+    if (fresh.has(col)) {
+      await db.execute({ sql: `ALTER TABLE game_saves DROP COLUMN "${col}"`, args: [] })
+    }
   }
 }
 

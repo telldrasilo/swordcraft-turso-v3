@@ -140,7 +140,6 @@ export function CraftContainerV2({
   const inventory = useGameStore(state => state.resources)
   const materialStash = useGameStore(state => state.materialStash)
   const gold = useGameStore(state => state.resources.gold)
-  const spendCraftingCostWithStash = useGameStore(state => state.spendCraftingCostWithStash)
   const spendResource = useGameStore(state => state.spendResource)
   const grantResourceKeyFromWorld = useGameStore(state => state.grantResourceKeyFromWorld)
   const addWeaponV2 = useGameStore(state => state.addWeaponV2)
@@ -224,11 +223,12 @@ export function CraftContainerV2({
         materialAssignment[partId] = { materialId, quantity }
       })
 
+      const poolsAdv = useGameStore.getState()
       const checkResult = checkInventoryForCraft(
         recipe,
         materialAssignment,
-        inventory,
-        materialStash,
+        poolsAdv.resources,
+        poolsAdv.materialStash,
         partSupply
       )
 
@@ -253,12 +253,13 @@ export function CraftContainerV2({
         materialAssignment[partId] = { materialId, quantity }
       })
 
-      // Проверяем инвентарь
+      // Проверяем инвентарь (снимок store — не замыкание из рендера)
+      const poolsBuy = useGameStore.getState()
       const checkResult = checkInventoryForCraft(
         recipe,
         materialAssignment,
-        inventory,
-        materialStash,
+        poolsBuy.resources,
+        poolsBuy.materialStash,
         partSupply
       )
 
@@ -278,6 +279,7 @@ export function CraftContainerV2({
           console.warn(`Куплено материалов на ${totalCost} золота`)
         } else {
           console.warn(`Недостаточно золота для закупки: нужно ${totalCost}, есть ${currentGold}`)
+          return
         }
       }
     }
@@ -285,8 +287,16 @@ export function CraftContainerV2({
     // Рассчитываем стоимость материалов
     const cost = getCraftingCost(recipe, plan.materials, partSupply)
 
+    const storeForSpend = useGameStore.getState()
+    if (!storeForSpend.canAffordCraftingCostWithStash(cost)) {
+      console.error(
+        'Недостаточно материалов для старта крафта после проверки склада. Если включена автозакупка — проверьте золото или снимите галочку «докупать».'
+      )
+      return
+    }
+
     // Списываем материалы
-    const spent = spendCraftingCostWithStash(cost)
+    const spent = storeForSpend.spendCraftingCostWithStash(cost)
     if (!spent) {
       console.error('Не удалось списать материалы')
       return
@@ -313,11 +323,8 @@ export function CraftContainerV2({
     setTechniques,
     calculatePreview,
     startCraft,
-    spendCraftingCostWithStash,
     spendResource,
     grantResourceKeyFromWorld,
-    inventory,
-    materialStash,
     setShouldPurchaseMaterials,
     activeOrder,
     takeAdvance,

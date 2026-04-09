@@ -3,7 +3,12 @@
  * Цены v1: из золота бывшего магазина кузницы (1 золото ≈ 1 очко репутации, минимум 5).
  */
 
-import { weaponRecipePrices, refiningRecipePrices, type RecipePrice } from '@/data/recipe-shop'
+import {
+  intendantWeaponRecipePrices,
+  intendantRefiningRecipePrices,
+  type IntendantRarity,
+  type IntendantRecipePrice,
+} from '@/data/guild/intendant-pricing'
 import { REPAIR_TECHNIQUE_REGISTRY } from '@/data/weapon-damage/repair-techniques-registry'
 import type { RepairTechniqueDefinition } from '@/types/weapon-repair'
 import {
@@ -15,6 +20,7 @@ export type IntendantOfferKind =
   | 'weapon_recipe'
   | 'refining_recipe'
   | 'repair_technique'
+  | 'craft_technique'
   | 'reforge_technique'
 
 export interface IntendantOffer {
@@ -25,7 +31,7 @@ export interface IntendantOffer {
   minGuildLevel: number
   name: string
   description: string
-  rarity: RecipePrice['rarity']
+  rarity: IntendantRarity
 }
 
 /** 1 золото бывшего магазина ≈ 1 реп. ранга; минимум 8 — чуть выше «мелочи» для баланса v2. */
@@ -34,7 +40,7 @@ function goldToReputation(gold: number | undefined): number {
   return Math.max(8, Math.round(gold))
 }
 
-function minGuildLevelFromRecipe(rp: RecipePrice): number {
+function minGuildLevelFromRecipe(rp: IntendantRecipePrice): number {
   const lv = rp.requiredLevel ?? 1
   return Math.max(1, Math.min(10, Math.ceil(lv / 5)))
 }
@@ -92,7 +98,7 @@ const basicWeaponForms: IntendantOffer[] = [
   },
 ]
 
-function fromWeaponPurchase(rp: RecipePrice, index: number): IntendantOffer {
+function fromWeaponPurchase(rp: IntendantRecipePrice, index: number): IntendantOffer {
   return {
     id: `intendant_weapon_${rp.recipeId}_purchase_${index}`,
     kind: 'weapon_recipe',
@@ -105,7 +111,7 @@ function fromWeaponPurchase(rp: RecipePrice, index: number): IntendantOffer {
   }
 }
 
-function fromRefiningPurchase(rp: RecipePrice, index: number): IntendantOffer {
+function fromRefiningPurchase(rp: IntendantRecipePrice, index: number): IntendantOffer {
   return {
     id: `intendant_refining_${rp.recipeId}_purchase_${index}`,
     kind: 'refining_recipe',
@@ -118,13 +124,9 @@ function fromRefiningPurchase(rp: RecipePrice, index: number): IntendantOffer {
   }
 }
 
-const weaponPurchase = weaponRecipePrices
-  .filter((p) => p.source === 'purchase')
-  .map((p, i) => fromWeaponPurchase(p, i))
+const weaponPurchase = intendantWeaponRecipePrices.map((p, i) => fromWeaponPurchase(p, i))
 
-const refiningPurchase = refiningRecipePrices
-  .filter((p) => p.source === 'purchase')
-  .map((p, i) => fromRefiningPurchase(p, i))
+const refiningPurchase = intendantRefiningRecipePrices.map((p, i) => fromRefiningPurchase(p, i))
 
 function repairTechniqueOfferFromDef(t: RepairTechniqueDefinition): IntendantOffer {
   const stageCount = t.stages.length
@@ -144,12 +146,54 @@ const repairTechniqueOffers: IntendantOffer[] = REPAIR_TECHNIQUE_REGISTRY.filter
   (t) => t.repairTier === 'specialized'
 ).map((t) => repairTechniqueOfferFromDef(t))
 
+function craftTechniqueOffer(
+  id: string,
+  targetId: string,
+  name: string,
+  description: string,
+  costReputation: number,
+  minGuildLevel: number,
+  rarity: IntendantRarity
+): IntendantOffer {
+  return {
+    id,
+    kind: 'craft_technique',
+    targetId,
+    name,
+    description,
+    costReputation,
+    minGuildLevel,
+    rarity,
+  }
+}
+
+const craftTechniqueOffers: IntendantOffer[] = [
+  craftTechniqueOffer(
+    'intendant_craft_spirit_blessing',
+    'spirit_blessing',
+    'Благословение духов',
+    'Ритуальная техника для проводки души и финальной стабилизации узла.',
+    180,
+    4,
+    'rare'
+  ),
+  craftTechniqueOffer(
+    'intendant_craft_master_balance',
+    'master_balance',
+    'Мастер-баланс',
+    'Точная повторная балансировка конструкции и распределения нагрузки.',
+    150,
+    3,
+    'uncommon'
+  ),
+]
+
 /** Цена спец-перековки: от расхода ДВ и типа; awaken — фиксированный премиум. */
 function reforgeTechniqueOfferFromEntry(t: ReforgeTechniqueEntry): IntendantOffer {
   const costReputation =
     t.reforgeType === 'awakenScar'
       ? 240
-      : Math.max(95, Math.min(210, Math.round(t.warSoulCost / 65)))
+      : Math.max(95, Math.min(210, Math.round(t.warSoulCost / 2.5)))
   return {
     id: `intendant_reforge_${t.id}`,
     kind: 'reforge_technique',
@@ -171,11 +215,30 @@ export const INTENDANT_OFFERS: IntendantOffer[] = [
   ...weaponPurchase,
   ...refiningPurchase,
   ...repairTechniqueOffers,
+  ...craftTechniqueOffers,
   ...reforgeTechniqueOffers,
 ]
 
 export function getIntendantOfferById(id: string): IntendantOffer | undefined {
   return INTENDANT_OFFERS.find((o) => o.id === id)
+}
+
+/** Предложение интенданта по id техники ремонта (спец-техники в каталоге). */
+export function getIntendantRepairTechniqueOffer(
+  repairTechniqueId: string
+): IntendantOffer | undefined {
+  return INTENDANT_OFFERS.find(
+    (o) => o.kind === 'repair_technique' && o.targetId === repairTechniqueId
+  )
+}
+
+/** Предложение интенданта по id техники перековки (`reforge_*` из реестра). */
+export function getIntendantReforgeTechniqueOffer(
+  reforgeTechniqueId: string
+): IntendantOffer | undefined {
+  return INTENDANT_OFFERS.find(
+    (o) => o.kind === 'reforge_technique' && o.targetId === reforgeTechniqueId
+  )
 }
 
 export function getIntendantOffersByKind(kind: IntendantOfferKind | 'all'): IntendantOffer[] {

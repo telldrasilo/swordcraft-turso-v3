@@ -127,6 +127,11 @@
   --blood: oklch(0.45 0.2 25);
   --mana: oklch(0.5 0.15 280);
   --soul: oklch(0.7 0.15 300);
+
+  /* Scrollbars — тёмный камень + бронзово-янтарный бегунок */
+  --scrollbar-track: oklch(0.19 0.012 52);
+  --scrollbar-thumb: oklch(0.4 0.038 54);
+  --scrollbar-thumb-hover: oklch(0.5 0.055 58);
 }
 
 /* Light medieval theme (optional) */
@@ -172,36 +177,99 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
   }
   body {
     @apply bg-background text-foreground;
   }
 }
 
+/* WebKit / Chromium — единая гамма для прокручиваемых областей */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    oklch(0.44 0.04 56),
+    oklch(0.34 0.03 50)
+  );
+  border-radius: 4px;
+  border: 1px solid oklch(0.22 0.02 50 / 0.6);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    180deg,
+    var(--scrollbar-thumb-hover),
+    oklch(0.42 0.04 54)
+  );
+}
+
+*::-webkit-scrollbar-corner {
+  background: var(--scrollbar-track);
+}
+
 /* Custom scrollbar for medieval feel */
 @layer utilities {
   .scrollbar-medieval {
     scrollbar-width: thin;
-    scrollbar-color: var(--bronze) var(--muted);
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
   }
-  
+
   .scrollbar-medieval::-webkit-scrollbar {
     width: 8px;
     height: 8px;
   }
-  
+
   .scrollbar-medieval::-webkit-scrollbar-track {
-    background: var(--muted);
+    background: var(--scrollbar-track);
     border-radius: 4px;
   }
-  
+
   .scrollbar-medieval::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, var(--bronze), var(--gold-dark));
+    background: linear-gradient(180deg, oklch(0.44 0.04 56), oklch(0.34 0.03 50));
     border-radius: 4px;
   }
-  
+
   .scrollbar-medieval::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(180deg, var(--gold-dark), var(--gold));
+    background: linear-gradient(180deg, var(--scrollbar-thumb-hover), oklch(0.42 0.04 54));
+  }
+
+  /**
+   * Лента сообщений дока: узкая, едва заметная полоса у списка во вкладке
+   * (перекрывает глобальные *::-webkit-scrollbar за счёт большей специфичности).
+   */
+  .scrollbar-dock-subtle {
+    scrollbar-width: thin;
+    scrollbar-color: oklch(0.42 0.035 54 / 0.42) transparent;
+  }
+
+  .scrollbar-dock-subtle::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  .scrollbar-dock-subtle::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-dock-subtle::-webkit-scrollbar-thumb {
+    background: oklch(0.4 0.032 52 / 0.38);
+    border-radius: 100px;
+    border: none;
+  }
+
+  .scrollbar-dock-subtle::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.52 0.05 56 / 0.55);
   }
   
   /* Glow effects */

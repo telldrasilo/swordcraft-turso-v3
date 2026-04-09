@@ -273,6 +273,43 @@ export type RepairExecutionRollModifiers = {
   successChanceDelta?: number
 }
 
+export type RepairPlanCostsGate =
+  | { ok: true; option: RepairOption }
+  | { ok: false; error: string }
+
+/** Проверка доступной опции ремонта и материалов плана (без броска). */
+export function assertRepairPlanCostsMet(
+  weapon: WeaponRepairCalc,
+  repairType: RepairType,
+  playerLevel: number,
+  resources: Partial<Record<ResourceKey, number>>,
+  materialStash: Record<string, number> = {},
+  activeDamageTags: ActiveDamageTagEntry[] | undefined,
+  planMaterials: Record<string, number>
+): RepairPlanCostsGate {
+  const options = filterRepairOptionsByActiveDamageTags(
+    calculateRepairOptions(weapon, playerLevel),
+    activeDamageTags ?? []
+  )
+  const option = options.find((o) => o.type === repairType)
+
+  if (!option) {
+    return { ok: false, error: 'Опция ремонта недоступна для текущих повреждений' }
+  }
+
+  const inv = resources as Resources
+  for (const [mat, amount] of Object.entries(planMaterials)) {
+    const resourceKey = mat as ResourceKey
+    const need = amount || 0
+    if (need <= 0) continue
+    if (getAvailableAmountForResourceKey(inv, materialStash, resourceKey) < need) {
+      return { ok: false, error: `Недостаточно материалов: ${mat}` }
+    }
+  }
+
+  return { ok: true, option }
+}
+
 export function executeRepairWithPlanCosts(
   weapon: WeaponRepairCalc,
   repairType: RepairType,
@@ -283,34 +320,31 @@ export function executeRepairWithPlanCosts(
   planMaterials: Record<string, number>,
   rollModifiers?: RepairExecutionRollModifiers
 ): ExecuteRepairResult {
-  const options = filterRepairOptionsByActiveDamageTags(
-    calculateRepairOptions(weapon, playerLevel),
-    activeDamageTags ?? []
+  const gate = assertRepairPlanCostsMet(
+    weapon,
+    repairType,
+    playerLevel,
+    resources,
+    materialStash,
+    activeDamageTags,
+    planMaterials
   )
-  const option = options.find((o) => o.type === repairType)
-
-  if (!option) {
-    return { success: false, error: 'Опция ремонта недоступна для текущих повреждений' }
-  }
-
-  const inv = resources as Resources
-  for (const [mat, amount] of Object.entries(planMaterials)) {
-    const resourceKey = mat as ResourceKey
-    const need = amount || 0
-    if (need <= 0) continue
-    if (getAvailableAmountForResourceKey(inv, materialStash, resourceKey) < need) {
-      return { success: false, error: `Недостаточно материалов: ${mat}` }
-    }
+  if (!gate.ok) {
+    return { success: false, error: gate.error }
   }
 
   const delta = rollModifiers?.successChanceDelta ?? 0
+  const baseOption = gate.option
   const optionForRoll =
     delta !== 0
       ? {
-          ...option,
-          baseSuccessChance: Math.min(100, Math.max(0, option.baseSuccessChance + delta)),
+          ...baseOption,
+          baseSuccessChance: Math.min(
+            100,
+            Math.max(0, baseOption.baseSuccessChance + delta)
+          ),
         }
-      : option
+      : baseOption
 
   const repairResult = executeWeaponRepairLogic(weapon, optionForRoll, playerLevel)
   if (!repairResult.success) {

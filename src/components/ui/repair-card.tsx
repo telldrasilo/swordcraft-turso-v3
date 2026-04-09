@@ -12,10 +12,7 @@ import {
   Map,
   Shield,
   AlertTriangle,
-  CheckCircle,
-  Clock,
   Search,
-  Loader2,
   ChevronDown,
   Lock,
 } from 'lucide-react'
@@ -23,7 +20,6 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
 import { 
   Tooltip,
   TooltipTrigger,
@@ -35,7 +31,6 @@ import type { QualityGrade } from '@/store/slices/craft-slice'
 import type { CraftedWeaponV2 } from '@/types/craft-v2'
 import { QUALITY_GRADE_V2_TO_LEGACY } from '@/lib/store-utils/constants'
 import { weaponRecipes } from '@/data/weapon-recipes'
-import type { RepairResult } from '@/data/repair-system'
 import { DURABILITY_MAINTENANCE_TECHNIQUE_ID } from '@/data/weapon-damage/repair-techniques-registry'
 import { cn } from '@/lib/utils'
 import { getAvailableAmountForResourceKey } from '@/lib/craft/inventory-check'
@@ -48,15 +43,11 @@ import {
   getUncoveredActiveTags,
   isRepairTechniqueUnlocked,
 } from '@/lib/weapon-damage/build-repair-plan'
-import {
-  getRepairAutoPickMaterialMarkup,
-  getWeaponAutoRepairGoldCost,
-} from '@/lib/store-utils/repair-balance'
+import { getRepairAutoPickMaterialMarkup } from '@/lib/store-utils/repair-balance'
 import {
   resolveWeaponRepairPlanEconomy,
   scaleMaterialCostRecord,
 } from '@/lib/store-utils/repair-utils'
-import { useWeaponRepairStageRun } from '@/hooks/use-weapon-repair-stage-run'
 import {
   WEAPON_DEEP_INSPECT_MATERIAL_COST,
   WEAPON_DEEP_INSPECT_DURATION_MS,
@@ -72,6 +63,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
 import { getDamageTagInspectionEntryOrFallback } from '@/data/weapon-damage/damage-tag-inspection-options'
+import { getIntendantRepairTechniqueOffer } from '@/data/guild/intendant-catalog'
 
 // Иконки типов оружия
 function WeaponIcon({ type, className }: { type: string; className?: string }) {
@@ -106,12 +98,6 @@ const tierNames: Record<string, string> = {
   mythic: 'Мифическое'
 }
 
-const REPAIR_STAGE_CATEGORY_LABEL: Record<string, string> = {
-  preparation: 'Подготовка',
-  work: 'Работа',
-  finishing: 'Отделка',
-}
-
 function formatCountdownMs(ms: number): string {
   const s = Math.max(0, Math.ceil(ms / 1000))
   const m = Math.floor(s / 60)
@@ -122,8 +108,6 @@ function formatCountdownMs(ms: number): string {
 // Карточка ремонта
 interface RepairCardProps {
   weapon: CraftedWeaponV2
-  /** Успешный ремонт по техникам — тост в секции ремонта */
-  onRepairDone?: (weaponName: string, result: RepairResult) => void
   /**
    * Во вкладке «Ремонт» — без дублей с инвентарём: без блока «Накопленные свойства»,
    * краткий список тегов, без второго блока мастерства в ветке только-прочность.
@@ -131,13 +115,24 @@ interface RepairCardProps {
   variant?: 'default' | 'repairWorkbench'
   /** Рядом с WeaponInventoryCard — скрыть дублирующий заголовок и полосу прочности */
   compactWeaponChrome?: boolean
+  onQueueAdd?: (payload: {
+    weaponId: string
+    techniqueIds: string[]
+    executionOpts?: RepairTechniqueExecutionOptions
+  }) => void
+  /**
+   * Стартовый выбор техник (модалка редактирования задачи в очереди).
+   * Если передан — используется вместо черновика/active run при монтировании.
+   */
+  initialTechniqueIds?: string[] | null
 }
 
 export function RepairCard({
   weapon,
-  onRepairDone,
   variant = 'default',
   compactWeaponChrome = false,
+  onQueueAdd,
+  initialTechniqueIds = null,
 }: RepairCardProps) {
   const workbench = variant === 'repairWorkbench'
   const slimHeader = compactWeaponChrome
@@ -163,22 +158,17 @@ export function RepairCard({
       : 'text-red-400'
   
   // Получаем функции из стора (стабильные ссылки)
-  const executeWeaponRepairByTechniques = useGameStore(
-    (state) => state.executeWeaponRepairByTechniques
-  )
-  const scheduleWeaponAutoRepair = useGameStore((state) => state.scheduleWeaponAutoRepair)
-  const claimWeaponAutoRepair = useGameStore((state) => state.claimWeaponAutoRepair)
   const startWeaponDeepInspect = useGameStore((state) => state.startWeaponDeepInspect)
   const completeWeaponDeepInspect = useGameStore((state) => state.completeWeaponDeepInspect)
   const player = useGameStore((state) => state.player)
   const spendResource = useGameStore((state) => state.spendResource)
   const grantResourceKeyFromWorld = useGameStore((state) => state.grantResourceKeyFromWorld)
-  const canAfford = useGameStore((state) => state.canAfford)
   const repairTechniqueStageRun = useGameStore((state) => state.repairTechniqueStageRun)
   const setRepairBenchTechniqueDraft = useGameStore((state) => state.setRepairBenchTechniqueDraft)
-  const beginRepairTechniqueStageRun = useGameStore((state) => state.beginRepairTechniqueStageRun)
-  const clearRepairTechniqueStageRun = useGameStore((state) => state.clearRepairTechniqueStageRun)
   const unlockedRepairTechniqueIds = useGameStore((state) => state.unlockedRepairTechniqueIds)
+  const navigateToGuildIntendantRepairTechnique = useGameStore(
+    (state) => state.navigateToGuildIntendantRepairTechnique
+  )
 
   const damageEntries = useMemo(
     () => (weapon.activeDamageTags?.length ? weapon.activeDamageTags : []),
@@ -187,6 +177,7 @@ export function RepairCard({
   const useTechniqueRepair = damageEntries.length > 0 || durability < maxDurability
 
   const [selectedTechniqueIds, setSelectedTechniqueIds] = useState<string[]>(() => {
+    if (initialTechniqueIds != null) return [...initialTechniqueIds]
     const s = useGameStore.getState()
     const run = s.repairTechniqueStageRun
     const draft = s.repairBenchTechniqueDraft
@@ -247,22 +238,15 @@ export function RepairCard({
   const storedInspectNotes = weapon.weaponLegacy?.deepInspectNotes ?? []
   const bladeBond = weapon.weaponLegacy?.bladeBondRepairCount ?? 0
   const autoRepairDone = weapon.weaponLegacy?.autoRepairCompletedCount ?? 0
-  const autoRepairGoldCost = useMemo(() => getWeaponAutoRepairGoldCost(weapon), [weapon])
   const autoPickMaterialMarkup = useMemo(() => getRepairAutoPickMaterialMarkup(weapon), [weapon])
-  const canPayAutoRepair = canAfford({ gold: autoRepairGoldCost })
   const displayInspectNotes =
     storedInspectNotes.length > 0
       ? storedInspectNotes
       : lastInspect !== undefined && deepHints.length > 0
         ? deepHints
         : []
-  const canQueueAuto =
-    damageEntries.length > 0 || durability < maxDurability
-  const awaitingForgeVisit = weapon.autoRepairAwaitingForgeVisit === true
   const showDamagePanel =
     damageEntries.length > 0 ||
-    weapon.autoRepairReadyAt !== undefined ||
-    awaitingForgeVisit ||
     durability < maxDurability ||
     storedInspectNotes.length > 0 ||
     lastInspect !== undefined
@@ -387,57 +371,22 @@ export function RepairCard({
     completeWeaponDeepInspect(weapon.id)
   }, [deepInspectReadyAt, nowTick, weapon.id, completeWeaponDeepInspect])
 
-  const lockedTechniqueIdsRef = useRef<string[]>([])
   const lastRepairExecutionOptsRef = useRef<RepairTechniqueExecutionOptions | undefined>(undefined)
 
-  const resumeStageRun = useMemo(
-    () =>
-      repairTechniqueStageRun?.weaponId === weapon.id
-        ? { startedAt: repairTechniqueStageRun.startedAt }
-        : null,
-    [repairTechniqueStageRun, weapon.id]
-  )
-
-  const {
-    phase: repairPhase,
-    start: startRepairStages,
-    cancel: cancelRepairStages,
-    progressView,
-    displayPlan,
-  } = useWeaponRepairStageRun({
-    plan: techniquePlan,
-    resume: resumeStageRun,
-    onStagesComplete: () => {
-      const r = executeWeaponRepairByTechniques(
-        weapon.id,
-        lockedTechniqueIdsRef.current,
-        lastRepairExecutionOptsRef.current
-      )
-      clearRepairTechniqueStageRun()
-      if (r.success && r.result) {
-        onRepairDone?.(weapon.fullName, r.result)
-        setSelectedTechniqueIds([])
-        setRepairBenchTechniqueDraft(null)
-      }
-    },
-  })
-
-  const repairPhaseRef = useRef(repairPhase)
-  useLayoutEffect(() => {
-    repairPhaseRef.current = repairPhase
-  }, [repairPhase])
+  /** Этапы для этого клинка идут в панели очереди — не трогаем черновик и подсветку */
+  const queueStagesForThisWeapon =
+    repairTechniqueStageRun?.weaponId === weapon.id &&
+    repairTechniqueStageRun?.source === 'queue'
 
   useLayoutEffect(() => {
     const run = useGameStore.getState().repairTechniqueStageRun
     if (run?.weaponId === weapon.id) {
-      lockedTechniqueIdsRef.current = [...run.techniqueIds]
       lastRepairExecutionOptsRef.current = run.executionOpts
     }
   }, [weapon.id, repairTechniqueStageRun])
 
   useLayoutEffect(() => {
     queueMicrotask(() => {
-      if (repairPhaseRef.current === 'running') return
       const s = useGameStore.getState()
       const run = s.repairTechniqueStageRun
       if (run?.weaponId === weapon.id) {
@@ -454,17 +403,17 @@ export function RepairCard({
         return
       }
       if (damageEntries.length > 0) {
-        setSelectedTechniqueIds((prev) =>
-          prev.includes(DURABILITY_MAINTENANCE_TECHNIQUE_ID) ? [] : prev
-        )
+        // Для нового оружия с видимыми тегами не переносим техники от предыдущего клинка.
+        // Иначе список выглядит "перемешанным" между экземплярами.
+        setSelectedTechniqueIds([])
       }
     })
-  }, [weapon.id, damageEntries.length, durability, maxDurability, repairPhase])
+  }, [weapon.id, damageEntries.length, durability, maxDurability, repairTechniqueStageRun])
 
   useEffect(() => {
-    if (repairPhase === 'running') return
+    if (queueStagesForThisWeapon) return
     setRepairBenchTechniqueDraft({ weaponId: weapon.id, techniqueIds: selectedTechniqueIds })
-  }, [weapon.id, selectedTechniqueIds, repairPhase, setRepairBenchTechniqueDraft])
+  }, [weapon.id, selectedTechniqueIds, queueStagesForThisWeapon, setRepairBenchTechniqueDraft])
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -568,7 +517,7 @@ export function RepairCard({
                         type="button"
                         variant="outline"
                         size="sm"
-                        disabled={repairPhase === 'running'}
+                        disabled={queueStagesForThisWeapon}
                         className="h-auto min-h-8 w-full max-w-full justify-start whitespace-normal border-stone-600 px-2.5 py-2 text-left text-[11px] leading-snug sm:max-w-xl"
                         onClick={() => {
                           setUseAutoPick(true)
@@ -590,7 +539,7 @@ export function RepairCard({
                           type="button"
                           variant="secondary"
                           size="sm"
-                          disabled={repairPhase === 'running'}
+                          disabled={queueStagesForThisWeapon}
                           className="h-8 shrink-0 border border-stone-600 bg-stone-800 text-[11px] text-stone-200 hover:bg-stone-700"
                           onClick={disableRepairAutoPick}
                         >
@@ -666,7 +615,7 @@ export function RepairCard({
                         <button
                           key={opt.id}
                           type="button"
-                          disabled={repairPhase === 'running'}
+                          disabled={queueStagesForThisWeapon}
                           onClick={() => {
                             if (!inspectionTagId) return
                             setUseAutoPick(false)
@@ -722,15 +671,14 @@ export function RepairCard({
                 type="button"
                 className="flex w-full items-center justify-between gap-2 rounded-md border border-stone-700/80 bg-stone-900/40 px-2.5 py-2 text-left text-xs text-stone-400 hover:text-stone-200"
               >
-                <span>Дополнительно: осмотр углём и авто-ремонт</span>
+                <span>Дополнительно: глубокий осмотр</span>
                 <ChevronDown
                   className={cn('h-4 w-4 shrink-0 transition-transform', extraRepairOpen && 'rotate-180')}
                 />
               </CollapsibleTrigger>
               <CollapsibleContent className="pt-2 space-y-2">
                 <p className="text-[10px] text-stone-500 leading-snug">
-                  Быстрый авто-ремонт за золото не копит бонус к будущему зачарованию за счёт диагностики — только
-                  честный осмотр по тегам выше.
+                  Честный осмотр по тегам выше лучше для меты диагностики к зачарованию, чем автоподбор техник.
                 </p>
                 <p className="text-[10px] text-stone-500 leading-snug">
                   Скрытый множитель наград: ×{(weapon.epicMultiplier ?? 1).toFixed(2)} (учитывается при вылазках и
@@ -756,41 +704,6 @@ export function RepairCard({
                         ? `Осмотр… ${formatCountdownMs(deepInspectRemaining)}`
                         : `Осмотреть глубже (уголь ×${WEAPON_DEEP_INSPECT_MATERIAL_COST.coal}, ${Math.round(WEAPON_DEEP_INSPECT_DURATION_MS / 1000)} с)`}
                     </button>
-                  )}
-                  {canQueueAuto && (
-                    <>
-                      {!awaitingForgeVisit && (
-                        <>
-                          <button
-                            type="button"
-                            disabled={!canPayAutoRepair}
-                            onClick={() => claimWeaponAutoRepair(weapon.id)}
-                            className={cn(
-                              'inline-flex items-center justify-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs transition-colors',
-                              canPayAutoRepair
-                                ? 'border-amber-600/60 bg-amber-950/40 text-amber-100 hover:bg-amber-950/60'
-                                : 'border-stone-800 opacity-50 cursor-not-allowed'
-                            )}
-                          >
-                            Авто-ремонт за {autoRepairGoldCost} золота
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => scheduleWeaponAutoRepair(weapon.id)}
-                            className="inline-flex items-center justify-center gap-1.5 rounded-md border border-stone-600 bg-stone-800/80 px-2.5 py-1.5 text-xs text-stone-200 hover:border-amber-600/50"
-                          >
-                            <Clock className="w-3.5 h-3.5" />
-                            В очередь при следующем заходе в кузницу
-                          </button>
-                        </>
-                      )}
-                      {awaitingForgeVisit && (
-                        <p className="text-[11px] text-amber-400/90">
-                          Авто-ремонт в очереди на кузницу — готовность обновится при открытии этой вкладки.
-                          Затем оплатите авто-ремонт золотом, как обычно.
-                        </p>
-                      )}
-                    </>
                   )}
                 </div>
               </CollapsibleContent>
@@ -904,8 +817,8 @@ export function RepairCard({
             <p className="text-xs text-stone-500">
               {damageEntries.length > 0 ? (
                 <>
-                  Отметьте техники, закрывающие все видимые повреждения. Запустите этапы по таймеру, затем
-                  финальный бросок и списание ресурсов при успехе.
+                  Отметьте техники, закрывающие все видимые повреждения. После добавления в очередь нажмите
+                  «Начать ремонт» ниже: этапы по таймеру, затем бросок и списание ресурсов при успехе.
                 </>
               ) : (
                 <>
@@ -930,27 +843,40 @@ export function RepairCard({
                     damageEntries.length === 0 && applicableTechniques.length === 1
                   const techUnlocked = isRepairTechniqueUnlocked(tech.id, unlockedRepairTechniqueIds)
                   const specLocked = tech.repairTier === 'specialized' && !techUnlocked
+                  const intendantOffer = specLocked
+                    ? getIntendantRepairTechniqueOffer(tech.id)
+                    : undefined
+                  const canOpenIntendantShop =
+                    Boolean(intendantOffer) &&
+                    specLocked &&
+                    !techniquesLocked &&
+                    !queueStagesForThisWeapon
+                  const techniqueChoiceDisabled =
+                    queueStagesForThisWeapon ||
+                    techniquesLocked ||
+                    (specLocked && !intendantOffer) ||
+                    (!specLocked && lockDurabilityOnly && on)
                   return (
                     <button
                       key={tech.id}
                       type="button"
-                      disabled={
-                        repairPhase === 'running' ||
-                        techniquesLocked ||
-                        specLocked ||
-                        (lockDurabilityOnly && on)
-                      }
+                      disabled={techniqueChoiceDisabled}
                       onClick={() => {
-                        if (lockDurabilityOnly || techniquesLocked || specLocked) return
+                        if (queueStagesForThisWeapon || techniquesLocked) return
+                        if (specLocked && intendantOffer) {
+                          navigateToGuildIntendantRepairTechnique(tech.id)
+                          return
+                        }
+                        if (lockDurabilityOnly && on) return
                         setSelectedTechniqueIds((prev) =>
                           prev.includes(tech.id) ? prev.filter((x) => x !== tech.id) : [...prev, tech.id]
                         )
                       }}
                       className={cn(
                         'rounded-md border px-2.5 py-1.5 text-left text-xs transition-colors max-w-full',
-                        repairPhase === 'running' || techniquesLocked || specLocked
-                          ? 'opacity-60 cursor-not-allowed'
-                          : '',
+                        techniqueChoiceDisabled && !canOpenIntendantShop ? 'opacity-60 cursor-not-allowed' : '',
+                        canOpenIntendantShop &&
+                          'opacity-100 cursor-pointer border-amber-800/50 hover:border-amber-600/70 hover:bg-amber-950/25',
                         on
                           ? 'border-amber-500 bg-amber-900/25 text-amber-100'
                           : 'border-stone-600 bg-stone-900/40 text-stone-300 hover:border-stone-500'
@@ -972,7 +898,11 @@ export function RepairCard({
                       <span className="block text-stone-500 mt-0.5 line-clamp-2">{tech.description}</span>
                       {specLocked ? (
                         <span className="block text-[10px] text-amber-600/90 mt-1">
-                          Купите технику у интенданта гильдии.
+                          {intendantOffer
+                            ? canOpenIntendantShop
+                              ? 'Нажмите — открыть карточку у интенданта гильдии.'
+                              : 'Купите технику у интенданта гильдии.'
+                            : 'Купите технику у интенданта гильдии.'}
                         </span>
                       ) : null}
                     </button>
@@ -1057,124 +987,89 @@ export function RepairCard({
                 )}
               </div>
             )}
-            {repairPhase === 'running' && displayPlan && progressView ? (
-              <div className="space-y-2">
-                <div className="rounded-lg border border-amber-800/50 bg-stone-950/60 p-3 space-y-2">
-                  <p className="text-xs text-amber-200/90 font-medium">
-                    Этап {progressView.stageIndex + 1} / {displayPlan.stages.length}
-                  </p>
-                  <p className="text-sm text-stone-200">
-                    {displayPlan.stages[progressView.stageIndex]?.name}
-                  </p>
-                  <p className="text-[10px] text-stone-500">
-                    {REPAIR_STAGE_CATEGORY_LABEL[displayPlan.stages[progressView.stageIndex]?.category ?? ''] ??
-                      ''}
-                    {' · '}
-                    {displayPlan.stages[progressView.stageIndex]?.sourceTechniqueName}
-                  </p>
-                  <Progress value={progressView.progressInStage} className="h-2 bg-stone-800" />
-                  <ul className="space-y-1 max-h-28 overflow-y-auto text-[11px]">
-                    {displayPlan.stages.map((s, i) => (
-                      <li key={s.order} className="flex items-start gap-2">
-                        {i < progressView.stageIndex ? (
-                          <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0 mt-0.5" />
-                        ) : i === progressView.stageIndex ? (
-                          <Loader2 className="w-3.5 h-3.5 text-amber-400 animate-spin shrink-0 mt-0.5" />
-                        ) : (
-                          <span className="w-3.5 h-3.5 mt-0.5 rounded-full border border-stone-600 shrink-0 inline-block" />
-                        )}
-                        <span
-                          className={cn(
-                            i <= progressView.stageIndex ? 'text-stone-300' : 'text-stone-600'
-                          )}
-                        >
-                          {s.name}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="text-[10px] text-stone-500 pt-1 border-t border-stone-800">
-                    После последнего этапа — бросок на успех и списание стоимости плана.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    cancelRepairStages()
-                    clearRepairTechniqueStageRun()
-                    setRepairBenchTechniqueDraft({
-                      weaponId: weapon.id,
-                      techniqueIds: selectedTechniqueIds,
-                    })
-                  }}
-                  className="w-full rounded-lg border border-stone-600 bg-stone-900/80 px-3 py-2 text-xs text-stone-300 hover:border-red-800/60 hover:text-red-300"
-                >
-                  Отменить работу
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                disabled={
-                  !techniquePlan ||
-                  uncoveredTags.length > 0 ||
-                  !canStartTechniqueRepair ||
-                  selectedTechniqueIds.length === 0 ||
-                  repairPhase === 'running'
-                }
-                onClick={() => {
-                  if (
-                    purchaseMissing &&
-                    repairMaterialAnalysis &&
-                    repairMaterialAnalysis.shopPurchaseGold > 0
-                  ) {
-                    if (!spendResource('gold', repairMaterialAnalysis.shopPurchaseGold)) return
-                    for (const row of repairMaterialAnalysis.rows) {
-                      if (row.short > 0 && row.buyable) {
-                        grantResourceKeyFromWorld(row.key, row.short)
+            <div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      disabled={
+                        !techniquePlan ||
+                        uncoveredTags.length > 0 ||
+                        !canStartTechniqueRepair ||
+                        selectedTechniqueIds.length === 0 ||
+                        queueStagesForThisWeapon
                       }
-                    }
-                  }
-                  if (damageEntries.length > 0) {
-                    if (useAutoPick) {
-                      lastRepairExecutionOptsRef.current = {
-                        diagnosis: { mode: 'auto_pick' },
-                        materialCostMultiplier: autoPickMaterialMarkup,
-                      }
-                    } else {
-                      lastRepairExecutionOptsRef.current = {
-                        diagnosis: {
-                          mode: 'manual_inspection',
-                          hypothesisByTagId: inspectionHypothesisByTagId,
-                        },
-                      }
-                    }
-                  } else {
-                    lastRepairExecutionOptsRef.current = undefined
-                  }
-                  lockedTechniqueIdsRef.current = [...selectedTechniqueIds]
-                  const t = Date.now()
-                  beginRepairTechniqueStageRun({
-                    weaponId: weapon.id,
-                    techniqueIds: lockedTechniqueIdsRef.current,
-                    executionOpts: lastRepairExecutionOptsRef.current,
-                    startedAt: t,
-                  })
-                  startRepairStages(t)
-                }}
-                className={cn(
-                  'w-full rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors',
-                  techniquePlan &&
-                    uncoveredTags.length === 0 &&
-                    canStartTechniqueRepair &&
-                    selectedTechniqueIds.length > 0
-                    ? 'border-amber-600 bg-amber-950/50 text-amber-100 hover:bg-amber-950/70'
-                    : 'border-stone-700 bg-stone-900/50 text-stone-500 cursor-not-allowed opacity-60'
-                )}
-              >
-                Начать ремонт (этапы)
-              </button>
-            )}
+                      onClick={() => {
+                        if (
+                          purchaseMissing &&
+                          repairMaterialAnalysis &&
+                          repairMaterialAnalysis.shopPurchaseGold > 0
+                        ) {
+                          if (!spendResource('gold', repairMaterialAnalysis.shopPurchaseGold)) return
+                          for (const row of repairMaterialAnalysis.rows) {
+                            if (row.short > 0 && row.buyable) {
+                              grantResourceKeyFromWorld(row.key, row.short)
+                            }
+                          }
+                        }
+                        // Жёсткая защита: в очередь нельзя добавить план без ресурсов на починку.
+                        // Если включена автозакупка, проверка проходит только после успешной покупки.
+                        const hasEnoughAfterOptionalPurchase = (() => {
+                          if (!techniqueCost || !materialsForUi) return false
+                          for (const [mat, amount] of Object.entries(materialsForUi)) {
+                            if (!amount || amount <= 0) continue
+                            const key = mat as ResourceKey
+                            const available = getAvailableAmountForResourceKey(
+                              useGameStore.getState().resources,
+                              useGameStore.getState().materialStash,
+                              key
+                            )
+                            if (available < amount) return false
+                          }
+                          return true
+                        })()
+                        if (!hasEnoughAfterOptionalPurchase) return
+                        if (damageEntries.length > 0) {
+                          if (useAutoPick) {
+                            lastRepairExecutionOptsRef.current = {
+                              diagnosis: { mode: 'auto_pick' },
+                              materialCostMultiplier: autoPickMaterialMarkup,
+                            }
+                          } else {
+                            lastRepairExecutionOptsRef.current = {
+                              diagnosis: {
+                                mode: 'manual_inspection',
+                                hypothesisByTagId: inspectionHypothesisByTagId,
+                              },
+                            }
+                          }
+                        } else {
+                          lastRepairExecutionOptsRef.current = undefined
+                        }
+                        onQueueAdd?.({
+                          weaponId: weapon.id,
+                          techniqueIds: [...selectedTechniqueIds],
+                          executionOpts: lastRepairExecutionOptsRef.current,
+                        })
+                      }}
+                      className={cn(
+                        'w-full rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors',
+                        techniquePlan &&
+                          uncoveredTags.length === 0 &&
+                          canStartTechniqueRepair &&
+                          selectedTechniqueIds.length > 0
+                          ? 'border-amber-600 bg-amber-950/50 text-amber-100 hover:bg-amber-950/70'
+                          : 'border-stone-700 bg-stone-900/50 text-stone-500 cursor-not-allowed opacity-60'
+                      )}
+                    >
+                      Добавить в очередь ремонта
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    Сохраняет текущий план и материалы в очереди, не запуская ремонт сразу.
+                  </TooltipContent>
+                </Tooltip>
+            </div>
           </div>
         ) : null}
       </CardContent>

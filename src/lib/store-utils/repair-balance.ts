@@ -30,7 +30,7 @@ export function getWeaponRepairPowerScore(weapon: CraftedWeaponV2): number {
   return Math.max(1, n)
 }
 
-/** Золото за мгновенный авто-ремонт (claimWeaponAutoRepair). */
+/** @deprecated Ранее золото за авто-ремонт; механика удалена — оставлено для совместимости импортов. */
 export function getWeaponAutoRepairGoldCost(weapon: CraftedWeaponV2): number {
   const power = getWeaponRepairPowerScore(weapon)
   return WEAPON_AUTO_REPAIR_GOLD_BASE + Math.floor(power * WEAPON_AUTO_REPAIR_GOLD_PER_ATTACK_POINT)

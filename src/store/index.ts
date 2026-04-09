@@ -28,6 +28,8 @@ export {
   type QualityGrade,
   type GameScreen,
   type ForgeMainTab,
+  type ForgeBenchSubTab,
+  type ForgeTabNavigate,
   // Начальные значения
   initialPlayer,
   initialStatistics,

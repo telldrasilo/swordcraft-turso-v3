@@ -78,6 +78,7 @@ mindmap
 | Файл | Описание |
 |---------|---------|
 | [docs/systems/FORGE_SYSTEM.md](systems/FORGE_SYSTEM.md) | Крафт оружия, качество, War Soul, ремонт, **перековка** (фаза 1) |
+| [docs/systems/SIMPLE_REPAIR_TECHNIQUES_PROPOSAL.md](systems/SIMPLE_REPAIR_TECHNIQUES_PROPOSAL.md) | **Ремонт:** 5 базовых техник (расширение edge/haft + 2 новых), лейт только узкими, отказ от авто-ремонта за золото, FAQ «уголь / авто» |
 | [docs/systems/WAR_SOUL_CONCEPT_AND_FORECAST.md](systems/WAR_SOUL_CONCEPT_AND_FORECAST.md) | **Душа войны:** тиры, пул `maxWarSoul`, масштаб ×4000, прогноз крафта и идеи переработки UI |
 | [docs/systems/CRAFT_SYSTEM_ROADMAP.md](systems/CRAFT_SYSTEM_ROADMAP.md) | **Дорожная карта крафта:** стадии материалов, экспертиза, техники и цепочки обработки (фазы A–E) |
 | [docs/systems/GUILD_SYSTEM.md](systems/GUILD_SYSTEM.md) | Гильдия, искатели, экспедиции, модификаторы |

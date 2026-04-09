@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   Wrench,
   ChevronDown,
+  Zap,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -24,6 +25,7 @@ import {
   TooltipContent,
 } from '@/components/ui/tooltip'
 import { useGameStore } from '@/store'
+import { useMemo } from 'react'
 import { weaponTypeStats } from '@/lib/craft/weapon-display-meta'
 import type { CraftedWeaponV2, QualityGrade } from '@/types/craft-v2'
 import { getQualityColor, getQualityNameRu } from '@/types/craft-v2'
@@ -45,6 +47,109 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
 import { getDamageTagById } from '@/data/weapon-damage/damage-tag-registry'
+import { useIsMobile } from '@/hooks/use-mobile'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet'
+import { weaponHasActiveWorkbenchWork } from '@/lib/workbench/workbench-queue'
+import { recalculateWeaponPowerScore } from '@/lib/craft/weapon-power-score'
+import {
+  durabilityBarFillClass,
+  durabilityLabelTextClass,
+  durabilityPercentValue,
+} from '@/lib/forge/durability-bar-tone'
+
+/** Компактная карточка для превью в popover полосы очереди (без store / действий). */
+function WeaponQueuePreviewCard({
+  weapon,
+  caption,
+}: {
+  weapon: CraftedWeaponV2
+  caption: string
+}) {
+  const powerScore = weapon.powerScore ?? recalculateWeaponPowerScore(weapon)
+  const typeStats = (weaponTypeStats as Record<string, (typeof weaponTypeStats)['sword']>)[weapon.type]
+  const durability = weapon.currentDurability ?? weapon.stats.durability
+  const durabilityPercent = Math.round((durability / weapon.stats.maxDurability) * 100)
+  const damageUi = getActiveDamageTagLabels(weapon, 2)
+  const iconBgByQuality: Record<QualityGrade, string> = {
+    poor: 'bg-stone-900/50',
+    common: 'bg-stone-900/50',
+    good: 'bg-green-900/30',
+    excellent: 'bg-blue-900/30',
+    masterpiece: 'bg-purple-900/30',
+    legendary: 'bg-amber-900/30',
+  }
+  const iconBoxBg = iconBgByQuality[weapon.qualityGrade] ?? 'bg-stone-900/50'
+
+  return (
+    <div className="w-[min(100vw,20rem)]">
+      <Card className="card-medieval border-stone-700/80 shadow-lg">
+        <CardContent className="p-3 space-y-2">
+          <p className="text-[10px] text-amber-200/80 uppercase tracking-wide leading-snug">{caption}</p>
+          <div className="flex items-start gap-2.5">
+            <div
+              className={cn(
+                'w-11 h-11 shrink-0 rounded-lg flex items-center justify-center text-xl',
+                iconBoxBg
+              )}
+            >
+              <WeaponIcon type={weapon.type} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h4
+                className="font-semibold text-stone-200 text-sm leading-snug break-words"
+                title={weapon.fullName}
+              >
+                {weapon.fullName}
+              </h4>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                <span className="text-[11px] text-stone-500">{typeStats?.name}</span>
+                <span className="inline-flex items-center gap-0.5 text-[11px] font-medium text-amber-200/90 tabular-nums">
+                  <Zap className="w-3 h-3 shrink-0 text-amber-400/90" />
+                  {powerScore}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 text-[11px] text-stone-400 pt-1 border-t border-stone-700/50">
+            <span>
+              Атака <span className="text-red-300/90 tabular-nums">{weapon.stats.attack}</span>
+            </span>
+            <span>
+              Прочн.{' '}
+              <span className="text-stone-200 tabular-nums">
+                {durability}/{weapon.stats.maxDurability}
+              </span>{' '}
+              <span className="text-stone-500">({durabilityPercent}%)</span>
+            </span>
+          </div>
+          {damageUi.total > 0 ? (
+            <div className="flex flex-wrap gap-1">
+              <AlertTriangle className="w-3 h-3 shrink-0 text-amber-500 mt-0.5" />
+              {damageUi.labels.slice(0, 3).map((label, i) => (
+                <Badge
+                  key={`${label}-${i}`}
+                  variant="outline"
+                  className="text-[9px] border-amber-800/50 text-amber-100/90 max-w-[7rem] truncate"
+                >
+                  {label}
+                </Badge>
+              ))}
+              {damageUi.more > 0 ? (
+                <span className="text-[10px] text-amber-400/90">+{damageUi.more}</span>
+              ) : null}
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
 
 /** Свёртка §9.1: архив тегов и счётчики устранения — для отладки на верстаке */
 function WeaponRepairLegacyDebugPanel({ weapon }: { weapon: CraftedWeaponV2 }) {
@@ -172,15 +277,53 @@ function WeaponRepairLegacyDebugPanel({ weapon }: { weapon: CraftedWeaponV2 }) {
 
 interface WeaponInventoryCardProps {
   weapon: CraftedWeaponV2
-  /** Карточка в секции ремонта: бейдж верстака, без кнопки «Отправить на ремонт» */
-  context?: 'inventory' | 'repairBench'
+  /** inventory — список инвентаря; workbench — сетка верстака; queuePreview — превью в popover */
+  context?: 'inventory' | 'workbench' | 'queuePreview'
+  /** Только при context workbench: активная подвкладка (подписи/данные при необходимости) */
+  workbenchMode?: 'repair' | 'reforge'
+  /** Панель ремонта: «на верстаке» и кнопка возврата в инвентарь */
+  benchDetail?: boolean
+  /** Подпись задачи очереди для `context="queuePreview"` (например «#2 · Ремонт · Имя»). */
+  queuePreviewCaption?: string
 }
 
-export function WeaponInventoryCard({ weapon, context = 'inventory' }: WeaponInventoryCardProps) {
-  const onRepairBench = context === 'repairBench'
+export function WeaponInventoryCard({
+  weapon,
+  context = 'inventory',
+  workbenchMode = 'repair',
+  benchDetail = false,
+  queuePreviewCaption,
+}: WeaponInventoryCardProps) {
+  const onRepairBench = benchDetail
+  const isWorkbench = context === 'workbench'
+  const isMobile = useIsMobile()
   const isWeaponInExpedition = useGameStore((state) => state.isWeaponInExpedition)
   const sendWeaponToRepairBench = useGameStore((state) => state.sendWeaponToRepairBench)
+  const returnWeaponFromRepairBench = useGameStore((state) => state.returnWeaponFromRepairBench)
   const navigateToForgeTab = useGameStore((state) => state.navigateToForgeTab)
+  const selectRepairBenchWeapon = useGameStore((state) => state.selectRepairBenchWeapon)
+  const workbenchQueue = useGameStore((state) => state.workbenchQueue)
+
+  const weaponInActiveQueue = weaponHasActiveWorkbenchWork(workbenchQueue, weapon.id)
+  const onWorkbenchBench = isWorkbench && weaponInActiveQueue
+  const powerScore = weapon.powerScore ?? recalculateWeaponPowerScore(weapon)
+  const queueTouchCount = useMemo(
+    () =>
+      workbenchQueue.filter(
+        (i) =>
+          i.weaponId === weapon.id && (i.status === 'planned' || i.status === 'running')
+      ).length,
+    [workbenchQueue, weapon.id]
+  )
+
+  if (context === 'queuePreview') {
+    return (
+      <WeaponQueuePreviewCard
+        weapon={weapon}
+        caption={queuePreviewCaption ?? 'Задача в очереди верстака'}
+      />
+    )
+  }
 
   const qualityGrade = weapon.qualityGrade
   const qualityColor = getQualityColor(weapon.quality)
@@ -209,9 +352,9 @@ export function WeaponInventoryCard({ weapon, context = 'inventory' }: WeaponInv
   
   // Прочность для индикаторов
   const durability = weapon.currentDurability ?? weapon.stats.durability
-  const durabilityPercent = Math.round((durability / weapon.stats.maxDurability) * 100)
-  const durabilityColor = durabilityPercent > 50 ? 'text-green-400' : durabilityPercent > 25 ? 'text-yellow-400' : 'text-red-400'
-  const durabilityBgColor = durabilityPercent > 50 ? 'bg-green-500' : durabilityPercent > 25 ? 'bg-yellow-500' : 'bg-red-500'
+  const durabilityPercent = durabilityPercentValue(durability, weapon.stats.maxDurability)
+  const durabilityColor = durabilityLabelTextClass(durabilityPercent)
+  const durabilityBgColor = durabilityBarFillClass(durabilityPercent)
 
   const damageUi = getActiveDamageTagLabels(weapon, 2)
   const hasVisibleDamage = damageUi.total > 0
@@ -241,16 +384,47 @@ export function WeaponInventoryCard({ weapon, context = 'inventory' }: WeaponInv
   
   return (
     <motion.div
+      data-workbench-mode={isWorkbench ? workbenchMode : undefined}
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
       className="min-w-0 w-full"
     >
-      <Card className={cn(
-        'card-medieval transition-all group relative overflow-hidden w-full min-w-0',
-        'hover:border-amber-600/50',
-        inExpedition && 'border-green-600/50 bg-green-900/10'
-      )}>
+      <Card
+        role={isWorkbench ? 'button' : undefined}
+        tabIndex={isWorkbench ? 0 : undefined}
+        onClick={
+          isWorkbench
+            ? () => {
+                if (weaponInActiveQueue) {
+                  selectRepairBenchWeapon(weapon.id)
+                } else {
+                  sendWeaponToRepairBench(weapon.id)
+                }
+              }
+            : undefined
+        }
+        onKeyDown={
+          isWorkbench
+            ? (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  if (weaponInActiveQueue) {
+                    selectRepairBenchWeapon(weapon.id)
+                  } else {
+                    sendWeaponToRepairBench(weapon.id)
+                  }
+                }
+              }
+            : undefined
+        }
+        className={cn(
+          'card-medieval transition-all group relative overflow-hidden w-full min-w-0',
+          'hover:border-amber-600/50',
+          inExpedition && 'border-green-600/50 bg-green-900/10',
+          isWorkbench && 'cursor-pointer'
+        )}
+      >
         {/* Фоновое свечение качества */}
         <div className={cn(
           'absolute inset-0 opacity-10 pointer-events-none',
@@ -274,76 +448,155 @@ export function WeaponInventoryCard({ weapon, context = 'inventory' }: WeaponInv
                 <WeaponIcon type={weapon.type} />
               </div>
               <div className="min-w-0 flex-1">
-                <h4 className="font-semibold text-stone-200 leading-snug break-normal">
+                <h4
+                  className="font-semibold text-stone-200 leading-snug break-words"
+                  title={weapon.fullName}
+                >
                   {weapon.fullName}
                 </h4>
-                <div className="flex items-center gap-2 mt-0.5">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
                   <span className="text-xs text-stone-500">{typeStats?.name}</span>
+                  <span className="inline-flex items-center gap-0.5 text-[11px] font-medium text-amber-200/90 tabular-nums">
+                    <Zap className="w-3 h-3 shrink-0 text-amber-400/90" />
+                    {powerScore}
+                  </span>
+                  {isWorkbench && queueTouchCount > 0 ? (
+                    <span className="inline-flex" onClick={(e) => e.stopPropagation()}>
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] px-1.5 py-0.5 border-amber-700/60 text-amber-200/90 shrink-0"
+                        title="В очереди верстака"
+                      >
+                        ⌛ {queueTouchCount}
+                      </Badge>
+                    </span>
+                  ) : null}
+                  {isWorkbench && isMobile ? (
+                    <Sheet>
+                      <SheetTrigger asChild>
+                        <button
+                          type="button"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-[11px] text-amber-300/90 underline-offset-2 hover:underline"
+                        >
+                          Подробнее
+                        </button>
+                      </SheetTrigger>
+                      <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
+                        <SheetHeader>
+                          <SheetTitle className="text-left text-stone-200">{weapon.fullName}</SheetTitle>
+                        </SheetHeader>
+                        <div className="mt-4 space-y-2 text-sm text-stone-300">
+                          <p>
+                            <span className="text-stone-500">Атака:</span> {weapon.stats.attack}
+                          </p>
+                          <p>
+                            <span className="text-stone-500">Мощь:</span> {powerScore}
+                          </p>
+                          <p>
+                            <span className="text-stone-500">Прочность:</span> {durability}/
+                            {weapon.stats.maxDurability}
+                          </p>
+                          {hasVisibleDamage ? (
+                            <p className="text-amber-200/90 text-xs">Есть повреждения — ⌛ в очереди ремонта</p>
+                          ) : null}
+                        </div>
+                      </SheetContent>
+                    </Sheet>
+                  ) : null}
                 </div>
               </div>
             </div>
             
-            {/* Качество (градация) и тир души — справа под названием */}
-            <div className="flex flex-col items-end gap-1.5 shrink-0 text-right">
+            {/* Справа: как в инвентаре — сначала качество и тир души, затем метки верстака */}
+            <div className="flex flex-col items-end gap-2 shrink-0 min-w-0 max-w-[min(100%,14rem)] text-right">
               {onRepairBench && (
-                <Badge
-                  variant="outline"
-                  className="text-[10px] px-1.5 py-0 border-stone-500 text-stone-400"
-                >
-                  На ремонте
-                </Badge>
-              )}
-              <Tooltip delayDuration={200}>
-                <TooltipTrigger asChild>
+                <div className="flex flex-col items-end gap-1">
                   <Badge
                     variant="outline"
-                    className={cn(
-                      'font-semibold cursor-help border-stone-600/90',
-                      qualityBgColor,
-                      'text-stone-100 shadow-inner'
-                    )}
+                    className="text-[10px] px-1.5 py-0 border-stone-500 text-stone-400"
                   >
-                    {qualityInfo.name}
+                    На ремонте
                   </Badge>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="max-w-xs">
-                  <p>Качество: {qualityInfo.name} (×{qualityInfo.multiplier})</p>
-                  <p className="text-xs text-stone-400">Влияет на характеристики оружия</p>
-                </TooltipContent>
-              </Tooltip>
-              {/* Бейдж тира Души Войны */}
-              {warSoulTier && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      returnWeaponFromRepairBench(weapon.id)
+                    }}
+                    className="text-[10px] rounded border border-stone-600 px-1.5 py-0.5 text-stone-300 hover:bg-stone-800"
+                  >
+                    Вернуть в инвентарь
+                  </button>
+                </div>
+              )}
+              <div className="flex flex-wrap justify-end gap-1.5 items-center w-full">
                 <Tooltip delayDuration={200}>
                   <TooltipTrigger asChild>
                     <Badge
+                      variant="outline"
                       className={cn(
-                        'text-xs font-semibold gap-1 cursor-help',
-                        warSoulTier.bgColor,
-                        warSoulTier.color
+                        'font-semibold cursor-help border-stone-600/90 shrink-0',
+                        qualityBgColor,
+                        'text-stone-100 shadow-inner'
                       )}
                     >
-                      <span>{warSoulTier.icon}</span>
-                      <span>{warSoulTier.name}</span>
+                      {qualityInfo.name}
                     </Badge>
                   </TooltipTrigger>
                   <TooltipContent side="left" className="max-w-xs">
-                    <p className="font-medium text-stone-200">
-                      Душа войны: {warSoulTier.name}
-                    </p>
-                    <p className="text-xs text-stone-400 mt-1">{warSoulTier.description}</p>
-                    <p className="text-xs text-stone-500 mt-2">
-                      Накапливается при успешных экспедициях с этим оружием. Тир влияет на бонусы к шансу успеха, золоту и скорости роста души.
-                    </p>
-                    {(warSoulTier.bonus.successBonus > 0 ||
-                      warSoulTier.bonus.goldBonus > 0 ||
-                      warSoulTier.bonus.warSoulBonus > 0) && (
-                      <p className="text-xs text-amber-200/90 mt-2">
-                        Сейчас: +{warSoulTier.bonus.successBonus}% успех, +{warSoulTier.bonus.goldBonus}% золото, +{warSoulTier.bonus.warSoulBonus}% душа
-                      </p>
-                    )}
+                    <p>Качество: {qualityInfo.name} (×{qualityInfo.multiplier})</p>
+                    <p className="text-xs text-stone-400">Влияет на характеристики оружия</p>
                   </TooltipContent>
                 </Tooltip>
-              )}
+                {warSoulTier ? (
+                  <Tooltip delayDuration={200}>
+                    <TooltipTrigger asChild>
+                      <Badge
+                        className={cn(
+                          'text-xs font-semibold gap-1 cursor-help shrink-0',
+                          warSoulTier.bgColor,
+                          warSoulTier.color
+                        )}
+                      >
+                        <span>{warSoulTier.icon}</span>
+                        <span>{warSoulTier.name}</span>
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent side="left" className="max-w-xs">
+                      <p className="font-medium text-stone-200">
+                        Душа войны: {warSoulTier.name}
+                      </p>
+                      <p className="text-xs text-stone-400 mt-1">{warSoulTier.description}</p>
+                      <p className="text-xs text-stone-500 mt-2">
+                        Накапливается при успешных экспедициях с этим оружием. Тир влияет на бонусы к шансу успеха, золоту и скорости роста души.
+                      </p>
+                      {(warSoulTier.bonus.successBonus > 0 ||
+                        warSoulTier.bonus.goldBonus > 0 ||
+                        warSoulTier.bonus.warSoulBonus > 0) && (
+                        <p className="text-xs text-amber-200/90 mt-2">
+                          Сейчас: +{warSoulTier.bonus.successBonus}% успех, +{warSoulTier.bonus.goldBonus}% золото, +{warSoulTier.bonus.warSoulBonus}% душа
+                        </p>
+                      )}
+                    </TooltipContent>
+                  </Tooltip>
+                ) : null}
+              </div>
+              {isWorkbench &&
+              (hasVisibleDamage || durabilityPercent < 100) &&
+              queueTouchCount === 0 ? (
+                <div
+                  className="flex flex-wrap justify-end gap-1.5 w-full"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] px-1.5 py-0.5 border-amber-800/50 text-amber-100/90 shrink-0"
+                  >
+                    ⚠️ нужен уход
+                  </Badge>
+                </div>
+              ) : null}
             </div>
           </div>
 
@@ -565,7 +818,7 @@ export function WeaponInventoryCard({ weapon, context = 'inventory' }: WeaponInv
                   </TooltipContent>
                 </Tooltip>
               )}
-              {needsRepairShortcut && !inExpedition && !onRepairBench && (
+              {needsRepairShortcut && !inExpedition && !onRepairBench && context === 'inventory' && (
                 <button
                   type="button"
                   onClick={() => {
@@ -581,7 +834,7 @@ export function WeaponInventoryCard({ weapon, context = 'inventory' }: WeaponInv
             </div>
           )}
 
-          {onRepairBench && (
+          {(onRepairBench || (isWorkbench && onWorkbenchBench)) && (
             <WeaponRepairLegacyDebugPanel weapon={weapon} />
           )}
 

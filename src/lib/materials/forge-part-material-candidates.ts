@@ -7,6 +7,7 @@ import type { MaterialNode } from '@/types/materials/material-core'
 import type { MaterialProcessFacet } from '@/types/materials/material-process'
 import { allMaterials } from '@/data/materials/library'
 import { getMaterialProcessContribution } from '@/lib/materials/material-process-contribution'
+import { getAltarForgeExtraMaterialIds } from '@/lib/craft/altar-construction'
 
 /** Маппинг категорий RecipePart.materialTypes → допустимые фасеты (логика ИЛИ внутри union). */
 function getRequiredWeaponCraftFacetUnion(categories: string[]): Set<MaterialProcessFacet> {
@@ -54,12 +55,25 @@ function allowedClassesFromCategories(allowedCategories: string[]): string[] {
   return allowedCategories.flatMap(cat => categoryToClass[cat] || [cat])
 }
 
+function mergeAltarForgeExtraNodes(partId: string, base: MaterialNode[]): MaterialNode[] {
+  const extraIds = getAltarForgeExtraMaterialIds(partId)
+  if (extraIds.length === 0) return base
+
+  const byId = new Map(base.map(m => [m.identity.id, m] as const))
+  for (const id of extraIds) {
+    if (byId.has(id)) continue
+    const node = allMaterials.find(m => m.identity.id === id)
+    if (node) byId.set(id, node)
+  }
+  return [...byId.values()]
+}
+
 /**
  * Материалы для выбора в части оружия: класс по рецепту и роль в weapon_craft_v2.
  * Исключает сырьевые стадии без body-ролей (руды и пр. по данным вклада).
  */
 export function getForgePartMaterialCandidates(
-  _partId: string,
+  partId: string,
   allowedCategories: string[]
 ): MaterialNode[] {
   const allowedClasses = allowedClassesFromCategories(allowedCategories)
@@ -67,13 +81,16 @@ export function getForgePartMaterialCandidates(
 
   const byClass = allMaterials.filter(m => allowedClasses.includes(m.identity.class))
 
+  let out: MaterialNode[]
   if (facetUnion.size === 0) {
-    return byClass
+    out = byClass
+  } else {
+    out = byClass.filter(m => {
+      const c = getMaterialProcessContribution(m.identity.id, 'weapon_craft_v2')
+      if (c.facets.length === 0) return false
+      return c.facets.some(f => facetUnion.has(f))
+    })
   }
 
-  return byClass.filter(m => {
-    const c = getMaterialProcessContribution(m.identity.id, 'weapon_craft_v2')
-    if (c.facets.length === 0) return false
-    return c.facets.some(f => facetUnion.has(f))
-  })
+  return mergeAltarForgeExtraNodes(partId, out)
 }

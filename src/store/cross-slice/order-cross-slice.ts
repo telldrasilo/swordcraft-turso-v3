@@ -7,6 +7,8 @@ import type { ResourceKey } from '@/store/slices/resources-slice'
 import type { OrdersSlice } from '@/store/slices/orders-slice'
 import type { GameStatistics } from '@/store/slices/player-slice'
 import type { CraftedWeaponV2 } from '@/types/craft-v2'
+import type { WorkbenchQueueItem } from '@/lib/workbench/workbench-queue'
+import type { RepairTechniqueStageRunState } from '@/store/slices/craft-slice'
 import { calculateGoldReward } from '@/lib/store-utils/order-utils'
 import { calculateReputationGain } from '@/types/guild'
 import { getWeaponGuildServiceBlockReason } from '@/lib/guild-weapon-service-eligibility'
@@ -14,7 +16,8 @@ import { toast } from '@/hooks/use-toast'
 
 /** Минимальный контракт стора для координации заказов (без циклического импорта GameStore). */
 export type OrderCrossSliceStore = {
-  repairBenchWeaponId?: string | null
+  workbenchQueue: WorkbenchQueueItem[]
+  repairTechniqueStageRun: RepairTechniqueStageRunState | null
   weaponInventory: { weapons: CraftedWeaponV2[] }
   orders: OrdersSlice['orders']
   activeOrderId: string | null
@@ -52,7 +55,10 @@ export function buildOrderCrossSlice(
       const weapon = state.weaponInventory.weapons.find((w) => w.id === weaponId)
       if (!weapon) return false
 
-      const serviceBlock = getWeaponGuildServiceBlockReason(weapon, state.repairBenchWeaponId ?? null)
+      const serviceBlock = getWeaponGuildServiceBlockReason(weapon, [], {
+        workbenchQueue: state.workbenchQueue ?? [],
+        repairTechniqueStageRun: state.repairTechniqueStageRun ?? null,
+      })
       if (serviceBlock) {
         toast({
           variant: 'destructive',

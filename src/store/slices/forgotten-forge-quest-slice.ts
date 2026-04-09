@@ -11,6 +11,7 @@ import {
 } from '@/data/quests/forgotten-forge'
 import * as D from '@/data/quests/forgotten-forge-dialogue'
 import { canAdvanceForgottenForgeAfterExpedition } from '@/lib/quests/forgotten-forge-advance'
+import type { GameMessage } from '@/types/game-message'
 import type {
   ArchivistDialogueState,
   ArchivistPendingChoice,
@@ -34,10 +35,20 @@ export interface ForgottenForgeQuestSliceState {
   archivistPendingChoices: ArchivistPendingChoice[] | null
   /** Не персистится — сброс при загрузке */
   messagesDockChannel: GameMessagesDockChannel
+  /** Не персистится — триггер открытия дока из кода (карточка квеста и т.д.) */
+  messagesDockOpenNonce: number
+  /** Все сообщения энциклопедии с ts ≤ этого считаются прочитанными */
+  messagesDockEncyclopediaReadUpToTs: number
+  /** Все реплики архивариуса/игрока с ts ≤ этого считаются прочитанными */
+  messagesDockArchivistReadUpToTs: number
 }
 
 export interface ForgottenForgeQuestSliceActions {
   setMessagesDockChannel: (ch: GameMessagesDockChannel) => void
+  /** Развернуть док (мобильный Sheet / десктоп), переключить канал */
+  openMessagesDock: (channel?: GameMessagesDockChannel) => void
+  /** Пометить текущие сообщения и диалог как прочитанные (обновляет пороги ts) */
+  markMessagesDockRead: () => void
   /** Вызывать при загрузке экрана гильдии / после rehydrate */
   tickForgottenForgeQuestAvailability: () => void
   selectArchivistChoice: (choiceId: string) => void
@@ -50,6 +61,10 @@ export interface ForgottenForgeQuestSliceActions {
     success: boolean
     linkedQuestId?: typeof FORGOTTEN_FORGE_QUEST_ID
   }) => void
+  /**
+   * Только для dev: мгновенно доводит квест до финала (как после эпилога) и выдаёт чертёж алтаря.
+   */
+  completeForgottenForgeQuestDev: () => void
 }
 
 export type ForgottenForgeQuestSlice = ForgottenForgeQuestSliceState & ForgottenForgeQuestSliceActions
@@ -74,10 +89,16 @@ export const initialForgottenForgeQuestSlice: ForgottenForgeQuestSliceState = {
   archivistDialogue: { thread: [] },
   archivistPendingChoices: null,
   messagesDockChannel: 'encyclopedia',
+  messagesDockOpenNonce: 0,
+  messagesDockEncyclopediaReadUpToTs: 0,
+  messagesDockArchivistReadUpToTs: 0,
 }
 
 export function createForgottenForgeQuestSlice<
-  T extends ForgottenForgeQuestSliceState & { guild: { level: number } } & Record<string, unknown>,
+  T extends ForgottenForgeQuestSliceState & {
+    guild: { level: number }
+    gameMessages: GameMessage[]
+  } & Record<string, unknown>,
 >(
   set: (partial: Partial<T> | ((s: T) => Partial<T>)) => void,
   get: () => T
@@ -87,6 +108,37 @@ export function createForgottenForgeQuestSlice<
 
     setMessagesDockChannel: (ch: GameMessagesDockChannel) =>
       set({ messagesDockChannel: ch } as Partial<T>),
+
+    openMessagesDock: (channel?: GameMessagesDockChannel) => {
+      set((s) => ({
+        messagesDockChannel: channel ?? 'archivist',
+        messagesDockOpenNonce: (s.messagesDockOpenNonce ?? 0) + 1,
+      } as Partial<T>))
+    },
+
+    markMessagesDockRead: () => {
+      const state = get()
+      const msgs = Array.isArray(state.gameMessages) ? state.gameMessages : []
+      let encMax = 0
+      for (const m of msgs) {
+        if (m.kind === 'encyclopedia' && m.ts > encMax) encMax = m.ts
+      }
+      const thread = state.archivistDialogue?.thread ?? []
+      let archMax = 0
+      for (const e of thread) {
+        if (e.ts > archMax) archMax = e.ts
+      }
+      set({
+        messagesDockEncyclopediaReadUpToTs: Math.max(
+          state.messagesDockEncyclopediaReadUpToTs ?? 0,
+          encMax
+        ),
+        messagesDockArchivistReadUpToTs: Math.max(
+          state.messagesDockArchivistReadUpToTs ?? 0,
+          archMax
+        ),
+      } as Partial<T>)
+    },
 
     tickForgottenForgeQuestAvailability: () => {
       const state = get()
@@ -207,6 +259,24 @@ export function createForgottenForgeQuestSlice<
         archivistPendingChoices: nextPending,
         ...(altarDone ? { altarUnlockedByForgottenForgeQuest: true } : {}),
       } as Partial<T>)
+    },
+
+    completeForgottenForgeQuestDev: () => {
+      set({
+        forgottenForgeQuest: {
+          status: 'completed',
+          step: 7,
+          step0Choice: 1,
+          flags: {
+            step3Insurance: false,
+            step5Cleanse: 'magic',
+            step6Anselm: 'deal',
+          },
+        },
+        forgottenForgePhase: 'completed',
+        archivistPendingChoices: null,
+        altarUnlockedByForgottenForgeQuest: true,
+      } as unknown as Partial<T>)
     },
 
     advanceForgottenForgeAfterExpedition: ({

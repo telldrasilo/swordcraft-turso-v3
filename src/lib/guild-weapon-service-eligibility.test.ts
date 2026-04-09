@@ -54,11 +54,20 @@ describe('getWeaponGuildServiceBlockReason', () => {
     expect(getWeaponGuildServiceBlockReason(w)).toMatch(/прочност/i)
   })
 
-  it('blocks visible damage tags', () => {
+  it('allows visible damage tags when durability is at least 50%', () => {
     const w = baseWeapon({
+      currentDurability: 60,
       activeDamageTags: [{ tagId: 'physical_slash_chip', severity: 'light', appliedAt: 0 }],
     })
-    expect(getWeaponGuildServiceBlockReason(w)).toMatch(/поврежден/i)
+    expect(getWeaponGuildServiceBlockReason(w)).toBeNull()
+  })
+
+  it('blocks visible damage tags when durability is below 50%', () => {
+    const w = baseWeapon({
+      currentDurability: 49,
+      activeDamageTags: [{ tagId: 'physical_slash_chip', severity: 'light', appliedAt: 0 }],
+    })
+    expect(getWeaponGuildServiceBlockReason(w)).toMatch(/50%/i)
   })
 
   it('blocks needsProperRepair', () => {
@@ -73,12 +82,49 @@ describe('getWeaponGuildServiceBlockReason', () => {
     )
   })
 
-  it('blocks weapon on repair bench when id matches', () => {
-    const w = baseWeapon({ id: 'bench-w' })
-    expect(getWeaponGuildServiceBlockReason(w, 'bench-w')).toMatch(/верстак/i)
+  it('blocks when workbench session active and weapon has planned queue item', () => {
+    const w = baseWeapon({ id: 'qw' })
+    expect(
+      getWeaponGuildServiceBlockReason(w, [], {
+        workbenchQueue: [
+          {
+            kind: 'repair',
+            queueItemId: 'q1',
+            weaponId: 'qw',
+            status: 'running',
+            techniqueIds: [],
+            queuedAt: 0,
+          },
+          {
+            kind: 'repair',
+            queueItemId: 'q2',
+            weaponId: 'qw',
+            status: 'planned',
+            techniqueIds: [],
+            queuedAt: 0,
+          },
+        ],
+        repairTechniqueStageRun: null,
+      })
+    ).toMatch(/верстак/i)
   })
 
-  it('does not block when bench id is different weapon', () => {
-    expect(getWeaponGuildServiceBlockReason(baseWeapon({ id: 'a' }), 'b')).toBeNull()
+  it('does not block planned-only when session not active', () => {
+    const w = baseWeapon({ id: 'qw' })
+    expect(
+      getWeaponGuildServiceBlockReason(w, [], {
+        workbenchQueue: [
+          {
+            kind: 'repair',
+            queueItemId: 'q1',
+            weaponId: 'qw',
+            status: 'planned',
+            techniqueIds: [],
+            queuedAt: 0,
+          },
+        ],
+        repairTechniqueStageRun: null,
+      })
+    ).toBeNull()
   })
 })

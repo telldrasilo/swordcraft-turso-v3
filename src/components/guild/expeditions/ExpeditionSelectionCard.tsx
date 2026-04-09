@@ -28,6 +28,8 @@ interface ExpeditionSelectionCardProps {
   reason?: string
   /** Полный текст миссии и цель; для сетки одинаковой высоты используйте с `items-stretch` + `h-full` у обёртки */
   variant?: 'default' | 'missionBoard'
+  /** Миссия текущего шага квеста «Эхо забытой кузни» */
+  questHighlight?: boolean
 }
 
 // ================================
@@ -41,6 +43,7 @@ export const ExpeditionSelectionCard: React.FC<ExpeditionSelectionCardProps> = (
   onSelect,
   reason,
   variant = 'default',
+  questHighlight = false,
 }) => {
   const difficulty = difficultyInfo[expedition.difficulty]
   const type = typeInfo[expedition.type]
@@ -77,9 +80,13 @@ export const ExpeditionSelectionCard: React.FC<ExpeditionSelectionCardProps> = (
     >
       <Card
         className={cn(
-          "card-medieval cursor-pointer transition-all h-full w-full min-w-0 flex flex-col",
-          isSelected && "ring-2 ring-amber-500 border-amber-500 bg-gradient-to-b from-amber-900/30 to-stone-900/50 shadow-lg shadow-amber-900/30",
-          !canSelect && "opacity-50"
+          'card-medieval cursor-pointer transition-all h-full w-full min-w-0 flex flex-col',
+          isSelected &&
+            'ring-2 ring-amber-500 border-amber-500 bg-gradient-to-b from-amber-900/30 to-stone-900/50 shadow-lg shadow-amber-900/30',
+          questHighlight &&
+            !isSelected &&
+            'ring-2 ring-amber-600/70 border-amber-600/60 bg-gradient-to-b from-amber-950/25 to-stone-900/40',
+          !canSelect && 'opacity-50'
         )}
         onClick={canSelect ? onSelect : undefined}
       >
@@ -91,6 +98,14 @@ export const ExpeditionSelectionCard: React.FC<ExpeditionSelectionCardProps> = (
               <h4 className="font-semibold text-stone-200 truncate">{expedition.name}</h4>
               <p className="text-xs text-stone-500">{type.name}</p>
             </div>
+            {questHighlight && variant === 'missionBoard' && (
+              <Badge
+                variant="outline"
+                className="text-[10px] shrink-0 border-amber-600/60 text-amber-200/90 bg-amber-950/40"
+              >
+                Квест
+              </Badge>
+            )}
             <Badge
               className={cn(
                 "text-xs flex-shrink-0 px-2 py-0.5",

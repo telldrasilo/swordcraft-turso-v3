@@ -75,6 +75,7 @@ export const saveRequestBodySchema = z
     unlockedEnchantments: z.unknown().optional(),
     unlockedMaterialProcessingTechniqueIds: z.unknown().optional(),
     unlockedRepairTechniqueIds: z.unknown().optional(),
+    unlockedCraftTechniqueIds: z.unknown().optional(),
     unlockedReforgeTechniqueIds: z.unknown().optional(),
     guild: z.unknown().optional(),
     knownAdventurers: z.unknown().optional(),
@@ -86,13 +87,14 @@ export const saveRequestBodySchema = z
     craftV2Persisted: z.unknown().optional(),
     playTime: z.coerce.number().finite().min(0).max(Number.MAX_SAFE_INTEGER).optional(),
     saveVersion: z.coerce.number().int().min(1).max(999_999).optional(),
-    /** Слот верстака ремонта (id оружия или null) */
-    repairBenchWeaponId: z.union([z.string().min(1), z.null()]).optional(),
+    /** Очередь верстака (D5: легаси repairBench* не в схеме; необработанные ключи сохраняются через passthrough для миграции в validateSaveData) */
+    repairQueuePlan: z.unknown().optional(),
     /** Активный прогон этапов ремонта (после `validateSaveData` нормализуется на сервере) */
     repairTechniqueStageRun: z.unknown().optional(),
     /** Квест «Эхо забытой кузни» + архивариус (облако / Turso) */
     forgottenForgePersist: z.unknown().optional(),
   })
+  .passthrough()
   .superRefine((data, ctx) => {
     try {
       assertSaveJsonBounds(data)
@@ -125,6 +127,7 @@ export const saveRequestBodySchema = z
     arr('unlockedEnchantments', data.unlockedEnchantments, 5000)
     arr('unlockedMaterialProcessingTechniqueIds', data.unlockedMaterialProcessingTechniqueIds, 500)
     arr('unlockedRepairTechniqueIds', data.unlockedRepairTechniqueIds, 500)
+    arr('unlockedCraftTechniqueIds', data.unlockedCraftTechniqueIds, 500)
     arr('unlockedReforgeTechniqueIds', data.unlockedReforgeTechniqueIds, 500)
     arr('materialStudySessions', data.materialStudySessions, 500)
     arr('gameMessages', data.gameMessages, 500)

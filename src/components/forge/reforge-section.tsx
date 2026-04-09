@@ -1,18 +1,28 @@
 'use client'
 
-import { useEffect, useMemo } from 'react'
-import { Hammer, Package } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Hammer } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { hasPlannedOrRunningQueueItemOfKind } from '@/lib/workbench/workbench-queue'
 import { useGameStore } from '@/store'
 import { useSound } from '@/lib/sounds'
 import { useToast } from '@/hooks/use-toast'
-import { WeaponInventoryCard } from '@/components/forge/weapon-inventory-card'
 import { ReforgeCard } from '@/components/forge/reforge-card'
 
 export function ReforgeSection() {
   const weaponInventory = useGameStore((state) => state.weaponInventory)
-  const repairBenchWeaponId = useGameStore((state) => state.repairBenchWeaponId)
-  const returnWeaponFromRepairBench = useGameStore((state) => state.returnWeaponFromRepairBench)
+  const workbenchSelectedWeaponId = useGameStore((state) => state.workbenchSelectedWeaponId)
+  const setWorkbenchSelectedWeaponId = useGameStore((state) => state.setWorkbenchSelectedWeaponId)
   const guildLevel = useGameStore((state) => state.guild.level)
   const playerLevel = useGameStore((state) => state.player.level)
   const unlockedMaterialProcessingTechniqueIds = useGameStore(
@@ -20,27 +30,28 @@ export function ReforgeSection() {
   )
   const unlockedReforgeTechniqueIds = useGameStore((state) => state.unlockedReforgeTechniqueIds)
   const applyReforgeTechnique = useGameStore((state) => state.applyReforgeTechnique)
+  const enqueueWorkbenchReforge = useGameStore((state) => state.enqueueWorkbenchReforge)
+  const workbenchQueue = useGameStore((state) => state.workbenchQueue)
   const { toast } = useToast()
   const { play } = useSound()
+  const [reforgeDup, setReforgeDup] = useState<{
+    techniqueId: string
+    kind: 'reforge_buff' | 'reforge_awaken'
+  } | null>(null)
 
   useEffect(() => {
     if (
-      repairBenchWeaponId &&
-      !weaponInventory.weapons.some((w) => w.id === repairBenchWeaponId)
+      workbenchSelectedWeaponId &&
+      !weaponInventory.weapons.some((w) => w.id === workbenchSelectedWeaponId)
     ) {
-      returnWeaponFromRepairBench()
+      setWorkbenchSelectedWeaponId(null)
     }
-  }, [repairBenchWeaponId, weaponInventory.weapons, returnWeaponFromRepairBench])
+  }, [workbenchSelectedWeaponId, weaponInventory.weapons, setWorkbenchSelectedWeaponId])
 
   const benchWeapon = useMemo(() => {
-    if (!repairBenchWeaponId) return undefined
-    return weaponInventory.weapons.find((w) => w.id === repairBenchWeaponId)
-  }, [weaponInventory.weapons, repairBenchWeaponId])
-
-  const listWeapons = useMemo(
-    () => weaponInventory.weapons.filter((w) => w.id !== repairBenchWeaponId),
-    [weaponInventory.weapons, repairBenchWeaponId]
-  )
+    if (!workbenchSelectedWeaponId) return undefined
+    return weaponInventory.weapons.find((w) => w.id === workbenchSelectedWeaponId)
+  }, [weaponInventory.weapons, workbenchSelectedWeaponId])
 
   const ctx = useMemo(
     () => ({
@@ -53,13 +64,13 @@ export function ReforgeSection() {
   )
 
   const handleApply = (techniqueId: string) => {
-    if (!repairBenchWeaponId) return
-    const result = applyReforgeTechnique(repairBenchWeaponId, techniqueId)
+    if (!workbenchSelectedWeaponId || !benchWeapon) return
+    const result = applyReforgeTechnique(workbenchSelectedWeaponId, techniqueId)
     if (!result.ok) {
       const labels: Record<string, string> = {
         no_weapon: 'Оружие не найдено.',
         not_on_bench:
-          'Перековка доступна только для клинка на верстаке. Откройте «Ремонт» и поставьте оружие.',
+          'Перековка доступна только для выбранного клинка на верстаке. Выберите клинок в списке слева.',
         technique_not_found: 'Неизвестная техника.',
         locked_guild: 'Недостаточный уровень гильдии.',
         locked_technique: 'Техника заблокирована.',
@@ -80,7 +91,26 @@ export function ReforgeSection() {
 
     if (result.outcome === 'buff') {
       play('craft_complete')
-      toast({ title: 'Перековка', description: 'Усиление применено.' })
+      const b = result.buff
+      let desc = 'Усиление применено.'
+      if (b) {
+        const tierHint =
+          b.baseWarSoulCost != null &&
+          b.warSoulCostTierFactor != null &&
+          b.warSoulCostTierFactor > 1
+            ? ` Списано ${b.warSoulSpent.toLocaleString('ru-RU')} ДВ (база ${b.baseWarSoulCost.toLocaleString('ru-RU')} × ранг ×${b.warSoulCostTierFactor}).`
+            : ` Списано ${b.warSoulSpent.toLocaleString('ru-RU')} ДВ.`
+        if (b.statKind === 'attack' && b.attackBefore != null && b.attackAfter != null) {
+          desc = `Атака: ${b.attackBefore} → ${b.attackAfter} (+${b.buffPercentRolled}% к снимку).${tierHint} Остаток ДВ: ${result.weapon.warSoul.toLocaleString('ru-RU')}.`
+        } else if (
+          b.statKind === 'maxDurability' &&
+          b.maxDurabilityBefore != null &&
+          b.maxDurabilityAfter != null
+        ) {
+          desc = `Макс. прочность: ${b.maxDurabilityBefore} → ${b.maxDurabilityAfter} (+${b.buffPercentRolled}% к снимку).${tierHint} Остаток ДВ: ${result.weapon.warSoul.toLocaleString('ru-RU')}.`
+        }
+      }
+      toast({ title: 'Перековка', description: desc })
     } else if (result.outcome === 'awaken_success') {
       play('craft_complete')
       toast({ title: 'Перековка', description: 'Шрам пробуждён.' })
@@ -88,7 +118,7 @@ export function ReforgeSection() {
       play('error')
       toast({
         title: 'Перековка',
-        description: 'Пробуждение не удалось, душа потрачена.',
+        description: `Пробуждение не удалось (шанс был ~${result.chance != null ? Math.round(result.chance * 100) : '?'}%). Душа потрачена.`,
         variant: 'destructive',
       })
     }
@@ -96,39 +126,87 @@ export function ReforgeSection() {
 
   return (
     <div className="space-y-4">
-      {!repairBenchWeaponId || !benchWeapon ? (
+      <AlertDialog
+        open={reforgeDup != null}
+        onOpenChange={(open) => {
+          if (!open) setReforgeDup(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Уже есть перековка этого типа</AlertDialogTitle>
+            <AlertDialogDescription>
+              Для этого клинка уже запланирована или выполняется перековка того же типа (усиление или
+              пробуждение). Добавить ещё одну задачу?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (reforgeDup && benchWeapon) {
+                  enqueueWorkbenchReforge({
+                    weaponId: benchWeapon.id,
+                    techniqueId: reforgeDup.techniqueId,
+                    kind: reforgeDup.kind,
+                  })
+                  toast({
+                    title: 'В очереди верстака',
+                    description:
+                      'Перековка добавлена. Запустите сессию кнопкой «Начать работу» в блоке очереди ниже.',
+                  })
+                }
+                setReforgeDup(null)
+              }}
+            >
+              Добавить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      {!workbenchSelectedWeaponId || !benchWeapon ? (
         <Card className="card-medieval">
           <CardContent className="p-6 text-center space-y-3">
             <Hammer className="w-12 h-12 mx-auto text-stone-600" />
-            <p className="text-stone-400">
-              Поставьте оружие на верстак во вкладке «Ремонт», затем вернитесь сюда — тот же клинок
-              будет доступен для перековки.
-            </p>
-            <p className="text-xs text-stone-500">
-              Вкладка «Перековка» использует слот <code className="text-amber-200/80">repairBenchWeaponId</code>
-              , общий с ремонтом.
+            <p className="text-stone-400 max-w-md mx-auto">
+              Выберите клинок в списке слева или в карусели — тогда станут доступны усиление духом и
+              пробуждение наследия. Очередь и «Начать работу» — в блоке ниже.
             </p>
           </CardContent>
         </Card>
       ) : (
-        <ReforgeCard weapon={benchWeapon} ctx={ctx} onApply={handleApply} />
+        <ReforgeCard
+          weapon={benchWeapon}
+          ctx={ctx}
+          onApply={handleApply}
+          blockBuffSectionsForQueue={hasPlannedOrRunningQueueItemOfKind(
+            workbenchQueue,
+            benchWeapon.id,
+            'reforge_buff'
+          )}
+          blockAwakenSectionForQueue={hasPlannedOrRunningQueueItemOfKind(
+            workbenchQueue,
+            benchWeapon.id,
+            'reforge_awaken'
+          )}
+          onEnqueueToWorkbench={(techniqueId, kind) => {
+            if (hasPlannedOrRunningQueueItemOfKind(workbenchQueue, benchWeapon.id, kind)) {
+              setReforgeDup({ techniqueId, kind })
+              return
+            }
+            enqueueWorkbenchReforge({
+              weaponId: benchWeapon.id,
+              techniqueId,
+              kind,
+            })
+            toast({
+              title: 'В очереди верстака',
+              description:
+                'Перековка добавлена. Запустите сессию кнопкой «Начать работу» в блоке очереди ниже.',
+            })
+          }}
+        />
       )}
-
-      <Card className="card-medieval bg-stone-800/40">
-        <CardContent className="p-3 flex items-center gap-2 text-sm text-stone-400">
-          <Package className="w-4 h-4 shrink-0 text-amber-600" />
-          <span>
-            Выберите клинок ниже и отправьте на верстак (как во вкладке «Инвентарь» / «Ремонт»), затем
-            откройте «Перековку» снова.
-          </span>
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {listWeapons.map((w) => (
-          <WeaponInventoryCard key={w.id} weapon={w} />
-        ))}
-      </div>
     </div>
   )
 }

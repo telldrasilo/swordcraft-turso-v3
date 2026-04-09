@@ -9,10 +9,12 @@ import {
 } from './build-repair-plan'
 
 describe('build-repair-plan', () => {
-  it('getApplicableRepairTechniquesForTags with no tags returns only durability maintenance', () => {
+  it('getApplicableRepairTechniquesForTags with no tags returns all basic techniques', () => {
     const list = getApplicableRepairTechniquesForTags([])
-    expect(list).toHaveLength(1)
-    expect(list[0]?.id).toBe('durability_maintenance')
+    expect(list.some((t) => t.id === 'durability_maintenance')).toBe(true)
+    expect(list.some((t) => t.id === 'edge_truing')).toBe(true)
+    expect(list.some((t) => t.id === 'basic_elemental_stabilization')).toBe(true)
+    expect(list.every((t) => t.repairTier === 'basic')).toBe(true)
   })
 
   it('getApplicableRepairTechniquesForTags returns techniques that clear any active tag', () => {
@@ -72,6 +74,12 @@ describe('build-repair-plan', () => {
   it('repairPlanUsesOnlyBasicTechniques', () => {
     expect(repairPlanUsesOnlyBasicTechniques([])).toBe(true)
     expect(repairPlanUsesOnlyBasicTechniques(['edge_truing', 'haft_tightening'])).toBe(true)
+    expect(
+      repairPlanUsesOnlyBasicTechniques([
+        'basic_metal_stress_relief',
+        'basic_elemental_stabilization',
+      ])
+    ).toBe(true)
     expect(repairPlanUsesOnlyBasicTechniques(['edge_truing', 'notch_filing'])).toBe(false)
   })
 
@@ -79,8 +87,10 @@ describe('build-repair-plan', () => {
     const tag = 'physical_gouge_chunk'
     const all = getApplicableRepairTechniquesForTags([tag])
     expect(all.some((t) => t.id === 'notch_filing')).toBe(true)
+    expect(all.some((t) => t.id === 'edge_truing')).toBe(true)
     const locked = getApplicableRepairTechniquesForTagsUnlocked([tag], [])
     expect(locked.some((t) => t.id === 'notch_filing')).toBe(false)
+    expect(locked.some((t) => t.id === 'edge_truing')).toBe(true)
     const unlocked = getApplicableRepairTechniquesForTagsUnlocked([tag], ['notch_filing'])
     expect(unlocked.some((t) => t.id === 'notch_filing')).toBe(true)
   })

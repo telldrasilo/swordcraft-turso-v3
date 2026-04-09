@@ -28,22 +28,55 @@ describe('normalizeRepairTechniqueStageRunFromSave', () => {
   }
 
   it('returns null when raw missing or invalid', () => {
-    expect(normalizeRepairTechniqueStageRunFromSave(null, 'w1', [{ id: 'w1' }])).toBe(null)
-    expect(normalizeRepairTechniqueStageRunFromSave({}, 'w1', [{ id: 'w1' }])).toBe(null)
-  })
-
-  it('returns null when bench id mismatches', () => {
-    expect(normalizeRepairTechniqueStageRunFromSave(run, null, [{ id: 'w1' }])).toBe(null)
-    expect(normalizeRepairTechniqueStageRunFromSave(run, 'w2', [{ id: 'w1' }, { id: 'w2' }])).toBe(null)
+    expect(normalizeRepairTechniqueStageRunFromSave(null, [{ id: 'w1' }])).toBe(null)
+    expect(normalizeRepairTechniqueStageRunFromSave({}, [{ id: 'w1' }])).toBe(null)
   })
 
   it('returns null when weapon not in inventory', () => {
-    expect(normalizeRepairTechniqueStageRunFromSave(run, 'w1', [{ id: 'w2' }])).toBe(null)
+    expect(normalizeRepairTechniqueStageRunFromSave(run, [{ id: 'w2' }])).toBe(null)
   })
 
-  it('returns normalized run when valid', () => {
+  it('returns normalized adhoc run when weapon in inventory (no legacy bench list)', () => {
+    expect(normalizeRepairTechniqueStageRunFromSave(run, [{ id: 'w1' }])).toEqual(run)
+  })
+
+  it('returns null for queue run when activeQueueItemId missing from queue snapshot', () => {
+    const qRun = {
+      ...run,
+      source: 'queue' as const,
+      activeQueueItemId: 'missing-q',
+    }
     expect(
-      normalizeRepairTechniqueStageRunFromSave(run, 'w1', [{ id: 'w1' }])
-    ).toEqual(run)
+      normalizeRepairTechniqueStageRunFromSave(qRun, [{ id: 'w1' }], [
+        {
+          kind: 'repair' as const,
+          queueItemId: 'q-other',
+          weaponId: 'w1',
+          status: 'running' as const,
+          techniqueIds: ['t1'],
+          queuedAt: 1,
+        },
+      ])
+    ).toBe(null)
+  })
+
+  it('accepts queue run when queue contains the item', () => {
+    const qRun = {
+      ...run,
+      source: 'queue' as const,
+      activeQueueItemId: 'q1',
+    }
+    expect(
+      normalizeRepairTechniqueStageRunFromSave(qRun, [{ id: 'w1' }], [
+        {
+          kind: 'repair' as const,
+          queueItemId: 'q1',
+          weaponId: 'w1',
+          status: 'running' as const,
+          techniqueIds: ['t1'],
+          queuedAt: 1,
+        },
+      ])
+    ).toEqual(qRun)
   })
 })
