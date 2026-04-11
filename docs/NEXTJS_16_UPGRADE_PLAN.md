@@ -195,7 +195,7 @@ node (локально): v24.14.0 (CI: Node 20)
 
 | Дата | PR | Версии после | Примечание |
 |------|-----|--------------|------------|
-| 2026-04-11 | *(прямой fast-forward merge в `main`; PR можно открыть постфактум для истории)* | см. ниже | Ветка `chore/next-16-upgrade` запушена на `origin`; локально прогнан полный CI (`npm ci` → lint → test → coverage → build). После push в `main` проверить run Actions: https://github.com/telldrasilo/swordcraft-turso-v3/actions |
+| 2026-04-11 | *(прямой fast-forward merge в `main`; PR можно открыть постфактум для истории)* | см. ниже | Ветка `chore/next-16-upgrade` запушена на `origin`; локально прогнан полный CI (`npm ci` → lint → test → coverage → build). `main` запушен (`b96ec99..db3da13`). Post-merge smoke: `next dev --turbopack` → GET `/` и `/api/auth/providers` — 200. Проверить run Actions: https://github.com/telldrasilo/swordcraft-turso-v3/actions |
 
 **Версии после (локально после bump):**
 
