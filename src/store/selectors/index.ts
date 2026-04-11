@@ -4,6 +4,8 @@
  */
 
 import { createSelector } from 'reselect'
+import { getAvailableAmountForResourceKey } from '@/lib/craft/inventory-check'
+import type { ResourceKey } from '@/store/slices/resources-slice'
 import type { GameStore } from '../game-store-composed'
 
 // ================================
@@ -34,34 +36,38 @@ export const selectIsLevelUpAvailable = createSelector(
 // ================================
 
 export const selectResources = (state: GameStore) => state.resources
+export const selectMaterialStash = (state: GameStore) => state.materialStash
 export const selectGold = (state: GameStore) => state.resources.gold
 export const selectSoulEssence = (state: GameStore) => state.resources.soulEssence
 
+/** Согласовано с `useFormattedResources`: stash + legacy `resources` для ключей с маппингом. */
 export const selectFormattedResources = createSelector(
-  [selectResources],
-  (resources) => {
+  [selectResources, selectMaterialStash],
+  (resources, materialStash) => {
+    const t = (key: ResourceKey) =>
+      getAvailableAmountForResourceKey(resources, materialStash, key).toLocaleString('ru-RU')
     return {
       gold: resources.gold.toLocaleString('ru-RU'),
-      wood: resources.wood.toLocaleString('ru-RU'),
-      stone: resources.stone.toLocaleString('ru-RU'),
-      iron: resources.iron.toLocaleString('ru-RU'),
-      coal: resources.coal.toLocaleString('ru-RU'),
-      copper: resources.copper.toLocaleString('ru-RU'),
-      tin: resources.tin.toLocaleString('ru-RU'),
-      silver: resources.silver.toLocaleString('ru-RU'),
-      goldOre: resources.goldOre.toLocaleString('ru-RU'),
-      mithril: resources.mithril.toLocaleString('ru-RU'),
+      wood: t('wood'),
+      stone: t('stone'),
+      iron: t('iron'),
+      coal: t('coal'),
+      copper: t('copper'),
+      tin: t('tin'),
+      silver: t('silver'),
+      goldOre: t('goldOre'),
+      mithril: t('mithril'),
       soulEssence: resources.soulEssence.toLocaleString('ru-RU'),
-      planks: resources.planks.toLocaleString('ru-RU'),
-      stoneBlocks: resources.stoneBlocks.toLocaleString('ru-RU'),
-      copperIngot: resources.copperIngot.toLocaleString('ru-RU'),
-      tinIngot: resources.tinIngot.toLocaleString('ru-RU'),
-      bronzeIngot: resources.bronzeIngot.toLocaleString('ru-RU'),
-      ironIngot: resources.ironIngot.toLocaleString('ru-RU'),
-      steelIngot: resources.steelIngot.toLocaleString('ru-RU'),
-      silverIngot: resources.silverIngot.toLocaleString('ru-RU'),
-      goldIngot: resources.goldIngot.toLocaleString('ru-RU'),
-      mithrilIngot: resources.mithrilIngot.toLocaleString('ru-RU'),
+      planks: t('planks'),
+      stoneBlocks: t('stoneBlocks'),
+      copperIngot: t('copperIngot'),
+      tinIngot: t('tinIngot'),
+      bronzeIngot: t('bronzeIngot'),
+      ironIngot: t('ironIngot'),
+      steelIngot: t('steelIngot'),
+      silverIngot: t('silverIngot'),
+      goldIngot: t('goldIngot'),
+      mithrilIngot: t('mithrilIngot'),
     } as Record<string, string>
   }
 )

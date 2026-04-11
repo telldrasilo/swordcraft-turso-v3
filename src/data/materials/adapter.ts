@@ -1,28 +1,16 @@
 /**
  * Адаптер для обратной совместимости
- * Преобразует MaterialNode в Material для существующего кода крафта
+ * Преобразует MaterialNode в Material для существующего кода крафта.
+ *
+ * Прилагательные — [`legacy-material-adjectives.ts`](./legacy-material-adjectives.ts).
+ * Полный список металлов с числами каталога — [`getMetalMaterialsRuntimeMerged`](./metals-runtime-merge.ts).
  */
 
 import type { MaterialNode } from '@/types/materials/material-core'
 import type { Material } from '@/types/craft-v2'
 import { materialById, allMaterials } from './library'
+import { LEGACY_MATERIAL_ADJECTIVES } from './legacy-material-adjectives'
 import { metalMaterials } from './metals'
-import { stoneMaterials } from './stone'
-import { woodMaterials, leatherMaterials } from './organic'
-
-/** Прилагательные для нейминга оружия — из legacy Material; id совпадают с MaterialNode. */
-const LEGACY_MATERIAL_ADJECTIVES: Record<string, string> = (() => {
-  const map: Record<string, string> = {}
-  for (const m of [
-    ...metalMaterials,
-    ...stoneMaterials,
-    ...woodMaterials,
-    ...leatherMaterials,
-  ]) {
-    if (m.adjective) map[m.id] = m.adjective
-  }
-  return map
-})()
 
 /**
  * Преобразует MaterialNode в Material для обратной совместимости
@@ -140,10 +128,11 @@ export function adaptMaterialNodeToMaterial(node: MaterialNode): Material {
 /**
  * Получает Material из MaterialNode по ID
  */
+/** Как [`getMetalMaterialRuntimeMerged`](./metals-runtime-merge.ts): каталог, иначе строка из `metalMaterials`. */
 export function getMaterialAsLegacy(id: string): Material | undefined {
   const node = materialById[id]
-  if (!node) return undefined
-  return adaptMaterialNodeToMaterial(node)
+  if (node) return adaptMaterialNodeToMaterial(node)
+  return metalMaterials.find((m) => m.id === id)
 }
 
 /**

@@ -18,6 +18,8 @@ import type {
   WeaponLegacy,
   WeaponRepairCondition,
 } from './weapon-damage'
+import type { CraftLinePhase } from './craft-line'
+import type { TechniqueMicroTask } from './encyclopedia-techniques'
 import {
   QUALITY_GRADES_V2 as QUALITY_GRADES_CONFIG,
   getQualityGradeV2 as getQualityGrade,
@@ -295,6 +297,18 @@ export interface Technique {
   // Требования
   requiredLevel?: number
   requiredMaterials?: string[]
+
+  /** Фаза на Крафтовой линии (ENC §12.3); по умолчанию — `craft_finishing` в `getEffectiveCraftLineMeta`. */
+  craftLinePhase?: CraftLinePhase
+  /** Порядок внутри фазы; по умолчанию 0. */
+  craftLineOrder?: number
+  /** Явные микрозадачи для энциклопедии и линии; иначе один синтетический шаг с `name`. */
+  microTasks?: readonly TechniqueMicroTask[]
+  /**
+   * После макроэтапа рецепта с этим индексом (0-based по `WeaponRecipe.stages`) вставляется
+   * блок микрозадач приёма на Крафтовой линии. Без поля — блок в конце (после хребта).
+   */
+  craftLineAnchorAfterStageIndex?: number
 }
 
 // ================================
@@ -356,6 +370,18 @@ export interface WeaponRecipe {
 /** Источник этапа в таймлайне Craft v2 (§6.13). */
 export type CraftStageSource = 'recipe' | 'processing_technique' | 'global'
 
+/**
+ * Микроэтап хребта рецепта на Крафтовой линии (CRAFT_LINE §6, TZ меча §4).
+ * id уникален в пределах рецепта; не смешивать с id микрозадач техник.
+ */
+export interface RecipeCraftLineMicroStep {
+  id: string
+  label: string
+  /** Относительный вес длительности (как у микрозадач техник на линии). */
+  durationWeight?: number
+  hint?: string
+}
+
 /** Конфигурация этапа в рецепте */
 export interface RecipeStageConfig {
   stageType: string               // ID из библиотеки этапов
@@ -368,6 +394,10 @@ export interface RecipeStageConfig {
   primaryMaterialId?: string
   stageSource?: CraftStageSource
   techniqueId?: string
+  /** Фаза линии для микроэтапов этого макроэтапа (пилот хребта в данных). */
+  craftLinePhase?: CraftLinePhase
+  /** Микроэтапы хребта для UI линии; пусто — макроэтап на линии не раскрывается. */
+  craftLineMicroSteps?: RecipeCraftLineMicroStep[]
 }
 
 // ================================

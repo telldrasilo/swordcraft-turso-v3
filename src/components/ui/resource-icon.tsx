@@ -12,6 +12,7 @@ export const rarityColors = {
   rare: { text: 'text-blue-300', bg: 'bg-blue-900/40', border: 'border-blue-500/40', glow: 'shadow-blue-500/20' },
   epic: { text: 'text-purple-300', bg: 'bg-purple-900/40', border: 'border-purple-500/40', glow: 'shadow-purple-500/20' },
   legendary: { text: 'text-amber-300', bg: 'bg-amber-900/40', border: 'border-amber-500/40', glow: 'shadow-amber-500/20' },
+  unique: { text: 'text-fuchsia-200', bg: 'bg-fuchsia-950/45', border: 'border-fuchsia-500/35', glow: 'shadow-fuchsia-500/15' },
 }
 
 interface ResourceIconProps {

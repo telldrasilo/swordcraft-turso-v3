@@ -75,6 +75,8 @@ export function ReforgeSection() {
         locked_guild: 'Недостаточный уровень гильдии.',
         locked_technique: 'Техника заблокирована.',
         insufficient_war_soul: 'Недостаточно души войны.',
+        insufficient_catalog_materials:
+          'Недостаточно материалов на складе для перековки (каталожные id из техники).',
         no_scars: 'Нет шрамов для пробуждения.',
         max_stacks: 'Достигнут лимит усилений.',
         all_scars_awakened: 'Все доступные шрамы уже пробуждены.',

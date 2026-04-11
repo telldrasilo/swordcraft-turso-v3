@@ -5,10 +5,11 @@
 
 import { allMaterials } from '@/data/materials/library'
 import type { MaterialNode } from '@/types/materials/material-core'
-import type { Material, MaterialCategory, Rarity } from '../../types'
+import type { Material, MaterialCatalogRarity, MaterialCategory } from '../../types'
 import { LOCATION_REGISTRY } from '../locations'
 
-function economyRarityToRarity(r: number): Rarity {
+function economyRarityToRarity(r: number): MaterialCatalogRarity {
+  if (r >= 200) return 'unique'
   if (r <= 35) return 'common'
   if (r <= 52) return 'uncommon'
   if (r <= 72) return 'rare'
@@ -68,7 +69,7 @@ export function getMaterialById(id: string): Material | undefined {
   return MATERIAL_REGISTRY.find((mat) => mat.id === id)
 }
 
-export function getMaterialsByRarity(rarity: Rarity): Material[] {
+export function getMaterialsByRarity(rarity: MaterialCatalogRarity): Material[] {
   return MATERIAL_REGISTRY.filter((mat) => mat.rarity === rarity)
 }
 

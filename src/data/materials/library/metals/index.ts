@@ -3,6 +3,10 @@
  */
 
 export { iron } from './iron'
+export { copper } from './copper'
+export { tin } from './tin'
+export { silver } from './silver'
+export { gold } from './gold'
 export { ironAlloy } from './iron_alloy'
 export { copperAlloy } from './copper_alloy'
 export { tinAlloy } from './tin_alloy'

@@ -20,12 +20,14 @@ import {
   type RefiningRecipe,
 } from '@/data/refining-recipes'
 import { resolveProcessingTechniqueForPart } from '@/data/material-processing-techniques'
+import { getEffectiveRefiningRecipeId } from '@/lib/craft/processing-technique-refining-bridge'
 import type { CraftingCost, Resources, ResourceKey } from '@/store/slices/resources-slice'
 import { WORLD_RESOURCE_TO_RESOURCE_KEY } from '@/lib/materials/world-resource-inventory-bridge'
 import { getMaterialAsLegacy, materialById } from '@/data/materials'
 import { canBuyMaterial, getMaterialShopInfo } from '@/data/material-shop'
 import { isGatherableEncOnlyMaterialId } from '@/lib/materials/gatherable-enc-only'
 import { getRefiningOreChargeEfficiency } from '@/lib/materials/material-process-contribution'
+import { isA2StashOnlyResourceKey } from '@/lib/craft/a2-stash-only-pools'
 
 /** Рецепт для расчёта стоимости (V2 из craft-v2 или legacy из weapon-recipes). */
 export type RecipeForCraftingCost = V2WeaponRecipe | LegacyWeaponRecipe
@@ -39,72 +41,37 @@ function isV2WeaponRecipe(recipe: RecipeForCraftingCost): recipe is V2WeaponReci
 // ================================
 
 /**
- * Ядро маппинга materialId → `ResourceKey` (кузница, библиотека ores/metals/woods).
- * Добываемые id из подпапок `library/` подмешиваются ниже — см. `world-resource-inventory-bridge.ts`.
+ * **A2, фаза 2 ([`MATERIALS_SINGLE_SOURCE_ROADMAP`](../../../docs/MATERIALS_SINGLE_SOURCE_ROADMAP.md)):** начисления из мира/лавки/заказов
+ * в основном пишут в `materialStash` через `getGrantTargetMaterialId`
+ * (см. `a2-smelting-domain-scope.ts`, `a2-wood-domain-scope.ts`, `a2-stone-domain-scope.ts`, `a2-leather-domain-scope.ts`;
+ * аудит моста **2.4** — `a2-phase24-bridge-audit.ts`).
+ * Эта таблица и поле `resources` — мост для списаний и старых сейвов; удалять ключи только после волны **2.4** и аудита persist
+ * (`STORE_VERSION` / `migrateLegacyMaterialResourcesToStash` в `game-store-composed`).
  */
-const CORE_MATERIAL_TO_RESOURCE: Record<string, ResourceKey> = {
-  // Канонические руды / сырьевая стадия (фаза 3 аудита) — тот же пул `ResourceKey`, что у переработки
-  'iron_ore': 'iron',
-  'copper_ore': 'copper',
-  'tin_ore': 'tin',
-  'silver_ore': 'silver',
-  'gold_ore': 'goldOre',
-  'mithril_ore': 'mithril',
 
-  // Базовые металлы в крафте v2 / клинках — слиток (руда — только `*_ore` → ключи руды ниже)
-  'iron': 'ironIngot',
-  'cold_iron': 'ironIngot',
-  'copper': 'copperIngot',
-  'tin': 'tinIngot',
-  'silver': 'silverIngot',
-  'gold': 'goldIngot',
-  'mithril': 'mithrilIngot',
-  
-  // Сплавы (создаются из сырья)
-  'steel': 'steelIngot',
-  'high_carbon_steel': 'steelIngot',
-  'iron_alloy': 'ironIngot',
-  'copper_alloy': 'copperIngot',
-  'tin_alloy': 'tinIngot',
-  'bronze': 'bronzeIngot',
-  'silver_alloy': 'silverIngot',
-  'gold_alloy': 'goldIngot',
-  'mithril_alloy': 'mithrilIngot',
-  
-  // Дерево
-  'birch': 'wood',
-  'oak': 'wood',
-  'ash': 'wood',
-  'ebony': 'wood',
-  'ironwood': 'wood',
-  'pine': 'wood',
-  'maple': 'wood',
-  'walnut': 'wood',
-  'mahogany': 'wood',
-  'processed_wood': 'planks',
-  
-  // Кожа
-  'raw_leather': 'leather',
-  'tanned_leather': 'leather',
-  'bull_leather': 'leather',
-  'dragon_leather': 'leather',
-  'hardened_leather': 'leather',
-  
-  // Камень
-  'basic_stone': 'stone',
-  /** Булыжник / полевой камень (энциклопедия), пул склада как у базового камня */
-  'fieldstone': 'stone',
-  'granite': 'stone',
-  'obsidian': 'stone',
-  'marble': 'stone',
-  'processed_stone': 'stoneBlocks',
+/**
+ * Ядро маппинга materialId → `ResourceKey` (кузница).
+ * После волны **2.4h** все прежние записи ядра (сплавы, `processed_*`) перенесены в
+ * [`WORLD_RESOURCE_TO_RESOURCE_KEY`](../materials/world-resource-inventory-bridge.ts); сюда добавляют только
+ * осознанные исключения, если мост и ядро должны расходиться по одному `materialId` (сейчас пусто).
+ */
+const CORE_MATERIAL_TO_RESOURCE: Record<string, ResourceKey> = {}
 
-  /** Каталожный id угля (добываемые узлы / экспедиции) → тот же ключ, что и склад кузницы */
-  'coal': 'coal',
-  'ancient_coal': 'coal',
+/**
+ * Пересечение ключей **CORE** и **WORLD** ([`WORLD_RESOURCE_TO_RESOURCE_KEY`](../materials/world-resource-inventory-bridge.ts)).
+ * Должно оставаться пустым: иначе при `merge` неочевидно, кто задаёт пул, и растёт dual-path (**2.4**).
+ */
+export function getInventoryCheckCoreWorldKeyOverlap(): string[] {
+  const world = new Set(Object.keys(WORLD_RESOURCE_TO_RESOURCE_KEY))
+  return Object.keys(CORE_MATERIAL_TO_RESOURCE).filter((id) => world.has(id))
 }
 
-/** Полный маппинг: экспедиционные id не перекрывают ядро. */
+/** После волны 2.4h ядро CORE_MATERIAL_TO_RESOURCE должно быть пустым (A2-мост только WORLD). */
+export function getInventoryCheckCoreMaterialMappingEntryCount(): number {
+  return Object.keys(CORE_MATERIAL_TO_RESOURCE).length
+}
+
+/** Полный маппинг: WORLD затем CORE (ядро перекрывает мост при совпадении имён — избегать совпадений). */
 const MATERIAL_TO_RESOURCE: Record<string, ResourceKey> = {
   ...WORLD_RESOURCE_TO_RESOURCE_KEY,
   ...CORE_MATERIAL_TO_RESOURCE,
@@ -264,7 +231,10 @@ export function computePoolSpendDeltas(
  * (рабочие, закупка в крафте, плавка, бонусы заказов — фаза 2 аудита).
  * `null` → начислять только через `addResource` (валюта и прочее без каталожного id).
  */
-const RESOURCE_GRANT_STASH_FALLBACK: Partial<Record<ResourceKey, string>> = {
+/** Явные stash-id для начислений по `ResourceKey`, где нет `REFINING_INPUT_STAGE` и id ≠ ключу. См. тест `RESOURCE_GRANT_STASH_FALLBACK aligns with getGrantTargetMaterialId`. */
+export const RESOURCE_GRANT_STASH_FALLBACK: Readonly<
+  Partial<Record<ResourceKey, string>>
+> = {
   leather: 'raw_leather',
   planks: 'processed_wood',
   stoneBlocks: 'processed_stone',
@@ -277,6 +247,11 @@ const RESOURCE_GRANT_STASH_FALLBACK: Partial<Record<ResourceKey, string>> = {
   goldIngot: 'gold_alloy',
   mithrilIngot: 'mithril_alloy',
 }
+
+/** Каталожные id из fallback начисления stash — для material-catalog-contract (B ⊆ A). */
+export const RESOURCE_GRANT_STASH_FALLBACK_MATERIAL_IDS: readonly string[] = Array.from(
+  new Set(Object.values(RESOURCE_GRANT_STASH_FALLBACK))
+)
 
 export function getGrantTargetMaterialId(resourceKey: ResourceKey): string | null {
   if (resourceKey === 'gold' || resourceKey === 'soulEssence') return null
@@ -302,6 +277,7 @@ export function getGrantTargetMaterialId(resourceKey: ResourceKey): string | nul
 /**
  * Миграция фазы 2: перенос количеств из `resources` в `materialStash` по правилу
  * `getGrantTargetMaterialId` (как при начислении через store `grantResourceKeyFromWorld`). Идемпотентна.
+ * Охватывает все домены A2 **2.2–2.3** (металлы, дерево, камень, кожа и пр.), где ключ имеет каталожный target.
  */
 export function migrateLegacyMaterialResourcesToStash(
   resources: Resources,
@@ -355,6 +331,13 @@ export function getAvailableAmountForResourceKey(
   materialStash: Record<string, number>,
   resourceKey: ResourceKey
 ): number {
+  if (isA2StashOnlyResourceKey(resourceKey)) {
+    let total = 0
+    for (const mid of getMaterialIdsMappedToResource(resourceKey)) {
+      total += materialStash[mid] ?? 0
+    }
+    return total
+  }
   let total = inventory[resourceKey] ?? 0
   for (const mid of getMaterialIdsMappedToResource(resourceKey)) {
     total += materialStash[mid] ?? 0
@@ -364,19 +347,77 @@ export function getAvailableAmountForResourceKey(
 
 /**
  * Стоимость запуска переработки в тех же ключах, что и `CraftingCost` / `spendCraftingCostWithStash`.
- * Входы рецепта + `extraCost.coal` (плавка).
+ * Входы рецепта + `extraCost.coal` (плавка). Если задан `stashInputsPerBatch`, суммарные `inputs` не входят в `CraftingCost` (только уголь).
  */
 export function getRefiningCraftingCost(recipe: RefiningRecipe, amount: number): CraftingCost {
   const cost: CraftingCost = {}
-  for (const input of recipe.inputs) {
-    const k = input.resource as ResourceKey
-    cost[k] = (cost[k] ?? 0) + input.amount * amount
+  const stashOnly =
+    recipe.stashInputsPerBatch != null &&
+    Object.keys(recipe.stashInputsPerBatch).length > 0
+  if (!stashOnly) {
+    for (const input of recipe.inputs) {
+      const k = input.resource as ResourceKey
+      cost[k] = (cost[k] ?? 0) + input.amount * amount
+    }
   }
   const coalExtra = (recipe.extraCost?.coal ?? 0) * amount
   if (coalExtra > 0) {
     cost.coal = (cost.coal ?? 0) + coalExtra
   }
   return cost
+}
+
+/** Каталожные списания `materialStash` на весь запуск (`amount` партий выхода по `output.amount`). */
+export function getRefiningStashInputsCost(
+  recipe: RefiningRecipe,
+  amount: number
+): Record<string, number> {
+  const per = recipe.stashInputsPerBatch
+  if (!per) return {}
+  const out: Record<string, number> = {}
+  for (const [mid, n] of Object.entries(per)) {
+    const u = (out[mid] ?? 0) + n * amount
+    out[mid] = u
+  }
+  return out
+}
+
+export function canAffordRefiningStart(
+  recipe: RefiningRecipe,
+  amount: number,
+  inventory: Resources,
+  materialStash: Record<string, number>
+): boolean {
+  if (!canAffordCraftingCostWithStash(getRefiningCraftingCost(recipe, amount), inventory, materialStash)) {
+    return false
+  }
+  for (const [mid, need] of Object.entries(getRefiningStashInputsCost(recipe, amount))) {
+    if ((materialStash[mid] ?? 0) < need) return false
+  }
+  return true
+}
+
+export function applyRefiningFullSpend(
+  recipe: RefiningRecipe,
+  amount: number,
+  resources: Resources,
+  materialStash: Record<string, number>
+): { ok: false } | { ok: true; resources: Resources; materialStash: Record<string, number> } {
+  const cost = getRefiningCraftingCost(recipe, amount)
+  const r1 = applyCraftingCostSpend(cost, resources, materialStash)
+  if (!r1.ok) return { ok: false }
+  let stash = r1.materialStash
+  for (const [mid, need] of Object.entries(getRefiningStashInputsCost(recipe, amount))) {
+    const have = stash[mid] ?? 0
+    if (have < need) return { ok: false }
+    const left = have - need
+    if (left > 0) stash = { ...stash, [mid]: left }
+    else {
+      const { [mid]: _removed, ...rest } = stash
+      stash = rest
+    }
+  }
+  return { ok: true, resources: r1.resources, materialStash: stash }
 }
 
 /** Проверка достаточности `cost` с учётом `materialStash` по `MATERIAL_TO_RESOURCE`. */
@@ -424,6 +465,11 @@ function spendSingleResourceKeyFromPools(
     else delete newStash[mid]
     remaining -= take
     if (remaining === 0) return { resources: newResources, stash: newStash }
+  }
+
+  if (isA2StashOnlyResourceKey(resourceKey)) {
+    if (remaining > 0) return null
+    return { resources: newResources, stash: newStash }
   }
 
   const pool = newResources[resourceKey] ?? 0
@@ -576,7 +622,9 @@ export function calculatePartRawResources(
   const entry = partMaterialSupply?.[partId]
   if (entry?.mode === 'ore_smelt') {
     const tech = resolveProcessingTechniqueForPart(partId, materialId, entry)
-    const ref = tech ? refiningRecipes.find(r => r.id === tech.refiningRecipeId) : undefined
+    const ref = tech
+      ? refiningRecipes.find(r => r.id === getEffectiveRefiningRecipeId(tech))
+      : undefined
     if (ref && ref.output.amount > 0) {
       const direct = calculateRawResources(materialId, baseQuantity)
       const outKey = ref.output.resource as ResourceKey

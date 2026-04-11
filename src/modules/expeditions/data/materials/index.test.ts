@@ -12,7 +12,7 @@ import {
   getMaterialName,
 } from './index';
 import { LOCATION_REGISTRY } from '../locations';
-import type { Rarity, MaterialCategory } from '../../types';
+import type { MaterialCatalogRarity, Rarity, MaterialCategory } from '../../types';
 
 describe('MATERIAL_REGISTRY', () => {
   it('should have materials defined', () => {
@@ -36,7 +36,14 @@ describe('MATERIAL_REGISTRY', () => {
   });
 
   it('should have valid rarity values', () => {
-    const validRarities: Rarity[] = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+    const validRarities: MaterialCatalogRarity[] = [
+      'common',
+      'uncommon',
+      'rare',
+      'epic',
+      'legendary',
+      'unique',
+    ];
 
     for (const material of MATERIAL_REGISTRY) {
       expect(validRarities).toContain(material.rarity);
@@ -69,6 +76,12 @@ describe('Material distribution', () => {
     const legendary = getMaterialsByRarity('legendary').length;
 
     expect(common).toBeGreaterThan(legendary);
+  });
+
+  it('should include unique-tier catalog materials (quest artifacts)', () => {
+    const unique = getMaterialsByRarity('unique');
+    expect(unique.length).toBeGreaterThanOrEqual(3);
+    expect(unique.some((m) => m.id === 'resonator_matrix')).toBe(true);
   });
 
   it('should have materials for each category', () => {

@@ -4,6 +4,9 @@
 
 import { Rarity } from './location.types';
 
+/** Редкость записи в каталоге экспедиций (включая квестовые предметы вне таблиц локаций). */
+export type MaterialCatalogRarity = Rarity | 'unique';
+
 // ============================================================================
 // Категории материалов
 // ============================================================================
@@ -28,7 +31,7 @@ export interface Material {
   name: string;
   description: string;
   category: MaterialCategory;
-  rarity: Rarity;
+  rarity: MaterialCatalogRarity;
 
   // Базовые свойства для крафта
   properties?: MaterialProperties;
@@ -97,7 +100,7 @@ export interface ResourceAmount {
 
 export function getMaterialsByRarity(
   materials: Material[],
-  rarity: Rarity
+  rarity: MaterialCatalogRarity
 ): Material[] {
   return materials.filter((m) => m.rarity === rarity);
 }

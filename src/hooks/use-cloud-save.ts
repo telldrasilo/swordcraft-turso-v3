@@ -230,10 +230,14 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
         forgottenForgePhase: state.forgottenForgePhase,
         archivistDialogue: state.archivistDialogue,
         archivistPendingChoices: state.archivistPendingChoices,
+        archivistForgottenForgeTaskBannerAfterEntryId:
+          state.archivistForgottenForgeTaskBannerAfterEntryId ?? null,
         altarUnlockedByForgottenForgeQuest: state.altarUnlockedByForgottenForgeQuest,
         altarBuiltInForge: state.altarBuiltInForge,
         messagesDockEncyclopediaReadUpToTs: state.messagesDockEncyclopediaReadUpToTs ?? 0,
         messagesDockArchivistReadUpToTs: state.messagesDockArchivistReadUpToTs ?? 0,
+        altarConstruction: state.altarConstruction,
+        materialStashQuestItemIds: state.materialStashQuestItemIds ?? [],
       },
     }
   }, [])
@@ -342,6 +346,7 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
       },
       resources: inv.resources,
       materialStash: inv.materialStash,
+      materialStashQuestItemIds: ffPersist.materialStashQuestItemIds,
       statistics: data.statistics || {},
       workers: data.workers || [],
       buildings: data.buildings || [],
@@ -388,10 +393,13 @@ export function useCloudSave(options: UseCloudSaveOptions = {}): CloudSaveResult
       forgottenForgePhase: ffPersist.forgottenForgePhase as QuestPhase,
       archivistDialogue: ffPersist.archivistDialogue,
       archivistPendingChoices: ffPersist.archivistPendingChoices,
+      archivistForgottenForgeTaskBannerAfterEntryId:
+        ffPersist.archivistForgottenForgeTaskBannerAfterEntryId ?? null,
       altarUnlockedByForgottenForgeQuest: ffPersist.altarUnlockedByForgottenForgeQuest,
       altarBuiltInForge: ffPersist.altarBuiltInForge,
       messagesDockEncyclopediaReadUpToTs: ffPersist.messagesDockEncyclopediaReadUpToTs,
       messagesDockArchivistReadUpToTs: ffPersist.messagesDockArchivistReadUpToTs,
+      altarConstruction: ffPersist.altarConstruction,
     })
   }, [])
 

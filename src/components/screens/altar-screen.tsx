@@ -1,52 +1,80 @@
 /**
- * Экран зачарований (ранее «Алтарь душ»).
- * Гейт по tier-2; чертёж по квесту; контент модуля — после сборки узла в кузнице.
+ * Экран зачарований: стройка алтаря v2 и (после финала) контент модуля.
  */
 
 'use client'
 
-import { Lock, Sparkles, Construction, Hammer } from 'lucide-react'
+import { useState } from 'react'
+import { Lock, Sparkles, Hammer } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useGameStore } from '@/store'
-import {
-  canAccessEnchantmentAltarScreen,
-  canUseEnchantmentAltarContent,
-} from '@/lib/enchantment-screen-access'
+import { coerceAltarPhase } from '@/lib/altar/coerce-altar-phase'
+import { canAccessForgottenForgeEnchantmentFlow } from '@/lib/enchantment-screen-access'
+import type { AltarPhase } from '@/types/altar-construction'
+import { AltarQuestGoal } from '@/components/enchantment/altar-quest-goal'
+import { useAltarConstructionTick } from '@/hooks/use-altar-construction-tick'
+import { useToast } from '@/hooks/use-toast'
+import { AltarRoadmap } from '@/components/enchantment/altar-construction/altar-roadmap'
+import { AltarPhaseDetailsPanel } from '@/components/enchantment/altar-construction/altar-phase-details-panel'
 
 export function AltarScreen() {
-  const guildLevel = useGameStore((state) => state.guild.level)
   const altarUnlockedByForgottenForgeQuest = useGameStore(
     (state) => state.altarUnlockedByForgottenForgeQuest
   )
   const altarBuiltInForge = useGameStore((state) => state.altarBuiltInForge)
+  const forgottenForgeQuest = useGameStore((state) => state.forgottenForgeQuest)
   const setCurrentScreen = useGameStore((state) => state.setCurrentScreen)
   const navigateToForgeTab = useGameStore((state) => state.navigateToForgeTab)
-  const tierOk = canAccessEnchantmentAltarScreen(guildLevel)
-  const contentOk = canUseEnchantmentAltarContent(
-    guildLevel,
-    altarUnlockedByForgottenForgeQuest,
-    altarBuiltInForge
+
+  const materialStash = useGameStore((state) => state.materialStash)
+  const unlockedCraftTechniqueIds = useGameStore((state) => state.unlockedCraftTechniqueIds)
+  const unlockedMaterialProcessingTechniqueIds = useGameStore(
+    (state) => state.unlockedMaterialProcessingTechniqueIds
+  )
+  const altarConstruction = useGameStore((state) => state.altarConstruction)
+  const startPhase = useGameStore((state) => state.startAltarConstructionPhase)
+  const cancelPhase = useGameStore((state) => state.cancelAltarConstructionPhase)
+  const devSkipToNextConstructionStage = useGameStore(
+    (state) => state.devAltarConstructionSkipToNextStage
+  )
+  const devCompleteConstructionPhase = useGameStore(
+    (state) => state.devAltarConstructionCompleteActivePhase
   )
 
-  if (!tierOk) {
+  const [enchantTab, setEnchantTab] = useState<'enchant' | 'upgrade'>('enchant')
+  /** Выбор на дорожной карте; при активной стройке совпадает с `activePhaseNorm`. */
+  const [selectedPhase, setSelectedPhase] = useState<AltarPhase>(1)
+  const activePhaseNorm = coerceAltarPhase(altarConstruction.activePhase)
+  const detailPhase = activePhaseNorm ?? selectedPhase
+
+  const { toast } = useToast()
+
+  const blueprintOk = canAccessForgottenForgeEnchantmentFlow(
+    altarUnlockedByForgottenForgeQuest
+  )
+  useAltarConstructionTick(activePhaseNorm != null)
+
+  if (!altarUnlockedByForgottenForgeQuest) {
     return (
-      <div className="p-4 md:p-6 space-y-6 max-w-2xl">
+      <div className="w-full space-y-6 p-6">
         <div>
-          <h2 className="text-2xl font-bold text-amber-200 flex items-center gap-2">
-            <Sparkles className="w-6 h-6 text-amber-500" />
+          <h2 className="flex items-center gap-2 text-2xl font-bold text-amber-200">
+            <Sparkles className="size-6 text-amber-500" />
             Зачарования
           </h2>
-          <p className="text-stone-500 text-sm mt-1">Алтарь зачарований закрыт</p>
+          <p className="mt-1 text-sm text-stone-500">Алтарь ещё не разблокирован</p>
         </div>
-        <Card className="card-medieval border-amber-900/40 bg-stone-900/50">
-          <CardContent className="p-6 space-y-4">
+        <Card className="card-medieval max-w-2xl border-amber-900/40 bg-stone-900/50">
+          <CardContent className="space-y-4 p-6">
             <div className="flex items-center gap-3 text-amber-200/90">
-              <Lock className="w-10 h-10 shrink-0" />
+              <Lock className="size-10 shrink-0" />
               <div>
-                <p className="font-medium">Нужен доступ к локациям 2-го тира</p>
-                <p className="text-sm text-stone-400 mt-1">
-                  Поднимите гильдию: сейчас уровень {guildLevel}. Откройте экспедиции повыше 1-го тира.
+                <p className="font-medium">Завершите особое задание «Эхо забытой кузни»</p>
+                <p className="mt-1 text-sm text-stone-400">
+                  Откройте гильдию → вкладка экспедиций → «Особые задания», следуйте указаниям
+                  архивариуса.
                 </p>
               </div>
             </div>
@@ -63,106 +91,93 @@ export function AltarScreen() {
     )
   }
 
-  if (!altarUnlockedByForgottenForgeQuest) {
+  if (!altarBuiltInForge && blueprintOk) {
     return (
-      <div className="p-4 md:p-6 space-y-6 max-w-2xl">
+      <div className="w-full space-y-6 p-6">
         <div>
-          <h2 className="text-2xl font-bold text-amber-200 flex items-center gap-2">
-            <Sparkles className="w-6 h-6 text-amber-500" />
+          <h2 className="flex items-center gap-2 text-2xl font-bold text-amber-200">
+            <Sparkles className="size-6 text-amber-500" />
             Зачарования
           </h2>
-          <p className="text-stone-500 text-sm mt-1">Алтарь ещё не разблокирован</p>
         </div>
-        <Card className="card-medieval border-amber-900/40 bg-stone-900/50">
-          <CardContent className="p-6 space-y-4">
-            <div className="flex items-center gap-3 text-amber-200/90">
-              <Lock className="w-10 h-10 shrink-0" />
-              <div>
-                <p className="font-medium">Завершите особое задание «Эхо забытой кузни»</p>
-                <p className="text-sm text-stone-400 mt-1">
-                  Откройте гильдию → вкладка экспедиций → «Особые задания», следуйте указаниям архивариуса.
-                </p>
-              </div>
-            </div>
-            <Button type="button" className="w-full sm:w-auto" onClick={() => setCurrentScreen('guild')}>
-              В гильдию
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
 
-  if (!contentOk) {
-    return (
-      <div className="p-4 md:p-6 space-y-6 max-w-2xl">
-        <div>
-          <h2 className="text-2xl font-bold text-amber-200 flex items-center gap-2">
-            <Sparkles className="w-6 h-6 text-amber-500" />
-            Зачарования
-          </h2>
-          <p className="text-stone-500 text-sm mt-1">Соберите узел в кузнице</p>
-        </div>
-        <Card className="card-medieval border-amber-900/40 bg-stone-900/50">
-          <CardContent className="p-6 space-y-4">
-            <div className="flex items-center gap-3 text-amber-200/90">
-              <Construction className="w-10 h-10 shrink-0" />
-              <div>
-                <p className="font-medium">Чертёж и артефакты у вас в кузнице</p>
-                <p className="text-sm text-stone-400 mt-1">
-                  Откройте кузницу → вкладка «Алтарь» и завершите сборку узла. Пока узел не готов,
-                  эссенция и полный модуль не задействуются.
-                </p>
-              </div>
-            </div>
-            <Button
-              type="button"
-              className="w-full sm:w-auto gap-2"
-              onClick={() => navigateToForgeTab('altar')}
-            >
-              <Hammer className="w-4 h-4" />
-              В кузницу — алтарь
-            </Button>
-          </CardContent>
-        </Card>
+        <AltarQuestGoal quest={forgottenForgeQuest} />
+
+        <AltarRoadmap
+          quest={forgottenForgeQuest}
+          completedPhases={altarConstruction.completedPhases}
+          activePhase={activePhaseNorm}
+          selectedPhase={detailPhase}
+          onSelectPhase={setSelectedPhase}
+          onLockedClick={() => {
+            toast({
+              title: 'Фаза ещё не открыта',
+              description: 'Продвиньте особое задание архивариуса, чтобы разблокировать эту фазу.',
+            })
+          }}
+        />
+
+        <AltarPhaseDetailsPanel
+          phase={detailPhase}
+          quest={forgottenForgeQuest}
+          altarConstruction={altarConstruction}
+          materialStash={materialStash}
+          unlockedCraftTechniqueIds={unlockedCraftTechniqueIds}
+          unlockedMaterialProcessingTechniqueIds={unlockedMaterialProcessingTechniqueIds}
+          startPhase={startPhase}
+          cancelPhase={cancelPhase}
+          devSkipToNextConstructionStage={devSkipToNextConstructionStage}
+          devCompleteConstructionPhase={devCompleteConstructionPhase}
+        />
       </div>
     )
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-2xl">
+    <div className="w-full space-y-6 p-6 md:max-w-3xl">
       <div>
-        <h2 className="text-2xl font-bold text-amber-200 flex items-center gap-2">
-          <Sparkles className="w-6 h-6 text-amber-500" />
+        <h2 className="flex items-center gap-2 text-2xl font-bold text-amber-200">
+          <Sparkles className="size-6 text-amber-500" />
           Зачарования
         </h2>
-        <p className="text-stone-500 text-sm flex items-center gap-2 mt-1">
-          <Construction className="w-4 h-4 shrink-0" />
-          Древо перков и эссенция — в разработке (фаза 2). Перековка доступна в кузнице.
+        <p className="mt-1 text-sm text-stone-500">
+          Алтарь готов. Модуль зачарований — в разработке.
         </p>
       </div>
-      <Card className="card-medieval bg-stone-800/40">
-        <CardContent className="p-4 text-sm text-stone-400 space-y-3">
-          <p>
-            Канон:{' '}
-            <code className="text-amber-200/90">docs/systems/ENCHANTMENT_AWAKENING_CONCEPT.md</code>
-            {' · '}
-            фаза 1:{' '}
-            <code className="text-amber-200/90">docs/systems/ENCHANTMENT_MODULE_PHASE1.md</code>.
-          </p>
-          <Button
-            type="button"
-            variant="secondary"
-            className="gap-2"
-            onClick={() => {
-              navigateToForgeTab('reforge')
-            }}
-          >
-            <Hammer className="w-4 h-4" />
-            В кузницу — перековка
-          </Button>
-        </CardContent>
-      </Card>
+
+      <Tabs value={enchantTab} onValueChange={(v) => setEnchantTab(v as 'enchant' | 'upgrade')}>
+        <TabsList className="border border-stone-800 bg-stone-900/80">
+          <TabsTrigger value="enchant">Зачарование</TabsTrigger>
+          <TabsTrigger value="upgrade">Улучшение алтаря</TabsTrigger>
+        </TabsList>
+        <TabsContent value="enchant" className="mt-4">
+          <Card className="card-medieval border-amber-900/30 bg-stone-900/50">
+            <CardContent className="space-y-2 p-5 text-sm text-stone-400">
+              <p>Древо перков и эссенция — в следующих итерациях.</p>
+              <p className="text-xs text-stone-500">
+                Канон: docs/systems/ENCHANTMENT_MODULE_PHASE1.md
+              </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="upgrade" className="mt-4">
+          <Card className="card-medieval border-stone-800 bg-stone-900/50">
+            <CardContent className="p-5 text-sm text-stone-400">
+              Улучшения алтаря по чертежам архива — заглушка. Скоро.
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      <Button
+        type="button"
+        variant="secondary"
+        className="gap-2"
+        onClick={() => navigateToForgeTab('reforge')}
+      >
+        <Hammer className="size-4" />
+        В кузницу — перековка
+      </Button>
     </div>
   )
 }

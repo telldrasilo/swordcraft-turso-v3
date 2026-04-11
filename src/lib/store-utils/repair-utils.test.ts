@@ -102,24 +102,25 @@ describe('executeRepair', () => {
     materials: { ironIngot: 20 },
   }
 
-  /** Ремонт всегда требует уголь в опции — см. getRepairMaterials */
-  const plenty = { ironIngot: 999, coal: 999 }
+  /** Ремонт всегда требует уголь в опции — см. getRepairMaterials (уголь — stash-only пул). */
+  const plentyRes = { ironIngot: 999 }
+  const plentyStash = { coal: 999 }
 
   it('fails when repair type is not in options', () => {
-    const r = executeRepair(weaponWithIron, 'enhancement', 1, plenty)
+    const r = executeRepair(weaponWithIron, 'enhancement', 1, plentyRes, plentyStash)
     expect(r.success).toBe(false)
     expect(r.error).toBe('Опция ремонта недоступна')
   })
 
   it('fails when materials are insufficient', () => {
-    const r = executeRepair(weaponWithIron, 'quality', 1, { ironIngot: 0, coal: 999 })
+    const r = executeRepair(weaponWithIron, 'quality', 1, { ironIngot: 0 }, { coal: 999 })
     expect(r.success).toBe(false)
     expect(r.error).toMatch(/Недостаточно материалов/)
   })
 
   it('returns success when validation passes and repair roll succeeds', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0)
-    const r = executeRepair(weaponWithIron, 'quality', 1, plenty)
+    const r = executeRepair(weaponWithIron, 'quality', 1, plentyRes, plentyStash)
     expect(r.success).toBe(true)
     expect(r.result?.success).toBe(true)
     expect(r.result?.durabilityRestored).toBeGreaterThan(0)
@@ -131,8 +132,8 @@ describe('executeRepair', () => {
       weaponWithIron,
       'quality',
       1,
-      { ironIngot: 0, coal: 999 },
-      { iron_alloy: 999 }
+      { ironIngot: 0 },
+      { iron_alloy: 999, coal: 999 }
     )
     expect(r.success).toBe(true)
   })

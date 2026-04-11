@@ -2,9 +2,11 @@
 
 **Назначение:** один экран для человека-разработчика: какие **стадии** (`materialId` каталога), какие **ключи склада** (`ResourceKey` в `resources` + `materialStash`), как **начисляется** лут и как **тратится** крафтом/горном/пилорамой.
 
+**Игрок:** ориентир по материалам — **энциклопедия** (каталог), а не верхняя полоска агрегированных ключей в макете; см. [LEGACY_UI.md](LEGACY_UI.md).
+
 **Источник правды — код.** Этот файл — согласованное резюме; при расхождении правьте код, затем обновите карту (см. § «Сопровождение»).
 
-**Связанные документы:** [`MATERIALS_UNIFICATION_AUDIT.md`](MATERIALS_UNIFICATION_AUDIT.md) (дорожная карта фаз), [`MATERIAL_SEMANTIC_PROCESS_ROLES.md`](MATERIAL_SEMANTIC_PROCESS_ROLES.md) (смысловые роли в процессах), [`data/MATERIALS_ADDING.md`](data/MATERIALS_ADDING.md) (как добавлять узел в библиотеку).
+**Связанные документы:** [`MATERIALS_UNIFICATION_AUDIT.md`](MATERIALS_UNIFICATION_AUDIT.md) (дорожная карта фаз), [`MATERIAL_SEMANTIC_PROCESS_ROLES.md`](MATERIAL_SEMANTIC_PROCESS_ROLES.md) (смысловые роли в процессах), [`data/MATERIALS_ADDING.md`](data/MATERIALS_ADDING.md) (как добавлять узел в библиотеку), **[`MATERIALS_SINGLE_SOURCE_ROADMAP.md`](MATERIALS_SINGLE_SOURCE_ROADMAP.md)** (целевая единая модель каталога/склада и фазы закрытия A2–5.x).
 
 ---
 
@@ -131,7 +133,7 @@ flowchart LR
 
 | `materialId` (фрагменты каталога) | `ResourceKey` |
 |-----------------------------------|---------------|
-| `basic_stone`, `granite`, `obsidian`, `marble` | **`stone`** |
+| `basic_stone`, `fieldstone`, `granite`, `obsidian`, `marble` | **`stone`** |
 | `processed_stone` | **`stoneBlocks`** |
 
 Начисление **`stone`:** stash **`basic_stone`** (`REFINING_INPUT_STAGE_MATERIAL_ID.stone`). Каменный пул (`red_stone`, `clay`, … из моста) суммируется в **`stone`** — см. тесты пула в [`inventory-check.test.ts`](../src/lib/craft/inventory-check.ts).
@@ -141,6 +143,8 @@ flowchart LR
 ## 6. Кожа
 
 Все перечисленные в [`MATERIAL_TO_RESOURCE`](../src/lib/craft/inventory-check.ts) варианты кожи сходятся в **`ResourceKey` `leather`** (стадии пока не разведены по отдельным ключам — см. аудит на будущее). Контроль суммы пула — тот же блок тестов в [`inventory-check.test.ts`](../src/lib/craft/inventory-check.ts).
+
+**Цепочка выделки (roadmap 3.x):** рецепт **`tanned_leather_tan`** в [`refining-recipes.ts`](../src/data/refining-recipes.ts) — вход **`raw_leather`** только из `materialStash` (`stashInputsPerBatch`), выход в stash — **`tanned_leather`** (`stashOutputMaterialId`); здание в типе рецепта — **`tannery`**. См. **`applyRefiningStartSpend`** в [`resources-slice.ts`](../src/store/slices/resources-slice.ts).
 
 ---
 
@@ -155,16 +159,16 @@ flowchart LR
 
 ## 8. Добываемые узлы library → склад (мост)
 
-Экспедиционные материалы из подпапок [`library/`](../src/data/materials/library/) (`ores/`, `fuels/`, `organics/` …), перечисленные в [`world-resource-nodes.ts`](../src/data/materials/library/world-resource-nodes.ts), с тем же `identity.id` начисляются в `materialStash`. Чтобы они участвовали в плавке/крафте/лавке вместе с ядром библиотеки, их `materialId` добавлены в [`WORLD_RESOURCE_TO_RESOURCE_KEY`](../src/lib/materials/world-resource-inventory-bridge.ts) и **сливаются первыми** в `MATERIAL_TO_RESOURCE` в [`inventory-check.ts`](../src/lib/craft/inventory-check.ts) (ядро **перекрывает** коллизии — например `silver_ore` остаётся как в `CORE`).
+Добываемые узлы из [`library/`](../src/data/materials/library/) с тем же `identity.id`, что в [`world-resource-nodes.ts`](../src/data/materials/library/world-resource-nodes.ts) (частичный каталог для мира/экспедиций), обычно начисляются в `materialStash`. **Волна 2.4h:** **`сплавы`** (`steel`, `high_carbon_steel`, `*_alloy`, `bronze`), **`processed_wood`** (`planks`), **`processed_stone`** (`stoneBlocks`) — в [`WORLD_RESOURCE_TO_RESOURCE_KEY`](../src/lib/materials/world-resource-inventory-bridge.ts); таблица [`CORE_MATERIAL_TO_RESOURCE`](../src/lib/craft/inventory-check.ts) **пустая**, а раскрытие стоимости сплавов по входам — по-прежнему в **`ALLOY_RECIPES`** в `inventory-check`. **Канонические руды**, **базовые металлы** и прочие id (**2.4g**, **2.4d–2.4f**, TD-INV-2) — тоже в мосте. При сборке `MATERIAL_TO_RESOURCE` сначала подмешивается мост, затем ядро — **ядро перекрывает** коллизии по одному и тому же `materialId` (пересечение CORE∩WORLD должно быть пустым).
 
 | `materialId` (добываемые) | `ResourceKey` | Примечание |
 |-------------------------------|---------------|------------|
 | `bog_iron`, `depth_iron`, `cold_iron_ore`, `living_ore` | **`iron`** | варианты руды |
 | `star_metal` | **`mithril`** | редкое сырьё → пул мифриловой руды |
 | `ancient_metal` | **`ironIngot`** | находка «как слиток» |
-| `rotten_wood`, `spirit_wood`, `silvered_pine` | **`wood`** | |
+| `ash`, `birch`, `ebony`, `ironwood`, `mahogany`, `maple`, `oak`, `pine`, `walnut`, `rotten_wood`, `spirit_wood`, `silvered_pine` | **`wood`** | породы каталога + варианты (2.4d) |
 | `acorns`, `dream_resin`, `echo_bark`, `forest_moss`, `oak_bark`, `pine_resin`, `silver_bark`, `swamp_moss`, `toxic_moss`, `whisper_moss`, `cryo_fungi`, `memory_leaf`, `mist_herbs`, `wild_herbs`, `ancient_sap` | **`wood`** | TD-INV-2 (кора, смола, мох, травы) |
-| `red_stone`, `clay`, `deep_clay`, `depth_stone`, `sulfur` | **`stone`** | |
+| `basic_stone`, `fieldstone`, `granite`, `marble`, `obsidian`, `red_stone`, `clay`, `deep_clay`, `depth_stone`, `sulfur` | **`stone`** | каталожный камень + полевые/торфяные варианты (2.4e) |
 | `dragon_glass`, `echo_stone`, `fire_stone`, `frozen_crystals`, `moonstone_shards`, `primordial_amber`, `void_crystal`, `volcanic_glass`, `eternal_ice`, `heart_of_the_mountain`, `primordial_ice` | **`stone`** | TD-INV-2 gems/special |
 | `shadow_leather`, `dragon_scale` | **`leather`** | |
 | `bones`, `decayed_bones`, `poison_gland`, `dragon_bone` | **`leather`** | TD-INV-2 (кости/органика → пул кожи A1) |
@@ -194,4 +198,25 @@ flowchart LR
 
 ---
 
-*Версия карты: фаза 3 + мост добываемых узлов library → `ResourceKey`.*
+## 11. Аудит актуальности (2026-04-09)
+
+Сверка с текущим кодом: `inventory-check.ts` (`CORE_MATERIAL_TO_RESOURCE`, `MATERIAL_TO_RESOURCE`, `ALLOY_RECIPES`, `RESOURCE_GRANT_STASH_FALLBACK`, `computeRefiningSmeltingOutputMultiplier`), `world-resource-inventory-bridge.ts`, `gatherable-enc-only.ts`, `refining-recipes.ts`, `resources-slice.ts`, `inventory-check.test.ts`.
+
+| Аспект | Вердикт |
+|--------|---------|
+| Два слоя `resources` + `materialStash`, мост `getAvailableAmountForResourceKey` / списание | **Соответствует** |
+| Порядок слияния мост → ядро; при коллизии `materialId` побеждает ядро | **Соответствует** |
+| Пулы `iron`, `wood`, `stone`, `leather`, `coal`; тесты пулов | **Соответствует** |
+| Таблица §8 vs `WORLD_RESOURCE_TO_RESOURCE_KEY` | **Соответствует** (полный мост совпадает с перечислением) |
+| `GATHERABLE_ENC_ONLY_MATERIAL_IDS` пуст | **Соответствует** |
+| Семантика выхода плавки `computeRefiningSmeltingOutputMultiplier` + оверрайды | **Соответствует** (функция в коде есть) |
+| §5 камень: не хватало `fieldstone` в таблице | **Исправлено** в этом же файле |
+| §8 формулировка «только world-resource-nodes» | **Уточнено** — узлы каталога неполные; сплавы и `processed_*` — мост (**2.4h**); **`CORE`** пустой; руды/базовые металлы — мост (**2.4g**) |
+| Схема в §2 (income) | **Упрощение:** часть систем может трогать и `resources`, и stash; для точностей см. код начисления |
+| `npm run materials:resource-map` | По-прежнему **идея** (в `package.json` есть `materials:phase0`, отдельного скрипта карты нет) |
+
+**Итог:** карта **актуальна** как резюме архитектуры A1 и моста TD-INV-2; при добавлении нового добываемого id сверять с тремя местами: ядро, мост, (при необходимости) ENC-only.
+
+---
+
+*Версия карты: фаза 3 + мост добываемых узлов library → `ResourceKey`; §11 — журнал сверки.*

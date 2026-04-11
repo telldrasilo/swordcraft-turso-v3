@@ -49,6 +49,7 @@ import {
   aggregateProcessingForecastSpreadTightness,
   aggregateProcessingQualityDelta,
   getAvailableMaterialProcessingTechniques,
+  getMaterialProcessingTechniqueById,
   validateMaterialProcessingPlan,
 } from '@/data/material-processing-techniques'
 import { getAvailableRecipes, getRecipeById } from '@/data/recipes'
@@ -684,14 +685,26 @@ export function CraftPlanner({
                 if (processingOpts.length === 0) return null
                 const part = selectedRecipe.parts.find(p => p.id === partId)
                 const supplyEntry = partMaterialSupply[partId]
+                const sheetActiveTechniqueName =
+                  supplyEntry?.mode === 'ore_smelt' && supplyEntry.processingTechniqueId
+                    ? getMaterialProcessingTechniqueById(supplyEntry.processingTechniqueId)
+                        ?.name
+                    : undefined
                 return (
                   <>
                     <SheetHeader className="text-left">
                       <SheetTitle className="text-amber-100">
                         Техника обработки
                       </SheetTitle>
-                      <SheetDescription>
-                        {part?.name ?? partId} — цепочка переработки сырья до нужной заготовки
+                      <SheetDescription className="space-y-1 text-stone-400">
+                        <span className="block">
+                          {part?.name ?? partId} — цепочка переработки сырья до нужной заготовки
+                        </span>
+                        {sheetActiveTechniqueName ? (
+                          <span className="block text-sm font-medium text-amber-200/95">
+                            {sheetActiveTechniqueName}
+                          </span>
+                        ) : null}
                       </SheetDescription>
                     </SheetHeader>
                     <div className="mt-4">

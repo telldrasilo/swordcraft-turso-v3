@@ -22,6 +22,10 @@ export type ExpeditionDifficulty = ExpeditionDifficultyDomain
 export interface ExpeditionReward {
   baseGold: number
   baseWarSoul: number
+  /**
+   * Опциональные бонусы для калькулятора/UI. Шаблоны из `MISSION_REGISTRY` сейчас не заполняют поле;
+   * если добавите строки — `resource` должен быть каноническим `materialId` (контракт `material-catalog-contract`).
+   */
   bonusResources?: { resource: string; amount: number; chance: number }[]
   bonusEssence?: number
 }

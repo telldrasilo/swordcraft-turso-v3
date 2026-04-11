@@ -49,6 +49,12 @@
  *   отдельных колонок Turso не требуется. При изменении формы — `STORE_VERSION` / merge в store при необходимости.
  *
  * - **Лента сообщений / квест FF:** `messagesDockEncyclopediaReadUpToTs`, `messagesDockArchivistReadUpToTs` в `forgottenForgePersist` (Zustand persist + облако при включении).
+ * - **STORE_VERSION 28 / алтарь v2 (этап 0):** в persist и в JSON `forgottenForgePersist` добавлены `altarConstruction`, `materialStashQuestItemIds`; шаг квеста FF до `FORGOTTEN_FORGE_QUEST_STEP_MAX` (18). Отдельных колонок Turso не требуется.
+ * - **STORE_VERSION 29 / алтарь v2 (стройка на экране зачарований):** merge поднимает FF из «завершён на шаге 7» в активный шаг 8 при отсутствии `altarBuiltInForge`; `forgeMainTab: 'altar'` → `craft`; фаза квеста `open`; рецепт `forgotten_forge_altar_node` удалён из каталога (старый `craftV2Persisted` с этим id финализируется без записи в каталог).
+ * - **STORE_VERSION 30 / A2 фаза 2.4:** одноразовый повторный sweep `resources` → `materialStash` через `migrateLegacyMaterialResourcesToStash` (те же поля JSON, отдельных колонок Turso не требуется).
+ * - **STORE_VERSION 31 / A2 2.4 хвост:** повторный sweep после ввода stash-only пула `coal` (идемпотентно).
+ * - **STORE_VERSION 32 / ENC P3c:** `lastEncyclopediaTab` (`materials` | `techniques`) в Zustand persist; в облако не выносится до отдельного расширения `collectSaveData` / Zod / Turso.
+ * - **STORE_VERSION 33 / ENC P2d:** `lastEncyclopediaTechniqueKindTab` (семейство техник в энциклопедии); в облако не выносится до отдельного расширения `collectSaveData` / Zod / Turso.
  * - **Интендант крафта:** `unlockedCraftTechniqueIds` (store persist + `collectSaveData`/`applyLoadedData` + Zod + Turso/route).
  * - **§9.1 / §9.1.1 weaponLegacy на оружии:** `repairResolveCountByTagId`, `archivedDamageTagIds`, опционально
  *   `repairDiagnosisPreciseCountByTagId` / `repairDiagnosisRiskyCountByTagId` / `repairDiagnosisSkippedCountByTagId` —

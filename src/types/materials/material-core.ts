@@ -169,11 +169,18 @@ export function getDisplayCategory(material: MaterialNode): MaterialDisplayCateg
 // РЕДКОСТЬ
 // ================================
 
-export type MaterialRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary'
+export type MaterialRarity =
+  | 'common'
+  | 'uncommon'
+  | 'rare'
+  | 'epic'
+  | 'legendary'
+  | 'unique'
 
 export function getMaterialRarity(economy: MaterialEconomy): MaterialRarity {
   const { rarity } = economy
 
+  if (rarity >= 200) return 'unique'
   if (rarity >= 150) return 'legendary'
   if (rarity >= 100) return 'epic'
   if (rarity >= 60) return 'rare'
@@ -187,6 +194,7 @@ export const RARITY_COLORS: Record<MaterialRarity, string> = {
   rare: 'text-blue-400',
   epic: 'text-purple-400',
   legendary: 'text-amber-400',
+  unique: 'text-fuchsia-300',
 }
 
 export const RARITY_BG_COLORS: Record<MaterialRarity, string> = {
@@ -195,6 +203,7 @@ export const RARITY_BG_COLORS: Record<MaterialRarity, string> = {
   rare: 'bg-blue-900/30',
   epic: 'bg-purple-900/30',
   legendary: 'bg-amber-900/30',
+  unique: 'bg-fuchsia-950/35',
 }
 
 export const RARITY_LABELS: Record<MaterialRarity, string> = {
@@ -203,6 +212,7 @@ export const RARITY_LABELS: Record<MaterialRarity, string> = {
   rare: 'Редкий',
   epic: 'Эпический',
   legendary: 'Легендарный',
+  unique: 'Уникальный',
 }
 
 // ================================

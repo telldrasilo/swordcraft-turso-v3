@@ -2,7 +2,9 @@
 
 **Статус:** проектный документ (планирование и архитектура). Не заменяет [`FORGE_SYSTEM.md`](FORGE_SYSTEM.md), [`../data/TECHNIQUES_DATA.md`](../data/TECHNIQUES_DATA.md) и [`../RESOURCE_TRANSFORMATION_MAP.md`](../RESOURCE_TRANSFORMATION_MAP.md) — дополняет их целевой моделью и фазами внедрения.
 
-**Связанные документы:** [`../PROJECT_AUDIT.md`](../PROJECT_AUDIT.md) (живой аудит), [`../P2_ARCHITECTURE_INVENTORY.md`](../P2_ARCHITECTURE_INVENTORY.md), [`../MATERIAL_SEMANTIC_PROCESS_ROLES.md`](../MATERIAL_SEMANTIC_PROCESS_ROLES.md), [`../MATERIALS_UNIFICATION_AUDIT.md`](../MATERIALS_UNIFICATION_AUDIT.md).
+**Каталог `materialId`, единый склад и модель обработки материалов** (источник правды по ссылкам и волнам) — **[`../MATERIALS_SINGLE_SOURCE_ROADMAP.md`](../MATERIALS_SINGLE_SOURCE_ROADMAP.md)**; этот файл не дублирует то ТЗ и остаётся про крафт, энциклопедию и этапы ковки.
+
+**Связанные документы:** [`../PROJECT_AUDIT.md`](../PROJECT_AUDIT.md) (живой аудит), [`../P2_ARCHITECTURE_INVENTORY.md`](../P2_ARCHITECTURE_INVENTORY.md), [`../MATERIAL_SEMANTIC_PROCESS_ROLES.md`](../MATERIAL_SEMANTIC_PROCESS_ROLES.md), [`../MATERIALS_UNIFICATION_AUDIT.md`](../MATERIALS_UNIFICATION_AUDIT.md), **[`../MATERIALS_SINGLE_SOURCE_ROADMAP.md`](../MATERIALS_SINGLE_SOURCE_ROADMAP.md)** — целевая единая модель каталога, склада и **техник обработки** (операции, без `line_key` на материале; финал без legacy-мостов). **Крафтовая линия** (порядок техник, этапы/микроэтапы, доли времени, цвета, сообщения из микрозадач): **[`../ENCYCLOPEDIA_MATERIALS_TECHNIQUES_ROADMAP.md`](../ENCYCLOPEDIA_MATERIALS_TECHNIQUES_ROADMAP.md) §12**; микромодель шагов — тот же документ **§10**.
 
 ---
 
@@ -20,6 +22,16 @@
 | Чеклист расширений в [`cloud-save-feature.ts`](../../src/lib/cloud-save-feature.ts); в этой итерации новых полей persist не добавлялось | |
 
 Ниже — **чеклист** и таблица **«Следующие приоритеты»** с файлами.
+
+---
+
+## Фаза 4.1 — контракт «план → этапы» (синхрон с MATERIALS_SINGLE_SOURCE_ROADMAP §7)
+
+Черновик типов без полного UI таймлайна: [`src/types/craft/timeline-plan-contract.ts`](../../src/types/craft/timeline-plan-contract.ts) (`CraftTimelineStageRef`, `CraftTimelinePlanDraft`), тест [`timeline-plan-contract.test.ts`](../../src/types/craft/timeline-plan-contract.test.ts). **4.2–4.3 (MVP):** чистые функции в [`timeline-composition.ts`](../../src/lib/craft/timeline-composition.ts) + Vitest [`timeline-composition.test.ts`](../../src/lib/craft/timeline-composition.test.ts); полный перенос — в [`process-generator.ts`](../../src/lib/craft/process-generator.ts).
+
+### Крафтовая линия (UI и порядок техник)
+
+**Термин:** **Крафтовая линия** ([`ENCYCLOPEDIA_MATERIALS_TECHNIQUES_ROADMAP.md`](../ENCYCLOPEDIA_MATERIALS_TECHNIQUES_ROADMAP.md) **§12**) — полоса прогресса процесса: **блоки** = применяемые **техники** (цвет блока), **подсегменты** = **микрозадачи** внутри техники, ширина подсегмента ∝ доле времени в общей длительности; сообщения игроку из текущей микрозадачи. Порядок блоков: обработка материала / плавка **раньше** приёмов сборки и боевых техник ковки, если не переопределено данными (`craftLinePhase` / `craftLineOrder` — см. §12.3 того документа). Код: типы [`src/types/craft-line.ts`](../../src/types/craft-line.ts), сборка [`src/lib/craft/build-craft-line.ts`](../../src/lib/craft/build-craft-line.ts), полоса в кузне [`src/components/forge/craft-v2/craft-line-strip.tsx`](../../src/components/forge/craft-v2/craft-line-strip.tsx); сходимость с таймлайном Craft v2 и задел на ремонт, перековку и алтарь.
 
 ---
 
@@ -343,7 +355,7 @@
 
 **Критерий готовности:** включённая техника **видна** в «Крафт в процессе»; смена техники на контенте с непустыми `outcomeModifiers` **изменяет** прогноз/результат в пределах задокументированных формул.
 
-**Прогресс (MVP):** вставка этапов по **`craftStageInsertions`** из техники обработки ([`process-generator.ts`](../../src/lib/craft/process-generator.ts)); малый вклад в итоговое качество через **`processingQualityBonus`** и `processingQualityDelta` в [`calculator.ts`](../../src/lib/craft/calculator.ts); **`outcomeModifiers.forecastSpreadTightness`** влияет на прогноз (аргумент **`processingForecastSpreadTightness`** в **`calculateForecast`**); длительность вставленного этапа — **`durationSeconds` → `baseDurationOverride`** у конфига этапа. Расширение набора модификаторов и баланс — по мере данных.
+**Прогресс (MVP):** вставка этапов из **`craftStageInsertions`** и/или **`processingOperations[].stageTypeHint`** (общий сборщик в [`process-generator.ts`](../../src/lib/craft/process-generator.ts), без дубля по `stageType`; якорь `after prep_heating` подставляется для этапов только из операций — пилот **`forge_basic_leather_tan`** без `craftStageInsertions`); малый вклад в итоговое качество через **`processingQualityBonus`** и `processingQualityDelta` в [`calculator.ts`](../../src/lib/craft/calculator.ts); **`outcomeModifiers.forecastSpreadTightness`** влияет на прогноз (аргумент **`processingForecastSpreadTightness`** в **`calculateForecast`**); длительность — **`durationSeconds`** на операции или у записи `craftStageInsertions` → **`baseDurationOverride`**. Расширение набора модификаторов и баланс — по мере данных.
 
 ---
 

@@ -43,9 +43,19 @@ export function getMaterialProcessContribution(
   switch (processKind) {
     case 'refining_smelting':
       return inferRefiningSmelting(node)
+    case 'refining_tanning':
+      return inferRefiningTanning(node)
     case 'weapon_craft_v2':
       return inferWeaponCraftV2(node)
   }
+}
+
+function inferRefiningTanning(node: MaterialNode): MaterialProcessContribution {
+  const { class: cls, tags } = node.identity
+  if (cls === 'leather' || tags.includes('hide') || tags.includes('organic')) {
+    return { facets: ['organic_reagent'], source: 'inferred_tags' }
+  }
+  return { facets: [], source: 'class_fallback' }
 }
 
 function inferRefiningSmelting(node: MaterialNode): MaterialProcessContribution {

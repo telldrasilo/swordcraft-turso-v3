@@ -32,6 +32,11 @@ export interface RepairOption {
   name: string
   description: string
   icon: string
+  /**
+   * Явные каталожные id расхода (roadmap **0.2**), помимо `CraftingCost` / ключей пула.
+   * При появлении в шаблонах `REPAIR_TYPES` — автоматически попадают в `collectRepairReforgeCatalogMaterialIds`.
+   */
+  catalogMaterialSpendIds?: readonly string[]
   materials: CraftingCost
   goldCost: number
   durabilityRestore: number // Сколько прочности восстанавливает
@@ -381,12 +386,16 @@ export function getSmithMastery(playerLevel: number): SmithMasteryLevel {
 // КОНФИГУРАЦИЯ ТИПОВ РЕМОНТА
 // ================================
 
-export const REPAIR_TYPES: Record<RepairType, Omit<RepairOption, 'materials' | 'goldCost'>> = {
+export const REPAIR_TYPES: Record<
+  RepairType,
+  Omit<RepairOption, 'materials' | 'goldCost'>
+> = {
   quick: {
     type: 'quick',
     name: 'Быстрый ремонт',
     description: 'Срочный ремонт с высокими рисками. Подходит для экстренных ситуаций.',
     icon: '⚡',
+    catalogMaterialSpendIds: ['iron'],
     durabilityRestore: 25,
     maxDurabilityLoss: 5,
     soulLossPercent: 30,
@@ -400,6 +409,8 @@ export const REPAIR_TYPES: Record<RepairType, Omit<RepairOption, 'materials' | '
     name: 'Стандартный ремонт',
     description: 'Сбалансированный ремонт для большинства ситуаций.',
     icon: '🔧',
+    /** Roadmap **0.2:** типичный каталожный расход (фактический список по-прежнему из `CraftingCost` оружия). */
+    catalogMaterialSpendIds: ['iron'],
     durabilityRestore: 50,
     maxDurabilityLoss: 3,
     soulLossPercent: 15,
@@ -413,6 +424,7 @@ export const REPAIR_TYPES: Record<RepairType, Omit<RepairOption, 'materials' | '
     name: 'Качественный ремонт',
     description: 'Тщательный ремонт с минимальными рисками. Требует больше материалов.',
     icon: '✨',
+    catalogMaterialSpendIds: ['iron'],
     durabilityRestore: 80,
     maxDurabilityLoss: 1,
     soulLossPercent: 5,
@@ -426,6 +438,7 @@ export const REPAIR_TYPES: Record<RepairType, Omit<RepairOption, 'materials' | '
     name: 'Реставрация',
     description: 'Полное восстановление оружия, включая максимальную прочность. Дорого, но безопасно.',
     icon: '💎',
+    catalogMaterialSpendIds: ['iron'],
     durabilityRestore: 100,
     maxDurabilityLoss: 0,
     soulLossPercent: 0,
@@ -439,6 +452,7 @@ export const REPAIR_TYPES: Record<RepairType, Omit<RepairOption, 'materials' | '
     name: 'Усиление',
     description: 'Ремонт с попыткой улучшить оружие. Только для грандмастеров. Высокий риск.',
     icon: '🔥',
+    catalogMaterialSpendIds: ['iron'],
     durabilityRestore: 100,
     maxDurabilityLoss: 0,
     soulLossPercent: 0,
@@ -589,6 +603,17 @@ export function getRepairOptions(
   }
   
   return options
+}
+
+/** Каталожные id из шаблонов ремонта (`REPAIR_TYPES[*].catalogMaterialSpendIds`). */
+export function collectRepairTemplateCatalogMaterialIds(): string[] {
+  const s = new Set<string>()
+  for (const def of Object.values(REPAIR_TYPES)) {
+    for (const id of def.catalogMaterialSpendIds ?? []) {
+      if (id?.trim()) s.add(id.trim())
+    }
+  }
+  return [...s].sort()
 }
 
 /**

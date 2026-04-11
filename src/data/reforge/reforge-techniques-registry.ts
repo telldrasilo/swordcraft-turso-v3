@@ -35,6 +35,8 @@ export interface ReforgeTechniqueEntry {
   awakenSpendsAllWarSoul?: boolean
   /** Для awakenScar: базовый шанс до модификаторов от тира/пула. */
   awakenBaseChance?: number
+  /** Явные каталожные id при расходе материалов перековки (roadmap **0.2**). */
+  catalogMaterialSpendIds?: readonly string[]
 }
 
 const T_BASIC: ReforgeTechniqueTier = 'basic'
@@ -54,6 +56,8 @@ export const REFORGE_TECHNIQUES: ReforgeTechniqueEntry[] = [
     buffPercentMin: 1,
     buffPercentMax: 4,
     maxStacks: 5,
+    /** Roadmap **0.2:** каталожный id для сканера контракта; фактический расход материалов перековкой уточняется при подключении spend в store. */
+    catalogMaterialSpendIds: ['iron_alloy'],
   },
   {
     id: 'reforge_buff_max_durability_01',
@@ -68,6 +72,7 @@ export const REFORGE_TECHNIQUES: ReforgeTechniqueEntry[] = [
     buffPercentMin: 1,
     buffPercentMax: 4,
     maxStacks: 5,
+    catalogMaterialSpendIds: ['iron_alloy'],
   },
   {
     id: 'reforge_buff_attack_02',
@@ -83,6 +88,7 @@ export const REFORGE_TECHNIQUES: ReforgeTechniqueEntry[] = [
     buffPercentMin: 2,
     buffPercentMax: 5,
     maxStacks: 5,
+    catalogMaterialSpendIds: ['iron_alloy'],
   },
   {
     id: 'reforge_buff_max_durability_02',
@@ -98,6 +104,7 @@ export const REFORGE_TECHNIQUES: ReforgeTechniqueEntry[] = [
     buffPercentMin: 2,
     buffPercentMax: 5,
     maxStacks: 5,
+    catalogMaterialSpendIds: ['steel'],
   },
   {
     id: 'reforge_awaken_scar_01',
@@ -113,6 +120,16 @@ export const REFORGE_TECHNIQUES: ReforgeTechniqueEntry[] = [
     awakenBaseChance: 0.12,
   },
 ]
+
+export function collectReforgeRegistryCatalogMaterialIds(): string[] {
+  const s = new Set<string>()
+  for (const e of REFORGE_TECHNIQUES) {
+    for (const id of e.catalogMaterialSpendIds ?? []) {
+      if (id?.trim()) s.add(id.trim())
+    }
+  }
+  return [...s].sort()
+}
 
 const byId = new Map<string, ReforgeTechniqueEntry>(
   REFORGE_TECHNIQUES.map((t) => [t.id, t])

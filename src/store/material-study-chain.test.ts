@@ -27,7 +27,7 @@ describe('material study chain', () => {
   it('startMaterialStudy spends cost; flushCompletedMaterialStudies adds expertise', () => {
     const store = createChainStore()
     store.getState().addMaterialToStash('birch', 5)
-    store.getState().addResource('coal', 5)
+    store.getState().addMaterialToStash('coal', 5)
     store.getState().setMaterialExpertise('birch', 5)
 
     const t0 = 50_000_000

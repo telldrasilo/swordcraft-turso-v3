@@ -14,6 +14,8 @@ import {
 import type { MaterialProcessingTechnique } from '@/data/material-processing-techniques'
 import type { PartMaterialSupplyEntry } from '@/types/craft-v2'
 import { getRefiningRecipe, type RawResource } from '@/data/refining-recipes'
+import { getEffectiveRefiningRecipeId } from '@/lib/craft/processing-technique-refining-bridge'
+import { getProcessingTechniqueTimelinePreview } from '@/lib/craft/processing-technique-stage-insertions'
 import { preparationStages } from '@/data/stages/preparation'
 import { cn } from '@/lib/utils'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -41,18 +43,33 @@ function badgeForBuilding(building: RefiningBuilding | undefined) {
       return { short: 'Дерево', hint: 'Распил и заготовка пиломатериала у горна' }
     case 'quarry':
       return { short: 'Камень', hint: 'Подготовка каменных блоков у горна' }
+    case 'tannery':
+      return { short: 'Кожа', hint: 'Выделка кожаной заготовки у горна' }
     default:
       return { short: 'Обработка', hint: 'Переработка заготовки перед ковкой' }
   }
 }
 
+function formatVariantCountRu(n: number): string {
+  const mod10 = n % 10
+  const mod100 = n % 100
+  if (mod100 >= 11 && mod100 <= 14) return `${n} вариантов подготовки`
+  if (mod10 === 1) return `${n} вариант подготовки`
+  if (mod10 >= 2 && mod10 <= 4) return `${n} варианта подготовки`
+  return `${n} вариантов подготовки`
+}
+
 function formatRefiningConsumption(
   ref: NonNullable<ReturnType<typeof getRefiningRecipe>>
 ): string {
-  const parts = ref.inputs.map(i => {
-    const label = RAW_RESOURCE_LABEL[i.resource] ?? i.resource
-    return `${i.amount} ед. ${label}`
-  })
+  const stashIn = ref.stashInputsPerBatch
+  const parts =
+    stashIn && Object.keys(stashIn).length > 0
+      ? Object.entries(stashIn).map(([mid, n]) => `${n} × ${mid}`)
+      : ref.inputs.map(i => {
+          const label = RAW_RESOURCE_LABEL[i.resource] ?? i.resource
+          return `${i.amount} ед. ${label}`
+        })
   const coal = ref.extraCost?.coal ?? 0
   if (coal > 0) parts.push(`${coal} угля`)
   return parts.join(' · ')
@@ -81,6 +98,13 @@ function switchCopy(building: RefiningBuilding | undefined) {
           'Несколько техник — выберите вариант обработки камня; несовместимые комбинации отфильтруются при старте крафта.',
         selectPlaceholder: 'Вариант обработки камня',
       }
+    case 'tannery':
+      return {
+        title: 'Выделывать кожу у горна',
+        secondary:
+          'Цепочка сырья → заготовка для рукояти; несовместимые комбинации отфильтруются при старте крафта.',
+        selectPlaceholder: 'Вариант выделки',
+      }
     default:
       return {
         title: 'Переработка у горна',
@@ -88,6 +112,13 @@ function switchCopy(building: RefiningBuilding | undefined) {
         selectPlaceholder: 'Вариант техники',
       }
   }
+}
+
+function refiningBuildingForTechnique(
+  t: MaterialProcessingTechnique | undefined
+): RefiningBuilding | undefined {
+  if (!t) return undefined
+  return getRefiningRecipe(getEffectiveRefiningRecipeId(t))?.requiredBuilding
 }
 
 export interface PartMaterialProcessingPanelProps {
@@ -113,28 +144,37 @@ export function PartMaterialProcessingPanel({
   if (processingOpts.length === 0) return null
 
   const oreSmeltOn = supplyEntry?.mode === 'ore_smelt'
-  const techniqueIdForSelect =
-    supplyEntry?.processingTechniqueId ?? processingOpts[0]?.id
+  const techniqueIdForSelect = oreSmeltOn
+    ? (supplyEntry?.processingTechniqueId ?? processingOpts[0]?.id)
+    : undefined
 
-  const technique =
-    processingOpts.find(t => t.id === techniqueIdForSelect) ?? processingOpts[0]
-  const refining = technique ? getRefiningRecipe(technique.refiningRecipeId) : undefined
-  const kind = badgeForBuilding(refining?.requiredBuilding)
-  const copy = switchCopy(refining?.requiredBuilding)
+  const techniqueActive = techniqueIdForSelect
+    ? (processingOpts.find(t => t.id === techniqueIdForSelect) ?? processingOpts[0])
+    : undefined
+
+  const buildingForSwitch = refiningBuildingForTechnique(
+    oreSmeltOn ? techniqueActive : processingOpts[0]
+  )
+  const copy = switchCopy(buildingForSwitch)
+
+  const refiningActive = techniqueActive
+    ? getRefiningRecipe(getEffectiveRefiningRecipeId(techniqueActive))
+    : undefined
+  const kindActive = badgeForBuilding(refiningActive?.requiredBuilding)
 
   const chainTooltipBody =
-    oreSmeltOn && refining && technique ? (
+    oreSmeltOn && refiningActive && techniqueActive ? (
       <div className="space-y-2 text-left">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">
           Цепочка шагов
         </p>
         <ul className="space-y-1.5 text-[11px] text-stone-300">
-          {technique.craftStageInsertions.map((ins, idx) => {
-            const stageTitle = PREP_STAGE_NAME.get(ins.stageType) ?? ins.stageType
+          {getProcessingTechniqueTimelinePreview(techniqueActive).map((row, idx) => {
+            const stageTitle = PREP_STAGE_NAME.get(row.stageType) ?? row.stageType
             const dur =
-              ins.durationSeconds != null ? `~${ins.durationSeconds} с` : ''
+              row.durationSeconds != null ? `~${row.durationSeconds} с` : ''
             return (
-              <li key={`${ins.stageType}-${idx}`} className="flex gap-2">
+              <li key={`${row.stageType}-${idx}`} className="flex gap-2">
                 <span className="text-stone-500 shrink-0 w-4">{idx + 1}.</span>
                 <span>
                   {stageTitle}
@@ -146,12 +186,14 @@ export function PartMaterialProcessingPanel({
           <li className="flex gap-2 border-t border-stone-800/80 pt-1.5 mt-1">
             <span className="text-stone-500 shrink-0 w-4">→</span>
             <span>
-              Рецепт «{refining.name}»: {formatRefiningConsumption(refining)}
+              Рецепт «{refiningActive.name}»: {formatRefiningConsumption(refiningActive)}
             </span>
           </li>
         </ul>
       </div>
     ) : null
+
+  const nOpts = processingOpts.length
 
   return (
     <div
@@ -160,19 +202,31 @@ export function PartMaterialProcessingPanel({
         className
       )}
     >
-      <div className="space-y-1">
+      <div className="space-y-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-amber-500/90">
           Техника обработки
         </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline" className="border-amber-700/60 text-amber-200 text-xs">
-            {kind.short}
-          </Badge>
-          <span className="text-[11px] text-stone-500">{kind.hint}</span>
-        </div>
-        {technique ? (
-          <p className="text-[11px] text-stone-400 leading-snug">{technique.description}</p>
-        ) : null}
+        {oreSmeltOn && techniqueActive ? (
+          <>
+            <p className="text-sm font-semibold text-stone-100 leading-snug">
+              {techniqueActive.name}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline" className="border-amber-700/60 text-amber-200/95 text-[10px]">
+                {kindActive.short}
+              </Badge>
+              <span className="text-[11px] text-stone-500">{kindActive.hint}</span>
+            </div>
+            <p className="text-[11px] text-stone-400 leading-snug">
+              {techniqueActive.description}
+            </p>
+          </>
+        ) : (
+          <p className="text-[11px] text-stone-400 leading-snug">
+            Доступно {formatVariantCountRu(nOpts)} по этой заготовке (как в энциклопедии). Включите
+            переключатель ниже, чтобы выбрать технику и увидеть цепочку.
+          </p>
+        )}
       </div>
 
       <Tooltip delayDuration={250}>
@@ -214,7 +268,7 @@ export function PartMaterialProcessingPanel({
         <p className="text-[11px] text-stone-500 leading-snug">{copy.secondary}</p>
       )}
 
-      {oreSmeltOn && processingOpts.length > 1 && (
+      {oreSmeltOn && processingOpts.length > 1 && techniqueIdForSelect && (
         <Select
           value={techniqueIdForSelect}
           onValueChange={onProcessingTechniqueChange}
@@ -232,11 +286,9 @@ export function PartMaterialProcessingPanel({
         </Select>
       )}
 
-      {oreSmeltOn && refining && (
+      {oreSmeltOn && refiningActive && (
         <p className="text-[11px] text-stone-500 leading-snug mt-auto">
-          Со склада списываются {formatRefiningConsumption(refining)} по рецепту «{refining.name}»
-          вместо готовой заготовки ({refining.output.amount} {refining.name.toLowerCase()} на единицу
-          переработки).
+          {`Со склада списываются ${formatRefiningConsumption(refiningActive)} по рецепту «${refiningActive.name}» вместо готовой заготовки (${refiningActive.output.amount} ${refiningActive.name.toLowerCase()} на единицу переработки).`}
         </p>
       )}
     </div>

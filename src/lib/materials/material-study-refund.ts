@@ -6,7 +6,8 @@ import type { ResourceKey } from '@/store/slices/resources-slice'
 export const MATERIAL_STUDY_CANCEL_RESOURCE_REFUND_RATIO = 0.5
 
 type RefundPools = {
-  addResource: (resource: ResourceKey, amount: number) => void
+  /** A2: те же правила, что у начислений из мира — stash при известном каталожном target. */
+  grantResourceKeyFromWorld: (resource: ResourceKey, amount: number) => void
   addMaterialToStash: (materialId: string, amount: number) => void
 }
 
@@ -20,7 +21,7 @@ export function refundMaterialStudyTechniqueCosts(
     const q = Math.floor(quantity * ratio)
     if (q <= 0) continue
     const rk = getResourceKeyForMaterial(materialId)
-    if (rk) pools.addResource(rk, q)
+    if (rk) pools.grantResourceKeyFromWorld(rk, q)
     else pools.addMaterialToStash(materialId, q)
   }
 }

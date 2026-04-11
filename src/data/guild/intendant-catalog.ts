@@ -169,6 +169,24 @@ function craftTechniqueOffer(
 
 const craftTechniqueOffers: IntendantOffer[] = [
   craftTechniqueOffer(
+    'intendant_craft_folded_steel',
+    'folded_steel',
+    'Складывание металла',
+    'Свиток приёма: слои и перековка для прочного каркаса. Нужен для фазы II строительства алтаря.',
+    95,
+    2,
+    'uncommon'
+  ),
+  craftTechniqueOffer(
+    'intendant_craft_double_hardening',
+    'double_hardening',
+    'Двойная закалка',
+    'Свиток термоцикла для опор и хомутов. Требуется вместе со складыванием для фазы II алтаря.',
+    110,
+    2,
+    'uncommon'
+  ),
+  craftTechniqueOffer(
     'intendant_craft_spirit_blessing',
     'spirit_blessing',
     'Благословение духов',

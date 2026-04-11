@@ -27,9 +27,11 @@ Next.js 15, TypeScript 5, Zustand 5.0.6 (composed store), Tailwind CSS 4, shadcn
 
 ### При работе с данными:
 - **Материалы** → docs/data/MATERIALS_DATA.md; полный гайд добавления и энциклопедии — **docs/data/MATERIALS_ADDING.md**; маппинг id экспедиций — **docs/expedition-material-id-map.md**
+- **Источник правды по материалам для игрока** — энциклопедия (каталог узлов), а не верхняя полоска ресурсов в макете: см. **docs/LEGACY_UI.md** (панель legacy, к удалению)
 - **Цепочки руда/слиток/wood/stone и ключи склада** → **docs/RESOURCE_TRANSFORMATION_MAP.md** (человекочитаемая карта; источник правды — `inventory-check.ts`, `refining-recipes.ts`)
+- **Переход на единый каталог материалов без legacy-мостов** → **docs/MATERIALS_SINGLE_SOURCE_ROADMAP.md** (фазы, инварианты, склад A2, **обработка через техники и операции**, без постоянной миграции сейвов; при конфликте с устаревшими формулировками приоритет у roadmap). Чеклист PR волны A2 (stash, домены): **`.cursor/skills/materials-a2-wave/SKILL.md`**
 - **Рецепты** → docs/data/RECIPES_DATA.md
-- **Техники** → docs/data/TECHNIQUES_DATA.md
+- **Техники** → docs/data/TECHNIQUES_DATA.md; **энциклопедия (материалы/техники), микрозадачи, Крафтовая линия** — **docs/ENCYCLOPEDIA_MATERIALS_TECHNIQUES_ROADMAP.md**; skill подключения техники — **`.cursor/skills/technique-wiring/SKILL.md`**
 - **Искатели** → docs/data/ADVENTURERS_DATA.md
 - **События экспедиций** → docs/data/EXPEDITIONS_DATA.md
 
@@ -135,6 +137,7 @@ store.addMaterialExpertise(materialId, amount)
 
 ## Ключевые ограничения
 
+0. **Материалы и UI:** не используй верхнюю панель `ResourceBar` как ориентир для баланса или описания процессинга; канон — энциклопедия и склад по каталожным id. Подробнее: **docs/LEGACY_UI.md**.
 1. НЕ ИЗМЕНЯЙ существующие типы без необходимости — всегда читай src/types/**
 2. При изменении slice — проверяй влияние на другие слайсы
 3. Константы должны браться из src/lib/store-utils/constants.ts, не хардкодить

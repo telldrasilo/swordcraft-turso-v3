@@ -1,5 +1,9 @@
 /**
  * Металлы и сплавы
+ *
+ * **Roadmap 5.2:** числовой контур `metalMaterials` постепенно смыкается с каталогом `MaterialNode`;
+ * контракт id ⊆ реестр — [`metals-catalog-alignment.test.ts`](./metals-catalog-alignment.test.ts).
+ *
  * Сбалансированная система материалов v2
  * 
  * Принцип баланса: У каждого материала есть плюсы И минусы.
@@ -8,99 +12,96 @@
 
 import type { Material } from '@/types/craft-v2'
 
+/** Fallback для `iron` и `iron_alloy` до [`getMetalMaterialsRuntimeMerged`](./metals-runtime-merge.ts). */
+const IRON_FAMILY_LEGACY_BASE = {
+  adjective: 'Железный',
+  category: 'metal',
+  properties: {
+    hardness: 50,
+    flexibility: 45,
+    weight: 5,
+    conductivity: 15,
+  },
+  crafting: {
+    workability: 70,
+    meltingPoint: 1200,
+    requiredHeat: 1,
+  },
+  weaponEffects: {
+    attackBonus: 0,
+    durabilityBonus: 10,
+    soulCapacity: 50,
+    repairPotential: 1.3,
+    enchantPower: 0.9,
+    enchantSlots: 0,
+  },
+  craftTimeModifier: 0.85,
+  craftRisk: 0,
+  dominantProperty: {
+    type: 'durability',
+    value: 55,
+  },
+  source: {
+    rarity: 'common',
+  },
+  icon: '/icons/resources/iron.png',
+} as const satisfies Omit<Material, 'id' | 'name' | 'description'>
+
+/** Fallback для `mithril` и `mithril_alloy` до [`getMetalMaterialsRuntimeMerged`](./metals-runtime-merge.ts). */
+const MITHRIL_FAMILY_LEGACY_BASE = {
+  adjective: 'Мифриловый',
+  category: 'metal',
+  properties: {
+    hardness: 88,
+    flexibility: 75,
+    weight: 2.5,
+    conductivity: 90,
+  },
+  crafting: {
+    workability: 25,
+    meltingPoint: 2500,
+    requiredHeat: 4,
+  },
+  weaponEffects: {
+    attackBonus: 22,
+    durabilityBonus: 25,
+    soulCapacity: 200,
+    repairPotential: 1.5,
+    enchantPower: 1.8,
+    enchantSlots: 3,
+  },
+  craftTimeModifier: 1.6,
+  craftRisk: 15,
+  dominantProperty: {
+    type: 'balance',
+    value: 90,
+  },
+  source: {
+    rarity: 'legendary',
+    unlockCondition: 'Найти в эльфийских руинах',
+  },
+  icon: '/icons/resources/mithrilIngot.png',
+} as const satisfies Omit<Material, 'id' | 'name' | 'description'>
+
 export const metalMaterials: Material[] = [
   // ============================================
   // БАЗОВЫЕ МЕТАЛЛЫ (сырьё)
   // ============================================
-  
+
   {
     id: 'iron',
     name: 'Железо',
-    adjective: 'Железный',
-    category: 'metal',
-    description: 'Надёжный металл для начинающего кузнеца. Мягкий, легко обрабатывается, не ломается.',
-    
-    properties: {
-      hardness: 50,
-      flexibility: 45,  // Хорошая — гнётся, не ломается
-      weight: 5,
-      conductivity: 15,
-    },
-    
-    crafting: {
-      workability: 70,  // Легко ковать
-      meltingPoint: 1200,
-      requiredHeat: 1,
-    },
-    
-    weaponEffects: {
-      attackBonus: 0,
-      durabilityBonus: 10,  // +10% — не ломается
-      soulCapacity: 50,
-      repairPotential: 1.3,  // Легко чинить
-      enchantPower: 0.9,
-      enchantSlots: 0,
-    },
-    
-    // БАЛАНС
-    craftTimeModifier: 0.85,  // -15% времени — быстро работать
-    craftRisk: 0,             // Без риска
-    
-    dominantProperty: {
-      type: 'durability',
-      value: 55,
-    },
-    
-    source: {
-      rarity: 'common',
-    },
-    
-    icon: '/icons/resources/iron.png',
+    description:
+      'Надёжный металл для начинающего кузнеца. Мягкий, легко обрабатывается, не ломается.',
+    ...IRON_FAMILY_LEGACY_BASE,
   },
 
   {
     id: 'iron_alloy',
     name: 'Железный слиток',
-    adjective: 'Железный',
-    category: 'metal',
     description:
       'Готовая к ковке заготовка после плавки. Основа простого оружия и то же имя в префиксе, что у классического железа.',
-
-    properties: {
-      hardness: 50,
-      flexibility: 45,
-      weight: 5,
-      conductivity: 15,
-    },
-
-    crafting: {
-      workability: 70,
-      meltingPoint: 1200,
-      requiredHeat: 1,
-    },
-
-    weaponEffects: {
-      attackBonus: 0,
-      durabilityBonus: 10,
-      soulCapacity: 50,
-      repairPotential: 1.3,
-      enchantPower: 0.9,
-      enchantSlots: 0,
-    },
-
-    craftTimeModifier: 0.85,
-    craftRisk: 0,
-
-    dominantProperty: {
-      type: 'durability',
-      value: 55,
-    },
-
-    source: {
-      rarity: 'common',
-    },
-
-    icon: '/icons/resources/iron.png',
+    ...IRON_FAMILY_LEGACY_BASE,
   },
 
   {
@@ -416,91 +417,16 @@ export const metalMaterials: Material[] = [
   {
     id: 'mithril',
     name: 'Мифрил',
-    adjective: 'Мифриловый',
-    category: 'metal',
-    description: 'Легендарный эльфийский металл. Лёгкий, прочный, идеально сбалансированный.',
-    
-    properties: {
-      hardness: 88,
-      flexibility: 75,
-      weight: 2.5,  // Очень лёгкий!
-      conductivity: 90,
-    },
-    
-    crafting: {
-      workability: 25,  // Требует великого мастерства
-      meltingPoint: 2500,
-      requiredHeat: 4,
-    },
-    
-    weaponEffects: {
-      attackBonus: 22,
-      durabilityBonus: 25,
-      soulCapacity: 200,
-      repairPotential: 1.5,
-      enchantPower: 1.8,
-      enchantSlots: 3,
-    },
-    
-    // БАЛАНС (даже легендарный материал имеет цену)
-    craftTimeModifier: 1.6,  // +60% времени — очень долго
-    craftRisk: 15,           // Высокий риск испортить редкий материал
-    
-    dominantProperty: {
-      type: 'balance',
-      value: 90,
-    },
-    
-    source: {
-      rarity: 'legendary',
-      unlockCondition: 'Найти в эльфийских руинах',
-    },
-    
-    icon: '/icons/resources/mithrilIngot.png',
+    description:
+      'Легендарный эльфийский металл. Лёгкий, прочный, идеально сбалансированный.',
+    ...MITHRIL_FAMILY_LEGACY_BASE,
   },
 
   {
     id: 'mithril_alloy',
     name: 'Мифриловый слиток',
-    adjective: 'Мифриловый',
-    category: 'metal',
-    description: 'Выплавленный мифрил — лёгкий слиток легендарного металла для высшего оружия.',
-
-    properties: {
-      hardness: 88,
-      flexibility: 75,
-      weight: 2.5,
-      conductivity: 90,
-    },
-
-    crafting: {
-      workability: 25,
-      meltingPoint: 2500,
-      requiredHeat: 4,
-    },
-
-    weaponEffects: {
-      attackBonus: 22,
-      durabilityBonus: 25,
-      soulCapacity: 200,
-      repairPotential: 1.5,
-      enchantPower: 1.8,
-      enchantSlots: 3,
-    },
-
-    craftTimeModifier: 1.6,
-    craftRisk: 15,
-
-    dominantProperty: {
-      type: 'balance',
-      value: 90,
-    },
-
-    source: {
-      rarity: 'legendary',
-      unlockCondition: 'Найти в эльфийских руинах',
-    },
-
-    icon: '/icons/resources/mithrilIngot.png',
+    description:
+      'Выплавленный мифрил — лёгкий слиток легендарного металла для высшего оружия.',
+    ...MITHRIL_FAMILY_LEGACY_BASE,
   },
 ]

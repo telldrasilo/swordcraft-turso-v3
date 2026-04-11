@@ -5,11 +5,15 @@
  */
 
 import type { StateCreator } from 'zustand'
+import type { MaterialStashDebit } from '@/store/contracts/material-stash-a2-draft'
 import type { EncyclopediaActions } from './encyclopedia-slice'
 import { RESOURCE_SELL_PRICES } from '@/lib/store-utils/constants'
+import type { RefiningRecipe } from '@/data/refining-recipes'
 import {
   applyCraftingCostSpend,
+  applyRefiningFullSpend,
   canAffordCraftingCostWithStash as canAffordCraftingCostWithStashPure,
+  canAffordRefiningStart,
   computePoolSpendDeltas,
   getCatalogMaterialIdsForResourceKey,
   getGrantTargetMaterialId,
@@ -86,6 +90,11 @@ export interface ResourcesState {
   resources: Resources
   /** Склад материалов по id из каталога (экспедиции, др.) — не валюта и не soulEssence */
   materialStash: Record<string, number>
+  /**
+   * Каталожные id, помеченные как квестовые предметы (не расходуются при старте фазы III алтаря).
+   * См. docs/Quests/ALTAR_REWORK.
+   */
+  materialStashQuestItemIds: string[]
 }
 
 /** Actions для ресурсов */
@@ -100,14 +109,37 @@ export interface ResourcesActions {
   spendCraftingCostWithStash: (cost: CraftingCost) => boolean
   sellResource: (resource: ResourceKey, amount: number) => boolean
   getResourceSellPrice: (resource: ResourceKey) => number
-  addMaterialToStash: (materialId: string, amount: number) => void
+  addMaterialToStash: (
+    materialId: string,
+    amount: number,
+    opts?: { markQuestItem?: boolean }
+  ) => void
   /**
    * Канал начисления материалов (аудит 2–3): каталожный id стадии → `materialStash`
    * (`getGrantTargetMaterialId`, `REFINING_INPUT_STAGE_MATERIAL_ID` для руд/сырья);
    * золото / `soulEssence` → `addResource`. Подземелья — отдельный редизайн.
    */
   grantResourceKeyFromWorld: (resource: ResourceKey, amount: number) => void
+  /**
+   * A2 (подволна 2.2): списание только с `materialStash` по каталожным id (без пула `resources`).
+   * Синхронизирует ENC через `useMaterialAmount` при успешном списании.
+   */
+  canDebitManyFromStash: (cost: MaterialStashDebit) => boolean
+  tryDebitManyFromStash: (cost: MaterialStashDebit) => boolean
+  /**
+   * Старт переработки: списание `CraftingCost` + `stashInputsPerBatch`, синхронизация ENC.
+   * Отказ при нехватке — состояние не меняется.
+   */
+  applyRefiningStartSpend: (recipe: RefiningRecipe, amount: number) => boolean
 }
+
+/**
+ * Черновик A2 (фаза 2.x, без полной миграции здесь):
+ * — канал начисления в каталог: `addMaterialToStash` (и временно `grantResourceKeyFromWorld` до снятия `ResourceKey` с материалов);
+ * — канал списания: `spendCraftingCostWithStash` + `inventory-check`; для чистого склада — `tryDebitManyFromStash` / `canDebitManyFromStash`; цель — один слой списания по каталогу без двойного учёта после волн **2.2–2.3**.
+ * @see docs/MATERIALS_SINGLE_SOURCE_ROADMAP.md §11.1
+ * @see `src/store/contracts/material-stash-a2-draft.ts` (`MaterialStashOperationsDraft`)
+ */
 
 /** Полный тип slice */
 export type ResourcesSlice = ResourcesState & ResourcesActions
@@ -172,6 +204,7 @@ export const createResourcesSlice: StateCreator<
   // State
   resources: initialResources,
   materialStash: {},
+  materialStashQuestItemIds: [],
 
   // Actions
   addResource: (resource, amount) => set((state) => ({
@@ -268,14 +301,20 @@ export const createResourcesSlice: StateCreator<
     return RESOURCE_SELL_PRICES[resource] || 1
   },
 
-  addMaterialToStash: (materialId, amount) => {
+  addMaterialToStash: (materialId, amount, opts) => {
     if (!materialId || amount <= 0) return
-    set((state) => ({
-      materialStash: {
+    set((state) => {
+      const nextStash = {
         ...state.materialStash,
         [materialId]: Math.max(0, (state.materialStash[materialId] ?? 0) + amount),
-      },
-    }))
+      }
+      const mark = opts?.markQuestItem === true
+      const nextQuestIds =
+        mark && !state.materialStashQuestItemIds.includes(materialId)
+          ? [...state.materialStashQuestItemIds, materialId]
+          : state.materialStashQuestItemIds
+      return { materialStash: nextStash, materialStashQuestItemIds: nextQuestIds }
+    })
     ;(get as ResourcesGet)().discoverMaterial(materialId)
   },
 
@@ -293,6 +332,56 @@ export const createResourcesSlice: StateCreator<
     } else {
       get().addResource(resource, amount)
     }
+  },
+
+  canDebitManyFromStash: (cost) => {
+    const state = get()
+    for (const [mid, raw] of Object.entries(cost)) {
+      const n = raw ?? 0
+      if (n <= 0) continue
+      if ((state.materialStash[mid] ?? 0) < n) return false
+    }
+    return true
+  },
+
+  tryDebitManyFromStash: (cost) => {
+    if (!get().canDebitManyFromStash(cost)) return false
+    set((state) => {
+      const next = { ...state.materialStash }
+      for (const [mid, raw] of Object.entries(cost)) {
+        const n = raw ?? 0
+        if (n <= 0) continue
+        next[mid] = Math.max(0, (next[mid] ?? 0) - n)
+      }
+      return { materialStash: next }
+    })
+    for (const [mid, raw] of Object.entries(cost)) {
+      const n = raw ?? 0
+      if (n > 0) (get as ResourcesGet)().useMaterialAmount(mid, n)
+    }
+    return true
+  },
+
+  applyRefiningStartSpend: (recipe, amount) => {
+    if (amount <= 0) return false
+    const state = get()
+    if (!canAffordRefiningStart(recipe, amount, state.resources, state.materialStash)) {
+      return false
+    }
+    const out = applyRefiningFullSpend(recipe, amount, state.resources, state.materialStash)
+    if (!out.ok) return false
+    const deltas = computePoolSpendDeltas(
+      state.resources,
+      state.materialStash,
+      out.resources,
+      out.materialStash
+    )
+    set({
+      resources: out.resources,
+      materialStash: out.materialStash,
+    })
+    applyPoolSpendDeltasToEncyclopedia(get as ResourcesGet, deltas)
+    return true
   },
 })
 

@@ -2,6 +2,8 @@
 
 Канон игровых материалов для энциклопедии и крафта v2 — **`MaterialNode`** в [`src/types/materials/material-core.ts`](../../src/types/materials/material-core.ts), данные в [`src/data/materials/library/`](../../src/data/materials/library/).
 
+**Дорожная карта единого каталога, склада и техник:** [`MATERIALS_SINGLE_SOURCE_ROADMAP.md`](../MATERIALS_SINGLE_SOURCE_ROADMAP.md).
+
 Обзор данных: [`MATERIALS_DATA.md`](MATERIALS_DATA.md). Маппинг id экспедиций: [`docs/expedition-material-id-map.md`](../expedition-material-id-map.md).
 
 ## Эталоны по `identity.class` (ручные файлы)

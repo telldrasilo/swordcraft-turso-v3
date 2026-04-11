@@ -20,7 +20,11 @@
  * └─────────────────────────────────────────────┘
  */
 
-import type { Material, Location, Rarity, LocationResource } from '../types';
+import type { Material, MaterialCatalogRarity, Location, Rarity, LocationResource } from '../types';
+
+function catalogRarityToLocationRarity(r: MaterialCatalogRarity): Rarity {
+  return r === 'unique' ? 'legendary' : r
+}
 
 // ============================================================================
 // ТИПЫ
@@ -327,7 +331,7 @@ export function cloneMaterialToLocation(
   const newResource: LocationResource = {
     materialId: material.id,
     baseWeight: overrides?.baseWeight ?? 50,
-    rarity: overrides?.rarity ?? material.rarity,
+    rarity: overrides?.rarity ?? catalogRarityToLocationRarity(material.rarity),
     minQuantity: overrides?.minQuantity ?? 1,
     maxQuantity: overrides?.maxQuantity ?? 3,
   };

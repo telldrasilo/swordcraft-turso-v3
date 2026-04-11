@@ -50,6 +50,7 @@ function resourceRarityNumeric(key: string): number {
     rare: 52,
     epic: 72,
     legendary: 92,
+    unique: 105,
   }
   return m[info?.rarity ?? 'common'] ?? 12
 }
@@ -69,6 +70,7 @@ interface StashRow {
   catalogMaterialId: string | null
   /** Только для строк из `resources`: эмодзи по ResourceKey */
   resourceKeyForIcon: ResourceKey | null
+  questTagged: boolean
 }
 
 function buildRows(resources: Resources, stash: Record<string, number>): StashRow[] {
@@ -95,6 +97,7 @@ function buildRows(resources: Resources, stash: Record<string, number>): StashRo
       bucket: resourceKeyBucket(key),
       catalogMaterialId: catalogId,
       resourceKeyForIcon: key,
+      questTagged: Boolean(catNode?.identity.tags.includes('quest')),
     })
   }
 
@@ -114,6 +117,7 @@ function buildRows(resources: Resources, stash: Record<string, number>): StashRo
       bucket: node ? materialNodeBucket(node) : 'raw',
       catalogMaterialId: mid,
       resourceKeyForIcon: null,
+      questTagged: Boolean(node?.identity.tags.includes('quest')),
     })
   }
 
@@ -233,7 +237,7 @@ export function ResourcesScreen() {
                       <div className="text-center text-[11px] text-stone-400 leading-snug line-clamp-2">
                         {row.name}
                       </div>
-                      <div className="mt-auto pt-1 flex justify-center gap-1">
+                      <div className="mt-auto pt-1 flex flex-wrap justify-center gap-1">
                         <span
                           className={cn(
                             'text-[10px] px-1.5 py-0 rounded',
@@ -244,6 +248,11 @@ export function ResourcesScreen() {
                         >
                           {row.bucket === 'raw' ? 'Сырьё' : 'Произв.'}
                         </span>
+                        {row.questTagged ? (
+                          <span className="text-[10px] px-1.5 py-0 rounded bg-fuchsia-950/50 text-fuchsia-100/90">
+                            Квестовый
+                          </span>
+                        ) : null}
                       </div>
                     </motion.div>
                   )

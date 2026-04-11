@@ -4,6 +4,9 @@
  */
 
 import type { MaterialAssignment, PartMaterialSupplyEntry } from '@/types/craft-v2'
+import type { CraftLinePhase } from '@/types/craft-line'
+import type { TechniqueMicroTask } from '@/types/encyclopedia-techniques'
+import type { ProcessingOperation } from '@/types/materials/processing-operations'
 import { getTechniqueById } from '@/data/techniques'
 import { getMaterialById } from '@/data/materials'
 
@@ -33,6 +36,9 @@ export function resolveCatalogMaterialIdForProcessingTechniques(
   ) {
     return 'processed_stone'
   }
+  if (catalogMaterialId === 'raw_leather') {
+    return 'tanned_leather'
+  }
   return catalogMaterialId
 }
 
@@ -55,13 +61,14 @@ export interface MaterialProcessingTechnique {
   id: string
   name: string
   description: string
-  /** Ссылка на `refiningRecipes[].id` для расчёта руды/угля */
-  refiningRecipeId: string
+  /** Ссылка на `refiningRecipes[].id`; можно не задавать, если id выводится из [`getEffectiveRefiningRecipeId`](../lib/craft/processing-technique-refining-bridge.ts) (операции / I/O). */
+  refiningRecipeId?: string
   /** Каталожные материалы части (целевая стадия), к которым применима техника */
   targetCatalogMaterialIds: string[]
   /** Если true — доступна без записи в unlockedTechniques (MVP стартовая плавка) */
   unlockedByDefault: boolean
-  craftStageInsertions: MaterialProcessingTechniqueCraftInsertion[]
+  /** Если пусто/отсутствует — этапы берутся из [`processingOperations`].`stageTypeHint` ([`process-generator`](../../lib/craft/process-generator.ts)). */
+  craftStageInsertions?: MaterialProcessingTechniqueCraftInsertion[]
   /** Малый бонус к итоговому качеству при пути «руда в горне» (фаза E MVP) */
   processingQualityBonus?: number
   outcomeModifiers?: MaterialProcessingOutcomeModifiers
@@ -69,6 +76,22 @@ export interface MaterialProcessingTechnique {
   incompatibleWithMaterialProcessingTechniqueIds?: string[]
   /** ID боевых техник крафта (`data/techniques`), несовместимых с этой обработкой */
   incompatibleWithCraftTechniqueIds?: string[]
+  /**
+   * Фаза **3.1** roadmap: эталонные операции; id рецепта горна — [`getEffectiveRefiningRecipeId`](../lib/craft/processing-technique-refining-bridge.ts) (поле техники или операций).
+   * Валидатор: `material-processing-techniques-operations.test.ts`.
+   */
+  processingOperations?: ProcessingOperation[]
+  /**
+   * Фаза **3.4** roadmap: роли процесса ([`MATERIAL_SEMANTIC_PROCESS_ROLES`](../../../docs/MATERIAL_SEMANTIC_PROCESS_ROLES.md));
+   * точка расширения для универсальных техник без перечисления всех `targetCatalogMaterialIds`.
+   */
+  targetSemanticProcessRoles?: readonly string[]
+  /** Опционально: явные микрозадачи для энциклопедии и Крафтовой линии; иначе вывод из `processingOperations`. */
+  microTasks?: readonly TechniqueMicroTask[]
+  /** Фаза Крафтовой линии (ENC §12.3); по умолчанию `material_preparation`. */
+  craftLinePhase?: CraftLinePhase
+  /** Порядок внутри фазы. */
+  craftLineOrder?: number
 }
 
 export const allMaterialProcessingTechniques: MaterialProcessingTechnique[] = [
@@ -77,220 +100,313 @@ export const allMaterialProcessingTechniques: MaterialProcessingTechnique[] = [
     name: 'Простая плавка железа',
     description:
       'Получение металлической заготовки из железной руды перед ковкой; расход руды и угля по рецепту плавильни.',
-    refiningRecipeId: 'iron_ingot',
     targetCatalogMaterialIds: ['iron_alloy'],
     unlockedByDefault: true,
-    craftStageInsertions: [
-      {
-        afterStageType: 'prep_heating',
-        stageType: 'prep_forge_ore_smelting',
-        durationSeconds: 25,
-      },
-    ],
     processingQualityBonus: 0.5,
     outcomeModifiers: { forecastSpreadTightness: 0.04 },
     incompatibleWithMaterialProcessingTechniqueIds: [],
     incompatibleWithCraftTechniqueIds: [],
+    targetSemanticProcessRoles: ['refining_smelting'],
+    microTasks: [
+      { id: 'iron_smelt_charge', label: 'Загрузка шихты и прогрев горна', durationWeight: 1 },
+      { id: 'iron_smelt_tap', label: 'Плавка и слив заготовки', durationWeight: 2 },
+    ],
+    processingOperations: [
+      {
+        id: 'forge_basic_iron_smelt_op0',
+        order: 0,
+        refiningRecipeId: 'iron_ingot',
+        stageTypeHint: 'prep_forge_ore_smelting',
+        durationSeconds: 25,
+      },
+    ],
   },
   {
     id: 'forge_fine_iron_smelt',
     name: 'Тщательная плавка железа',
     description:
       'Медленный прогрев и контроль температуры в горне — ровнее структура заготовки и чуть стабильнее итог ковки.',
-    refiningRecipeId: 'iron_ingot',
     targetCatalogMaterialIds: ['iron_alloy'],
     unlockedByDefault: false,
-    craftStageInsertions: [
-      {
-        afterStageType: 'prep_heating',
-        stageType: 'prep_forge_ore_smelting',
-        durationSeconds: 40,
-      },
-    ],
     processingQualityBonus: 1.5,
     outcomeModifiers: { forecastSpreadTightness: 0.1 },
     incompatibleWithMaterialProcessingTechniqueIds: [],
     incompatibleWithCraftTechniqueIds: [],
+    targetSemanticProcessRoles: ['refining_smelting'],
+    microTasks: [
+      { id: 'fine_iron_slow', label: 'Медленный прогрев и выдержка температуры', durationWeight: 2 },
+      { id: 'fine_iron_tap', label: 'Контролируемый слив и зачистка шлака', durationWeight: 2 },
+    ],
+    processingOperations: [
+      {
+        id: 'forge_fine_iron_smelt_op0',
+        order: 0,
+        refiningRecipeId: 'iron_ingot',
+        stageTypeHint: 'prep_forge_ore_smelting',
+        durationSeconds: 40,
+      },
+    ],
   },
   {
     id: 'forge_basic_copper_smelt',
     name: 'Простая плавка меди',
     description:
       'Переплавка медной руды в горне перед ковкой; расход руды и угля по рецепту плавильни.',
-    refiningRecipeId: 'copper_ingot',
     targetCatalogMaterialIds: ['copper_alloy'],
     unlockedByDefault: false,
-    craftStageInsertions: [
-      {
-        afterStageType: 'prep_heating',
-        stageType: 'prep_forge_ore_smelting',
-        durationSeconds: 28,
-      },
-    ],
     processingQualityBonus: 0.45,
     outcomeModifiers: { forecastSpreadTightness: 0.035 },
     incompatibleWithMaterialProcessingTechniqueIds: [],
     incompatibleWithCraftTechniqueIds: [],
+    targetSemanticProcessRoles: ['refining_smelting'],
+    microTasks: [
+      { id: 'cu_charge', label: 'Раскладка руды и поддув', durationWeight: 1 },
+      { id: 'cu_smelt', label: 'Переплавка в медную заготовку', durationWeight: 2 },
+    ],
+    processingOperations: [
+      {
+        id: 'forge_basic_copper_smelt_op0',
+        order: 0,
+        refiningRecipeId: 'copper_ingot',
+        stageTypeHint: 'prep_forge_ore_smelting',
+        durationSeconds: 28,
+      },
+    ],
   },
   {
     id: 'forge_basic_tin_smelt',
     name: 'Простая плавка олова',
     description:
       'Переплавка оловянной руды в горне; расход по рецепту плавильни.',
-    refiningRecipeId: 'tin_ingot',
     targetCatalogMaterialIds: ['tin_alloy'],
     unlockedByDefault: false,
-    craftStageInsertions: [
-      {
-        afterStageType: 'prep_heating',
-        stageType: 'prep_forge_ore_smelting',
-        durationSeconds: 28,
-      },
-    ],
     processingQualityBonus: 0.45,
     outcomeModifiers: { forecastSpreadTightness: 0.035 },
     incompatibleWithMaterialProcessingTechniqueIds: [],
     incompatibleWithCraftTechniqueIds: [],
+    targetSemanticProcessRoles: ['refining_smelting'],
+    microTasks: [
+      { id: 'sn_charge', label: 'Загрузка оловянной руды', durationWeight: 1 },
+      { id: 'sn_smelt', label: 'Плавка оловянной заготовки', durationWeight: 2 },
+    ],
+    processingOperations: [
+      {
+        id: 'forge_basic_tin_smelt_op0',
+        order: 0,
+        refiningRecipeId: 'tin_ingot',
+        stageTypeHint: 'prep_forge_ore_smelting',
+        durationSeconds: 28,
+      },
+    ],
   },
   {
     id: 'forge_basic_bronze_smelt',
     name: 'Плавка бронзы в горне',
     description:
       'Сплав меди и олова по рецепту плавильни перед ковкой бронзовых частей.',
-    refiningRecipeId: 'bronze_ingot',
     targetCatalogMaterialIds: ['bronze'],
     unlockedByDefault: false,
-    craftStageInsertions: [
-      {
-        afterStageType: 'prep_heating',
-        stageType: 'prep_forge_ore_smelting',
-        durationSeconds: 38,
-      },
-    ],
     processingQualityBonus: 0.55,
     outcomeModifiers: { forecastSpreadTightness: 0.042 },
     incompatibleWithMaterialProcessingTechniqueIds: [],
     incompatibleWithCraftTechniqueIds: [],
+    targetSemanticProcessRoles: ['refining_smelting'],
+    microTasks: [
+      { id: 'br_mix', label: 'Сборка шихты Cu/Sn', durationWeight: 1 },
+      { id: 'br_smelt', label: 'Плавка бронзы в горне', durationWeight: 2 },
+    ],
+    processingOperations: [
+      {
+        id: 'forge_basic_bronze_smelt_op0',
+        order: 0,
+        refiningRecipeId: 'bronze_ingot',
+        stageTypeHint: 'prep_forge_ore_smelting',
+        durationSeconds: 38,
+      },
+    ],
   },
   {
     id: 'forge_basic_silver_smelt',
     name: 'Простая плавка серебра',
     description:
       'Переплавка серебряной руды перед ковкой; расход по рецепту плавильни.',
-    refiningRecipeId: 'silver_ingot',
     targetCatalogMaterialIds: ['silver_alloy'],
     unlockedByDefault: false,
-    craftStageInsertions: [
-      {
-        afterStageType: 'prep_heating',
-        stageType: 'prep_forge_ore_smelting',
-        durationSeconds: 45,
-      },
-    ],
     processingQualityBonus: 0.65,
     outcomeModifiers: { forecastSpreadTightness: 0.048 },
     incompatibleWithMaterialProcessingTechniqueIds: [],
     incompatibleWithCraftTechniqueIds: [],
+    targetSemanticProcessRoles: ['refining_smelting'],
+    microTasks: [
+      { id: 'ag_charge', label: 'Аккуратная загрузка серебряной руды', durationWeight: 1 },
+      { id: 'ag_smelt', label: 'Тихая плавка и слив слитка', durationWeight: 2 },
+    ],
+    processingOperations: [
+      {
+        id: 'forge_basic_silver_smelt_op0',
+        order: 0,
+        refiningRecipeId: 'silver_ingot',
+        stageTypeHint: 'prep_forge_ore_smelting',
+        durationSeconds: 45,
+      },
+    ],
   },
   {
     id: 'forge_basic_steel_smelt',
     name: 'Плавка стали в горне',
     description:
       'Перевод железной заготовки в сталь по рецепту плавильни перед ковкой.',
-    refiningRecipeId: 'steel_ingot',
     targetCatalogMaterialIds: ['steel'],
     unlockedByDefault: false,
-    craftStageInsertions: [
-      {
-        afterStageType: 'prep_heating',
-        stageType: 'prep_forge_ore_smelting',
-        durationSeconds: 48,
-      },
-    ],
     processingQualityBonus: 0.7,
     outcomeModifiers: { forecastSpreadTightness: 0.05 },
     incompatibleWithMaterialProcessingTechniqueIds: [],
     incompatibleWithCraftTechniqueIds: [],
+    targetSemanticProcessRoles: ['refining_smelting'],
+    microTasks: [
+      { id: 'steel_carburize', label: 'Набор углерода и перемешивание ванны', durationWeight: 2 },
+      { id: 'steel_tap', label: 'Выпуск стальной заготовки', durationWeight: 2 },
+    ],
+    processingOperations: [
+      {
+        id: 'forge_basic_steel_smelt_op0',
+        order: 0,
+        refiningRecipeId: 'steel_ingot',
+        stageTypeHint: 'prep_forge_ore_smelting',
+        durationSeconds: 48,
+      },
+    ],
   },
   {
     id: 'forge_basic_gold_smelt',
     name: 'Простая плавка золота',
     description:
       'Переплавка золотой руды перед ковкой; расход по рецепту плавильни.',
-    refiningRecipeId: 'gold_ingot',
     targetCatalogMaterialIds: ['gold_alloy'],
     unlockedByDefault: false,
-    craftStageInsertions: [
-      {
-        afterStageType: 'prep_heating',
-        stageType: 'prep_forge_ore_smelting',
-        durationSeconds: 58,
-      },
-    ],
     processingQualityBonus: 0.75,
     outcomeModifiers: { forecastSpreadTightness: 0.052 },
     incompatibleWithMaterialProcessingTechniqueIds: [],
     incompatibleWithCraftTechniqueIds: [],
+    targetSemanticProcessRoles: ['refining_smelting'],
+    microTasks: [
+      { id: 'au_heat', label: 'Осторожный прогрев благородного металла', durationWeight: 2 },
+      { id: 'au_cast', label: 'Переплав и формовка заготовки', durationWeight: 2 },
+    ],
+    processingOperations: [
+      {
+        id: 'forge_basic_gold_smelt_op0',
+        order: 0,
+        refiningRecipeId: 'gold_ingot',
+        stageTypeHint: 'prep_forge_ore_smelting',
+        durationSeconds: 58,
+      },
+    ],
   },
   {
     id: 'forge_basic_mithril_smelt',
     name: 'Простая плавка мифрила',
     description:
       'Выплавка мифриловой заготовки из руды перед ковкой; расход и время по рецепту плавильни (высокий уровень). Фэнтези-металл.',
-    refiningRecipeId: 'mithril_ingot',
     targetCatalogMaterialIds: ['mithril_alloy'],
     unlockedByDefault: false,
-    craftStageInsertions: [
-      {
-        afterStageType: 'prep_heating',
-        stageType: 'prep_forge_ore_smelting',
-        durationSeconds: 55,
-      },
-    ],
     processingQualityBonus: 0.8,
     outcomeModifiers: { forecastSpreadTightness: 0.06 },
     incompatibleWithMaterialProcessingTechniqueIds: [],
     incompatibleWithCraftTechniqueIds: [],
+    targetSemanticProcessRoles: ['refining_smelting'],
+    microTasks: [
+      { id: 'mi_ward', label: 'Стабилизация фаз и защита от перегрева', durationWeight: 2 },
+      { id: 'mi_smelt', label: 'Выплавка мифриловой заготовки', durationWeight: 2 },
+    ],
+    processingOperations: [
+      {
+        id: 'forge_basic_mithril_smelt_op0',
+        order: 0,
+        refiningRecipeId: 'mithril_ingot',
+        stageTypeHint: 'prep_forge_ore_smelting',
+        durationSeconds: 55,
+      },
+    ],
   },
   {
     id: 'forge_basic_wood_planks',
     name: 'Заготовка пиломатериала',
     description:
       'Грубый распил по рецепту лесопилки, затем подгонка размеров под деталь рукояти у верстака в мастерской; расход дерева без угля.',
-    refiningRecipeId: 'wood_planks',
     targetCatalogMaterialIds: ['processed_wood'],
     unlockedByDefault: true,
-    craftStageInsertions: [
-      {
-        afterStageType: 'prep_heating',
-        stageType: 'prep_forge_wood_stock',
-        durationSeconds: 12,
-      },
-    ],
     processingQualityBonus: 0.25,
     outcomeModifiers: { forecastSpreadTightness: 0.02 },
     incompatibleWithMaterialProcessingTechniqueIds: [],
     incompatibleWithCraftTechniqueIds: [],
+    targetSemanticProcessRoles: ['refining_smelting'],
+    microTasks: [
+      { id: 'wood_rip', label: 'Распил брёвен по рецепту', durationWeight: 1 },
+      { id: 'wood_trim', label: 'Подгонка пиломатериала под деталь', durationWeight: 2 },
+    ],
+    processingOperations: [
+      {
+        id: 'forge_basic_wood_planks_op0',
+        order: 0,
+        refiningRecipeId: 'wood_planks',
+        stageTypeHint: 'prep_forge_wood_stock',
+        durationSeconds: 12,
+      },
+    ],
   },
   {
     id: 'forge_basic_stone_blocks',
     name: 'Обработка каменных блоков',
     description:
       'Распил и обтёс заготовок по рецепту каменоломни, затем подгонка стыков под посадку в оправу.',
-    refiningRecipeId: 'stone_blocks',
     targetCatalogMaterialIds: ['processed_stone'],
     unlockedByDefault: true,
-    craftStageInsertions: [
-      {
-        afterStageType: 'prep_heating',
-        stageType: 'prep_forge_stone_blocks',
-        durationSeconds: 15,
-      },
-    ],
     processingQualityBonus: 0.28,
     outcomeModifiers: { forecastSpreadTightness: 0.022 },
     incompatibleWithMaterialProcessingTechniqueIds: [],
     incompatibleWithCraftTechniqueIds: [],
+    targetSemanticProcessRoles: ['refining_smelting'],
+    microTasks: [
+      { id: 'stone_cut', label: 'Распил и обтёс блоков', durationWeight: 2 },
+      { id: 'stone_fit', label: 'Подгонка стыков под посадку', durationWeight: 2 },
+    ],
+    processingOperations: [
+      {
+        id: 'forge_basic_stone_blocks_op0',
+        order: 0,
+        refiningRecipeId: 'stone_blocks',
+        stageTypeHint: 'prep_forge_stone_blocks',
+        durationSeconds: 15,
+      },
+    ],
+  },
+  {
+    id: 'forge_basic_leather_tan',
+    name: 'Выделка кожи для рукояти',
+    description:
+      'Дубление сырой кожи до плотной заготовки по рецепту кожевенной постройки; расход сырья без угля.',
+    targetCatalogMaterialIds: ['tanned_leather'],
+    unlockedByDefault: true,
+    processingQualityBonus: 0.22,
+    outcomeModifiers: { forecastSpreadTightness: 0.018 },
+    incompatibleWithMaterialProcessingTechniqueIds: [],
+    incompatibleWithCraftTechniqueIds: [],
+    targetSemanticProcessRoles: ['refining_tanning'],
+    microTasks: [
+      { id: 'proc_raw_tan_soak', label: 'Пропитка и дубление сырья', durationWeight: 2 },
+      { id: 'proc_raw_tan_press', label: 'Дожим и сушка заготовки', durationWeight: 1 },
+    ],
+    processingOperations: [
+      {
+        id: 'forge_basic_leather_tan_op0',
+        order: 0,
+        durationSeconds: 12,
+        inputMaterialIds: { raw_leather: 1 },
+        outputMaterialIds: { tanned_leather: 1 },
+        stageTypeHint: 'prep_forge_leather_tan',
+      },
+    ],
   },
 ]
 

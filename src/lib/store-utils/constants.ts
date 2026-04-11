@@ -357,3 +357,15 @@ export const QUALITY_GRADE_V2_TO_LEGACY: Record<string, string> = {
   masterpiece: 'masterwork',
   legendary: 'legendary',
 }
+
+// ================================
+// КРАФТОВАЯ ЛИНИЯ (хребет рецепта)
+// ================================
+
+/**
+ * Сборка линии из хребта `WeaponRecipe` + техники.
+ * По умолчанию включено; отключение: `NEXT_PUBLIC_CRAFT_LINE_RECIPE_BACKBONE=false`.
+ */
+export function isCraftLineRecipeBackboneEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_CRAFT_LINE_RECIPE_BACKBONE !== 'false'
+}

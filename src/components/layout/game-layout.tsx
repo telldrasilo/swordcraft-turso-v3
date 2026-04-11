@@ -10,20 +10,18 @@ import {
   Sparkles,
   Coins,
   Droplet,
-  TreePine,
-  Mountain,
-  CircleDot,
-  Flame as Coal,
   Cloud,
   CloudOff,
   Loader2,
   CheckCircle,
   BookOpen,
   RotateCcw,
+  Lock,
 } from 'lucide-react'
 import { useGameStore, useFormattedResources, type GameScreen } from '@/store'
-import { useGameLoop, useProductionRates } from '@/hooks/use-game-loop'
+import { useGameLoop } from '@/hooks/use-game-loop'
 import { useCloudSave } from '@/hooks/use-cloud-save'
+import { useForgottenForgeQuestEvents } from '@/hooks/use-forgotten-forge-quest-events'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
@@ -41,16 +39,6 @@ const navItems: { id: GameScreen; label: string; icon: typeof Flame }[] = [
   { id: 'dungeons', label: 'Подземелья', icon: Map },
   { id: 'altar', label: 'Зачарования', icon: Sparkles },
   { id: 'encyclopedia', label: 'Энциклопедия', icon: BookOpen },
-]
-
-// Ресурсы для отображения в панели
-const resourceItems = [
-  { key: 'gold' as const, label: 'Золото', icon: Coins, color: 'text-amber-400' },
-  { key: 'soulEssence' as const, label: 'Эссенция', icon: Droplet, color: 'text-purple-400' },
-  { key: 'wood' as const, label: 'Дерево', icon: TreePine, color: 'text-green-400' },
-  { key: 'stone' as const, label: 'Камень', icon: Mountain, color: 'text-stone-400' },
-  { key: 'iron' as const, label: 'Железо', icon: CircleDot, color: 'text-slate-400' },
-  { key: 'coal' as const, label: 'Уголь', icon: Coal, color: 'text-gray-400' },
 ]
 
 // Компонент статуса сохранения
@@ -115,80 +103,48 @@ function SaveStatusIndicator({
   )
 }
 
-// Панель ресурсов
-function ResourceBar({ 
-  saveStatus 
-}: { 
-  saveStatus: { isSaving: boolean; lastSavedAt: Date | null; error: string | null } 
+/** Верхняя полоса: уровень, золото, эссенция, сохранение (без агрегатов дерева/камня/железа — §3.5 roadmap). */
+function TopStatusBar({
+  saveStatus,
+}: {
+  saveStatus: { isSaving: boolean; lastSavedAt: Date | null; error: string | null }
 }) {
   const resources = useFormattedResources()
   const player = useGameStore((state) => state.player)
-  const productionRates = useProductionRates()
-  
-  // Форматирование скорости
-  const formatRate = (rate: number): string => {
-    if (rate === 0) return '+0'
-    if (rate >= 1) return `+${rate.toFixed(1)}`
-    return `+${rate.toFixed(2)}`
-  }
-  
+
   return (
-    <div data-tutorial="resources-bar" className="bg-gradient-to-b from-stone-900 to-stone-950 border-b border-stone-700/50 px-4 py-3">
-      {/* Верхняя строка - игрок */}
-      <div className="flex items-center justify-between mb-3">
+    <div
+      data-tutorial="resources-bar"
+      className="bg-gradient-to-b from-stone-900 to-stone-950 border-b border-stone-700/50 px-4 py-3"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Badge 
-            variant="outline" 
-            className="bg-amber-900/30 border-amber-600/50 text-amber-200"
-          >
+          <Badge variant="outline" className="bg-amber-900/30 border-amber-600/50 text-amber-200">
             Lv.{player.level}
           </Badge>
           <span className="text-stone-300 font-medium">{player.name}</span>
           <span className="text-xs text-stone-500 hidden sm:inline">({player.title})</span>
         </div>
-        <div className="flex items-center gap-4">
-          {/* Статус сохранения */}
+        <div className="flex flex-wrap items-center gap-4 text-sm">
+          <span className="text-amber-200 font-semibold inline-flex items-center gap-1">
+            <Coins className="w-4 h-4" />
+            {resources.formatted.gold}
+          </span>
+          <span className="text-purple-300 font-semibold inline-flex items-center gap-1">
+            <Droplet className="w-4 h-4" />
+            {resources.formatted.soulEssence}
+          </span>
           <SaveStatusIndicator {...saveStatus} />
-          {/* Прогресс опыта */}
-          <div className="flex items-center gap-2">
-            <Progress 
-              value={(player.experience / player.experienceToNextLevel) * 100} 
+          <div className="flex items-center gap-2 min-w-[140px]">
+            <Progress
+              value={(player.experience / player.experienceToNextLevel) * 100}
               className="w-24 h-2 bg-stone-800"
             />
-            <span className="text-xs text-stone-400">
+            <span className="text-xs text-stone-400 whitespace-nowrap">
               {Math.floor(player.experience)}/{player.experienceToNextLevel}
             </span>
           </div>
         </div>
-      </div>
-      
-      {/* Панель ресурсов - скролл на мобильных */}
-      <div className="flex gap-4 overflow-x-auto scrollbar-medieval pb-1">
-        {resourceItems.map(({ key, label, icon: Icon, color }) => (
-          <motion.div
-            key={key}
-            className="flex items-center gap-2 min-w-fit"
-            whileHover={{ scale: 1.05 }}
-            transition={{ type: 'spring', stiffness: 400 }}
-          >
-            <div className="resource-icon">
-              <Icon className={cn('w-4 h-4', color)} />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-xs text-stone-500">{label}</span>
-              <div className="flex items-center gap-1">
-                <span className={cn('text-sm font-semibold', color)}>
-                  {resources.formatted[key]}
-                </span>
-                {productionRates[key] > 0 && (
-                  <span className="text-xs text-green-500">
-                    {formatRate(productionRates[key])}/с
-                  </span>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        ))}
       </div>
     </div>
   )
@@ -198,6 +154,9 @@ function ResourceBar({
 function SideNav({ onSave, isSaving }: { onSave: () => void; isSaving: boolean }) {
   const currentScreen = useGameStore((state) => state.currentScreen)
   const setCurrentScreen = useGameStore((state) => state.setCurrentScreen)
+  const altarUnlockedByForgottenForgeQuest = useGameStore(
+    (state) => state.altarUnlockedByForgottenForgeQuest
+  )
   const resetGame = useGameStore((state) => state.resetGame)
   const [showResetConfirm, setShowResetConfirm] = useState(false)
 
@@ -242,26 +201,38 @@ function SideNav({ onSave, isSaving }: { onSave: () => void; isSaving: boolean }
         {navItems.map((item) => {
           const Icon = item.icon
           const isActive = currentScreen === item.id
+          const altarLocked = item.id === 'altar' && !altarUnlockedByForgottenForgeQuest
 
           return (
             <motion.div
               key={item.id}
-              whileHover={{ x: 5 }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={altarLocked ? undefined : { x: 5 }}
+              whileTap={altarLocked ? undefined : { scale: 0.98 }}
             >
               <Button
                 data-tutorial={item.id === 'workers' ? 'nav-workers' : item.id === 'resources' ? 'nav-resources' : item.id === 'guild' ? 'nav-guild' : undefined}
                 variant={isActive ? 'default' : 'ghost'}
+                disabled={altarLocked}
+                title={
+                  altarLocked
+                    ? 'Откроется после реплики архивариуса о чертеже алтаря в особом задании «Эхо забытой кузни»'
+                    : undefined
+                }
                 className={cn(
                   'w-full justify-start gap-3',
                   isActive
                     ? 'bg-gradient-to-r from-amber-800 to-amber-900 text-amber-100 shadow-lg glow-gold'
-                    : 'text-stone-400 hover:text-stone-200 hover:bg-stone-800/50'
+                    : 'text-stone-400 hover:text-stone-200 hover:bg-stone-800/50',
+                  altarLocked && 'opacity-60 cursor-not-allowed hover:bg-transparent hover:text-stone-400'
                 )}
-                onClick={() => setCurrentScreen(item.id)}
+                onClick={() => {
+                  if (altarLocked) return
+                  setCurrentScreen(item.id)
+                }}
               >
                 <Icon className="w-5 h-5" />
-                <span>{item.label}</span>
+                <span className="flex-1 text-left">{item.label}</span>
+                {altarLocked ? <Lock className="w-4 h-4 shrink-0 text-stone-500" aria-hidden /> : null}
               </Button>
             </motion.div>
           )
@@ -305,36 +276,53 @@ function SideNav({ onSave, isSaving }: { onSave: () => void; isSaving: boolean }
 function BottomNav() {
   const currentScreen = useGameStore((state) => state.currentScreen)
   const setCurrentScreen = useGameStore((state) => state.setCurrentScreen)
-  
+  const altarUnlockedByForgottenForgeQuest = useGameStore(
+    (state) => state.altarUnlockedByForgottenForgeQuest
+  )
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-stone-950 to-stone-900 border-t border-stone-700/50 px-2 py-2 safe-area-inset-bottom z-50">
       <div className="flex justify-around items-center gap-1">
         {navItems.map((item) => {
           const Icon = item.icon
           const isActive = currentScreen === item.id
-          
+          const altarLocked = item.id === 'altar' && !altarUnlockedByForgottenForgeQuest
+
           return (
             <motion.button
               key={item.id}
+              type="button"
+              disabled={altarLocked}
+              title={
+                altarLocked
+                  ? 'Зачарования откроются после реплики архивариуса о чертеже (квест «Эхо забытой кузни»)'
+                  : item.label
+              }
               className={cn(
                 'flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors min-w-0 flex-1',
-                isActive 
-                  ? 'text-amber-400' 
-                  : 'text-stone-500'
+                isActive ? 'text-amber-400' : 'text-stone-500',
+                altarLocked && 'opacity-50 cursor-not-allowed'
               )}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => setCurrentScreen(item.id)}
+              whileTap={altarLocked ? undefined : { scale: 0.9 }}
+              onClick={() => {
+                if (altarLocked) return
+                setCurrentScreen(item.id)
+              }}
             >
-              <div className={cn(
-                'p-2 rounded-xl transition-all',
-                isActive && 'bg-amber-900/40 glow-gold'
-              )}>
+              <div
+                className={cn(
+                  'p-2 rounded-xl transition-all relative',
+                  isActive && 'bg-amber-900/40 glow-gold'
+                )}
+              >
                 <Icon className="w-5 h-5" />
+                {altarLocked ? (
+                  <Lock className="absolute -right-0.5 -top-0.5 w-3 h-3 text-stone-500" aria-hidden />
+                ) : null}
               </div>
-              <span className={cn(
-                'text-xs truncate',
-                isActive ? 'font-semibold' : 'font-normal'
-              )}>
+              <span
+                className={cn('text-xs truncate max-w-full', isActive ? 'font-semibold' : 'font-normal')}
+              >
                 {item.label}
               </span>
             </motion.button>
@@ -376,6 +364,7 @@ function resolveScreen(key: GameScreen): GameScreen {
 export function GameLayout() {
   // Запуск игрового цикла
   useGameLoop()
+  useForgottenForgeQuestEvents()
 
   const tickForgottenForgeQuestAvailability = useGameStore(
     (state) => state.tickForgottenForgeQuestAvailability
@@ -399,6 +388,9 @@ export function GameLayout() {
   
   const currentScreen = useGameStore((state) => state.currentScreen)
   const setCurrentScreen = useGameStore((state) => state.setCurrentScreen)
+  const altarUnlockedByForgottenForgeQuest = useGameStore(
+    (state) => state.altarUnlockedByForgottenForgeQuest
+  )
   const isMobile = useIsMobile()
   const safeScreen = resolveScreen(currentScreen)
   const CurrentScreen = screens[safeScreen]
@@ -408,6 +400,12 @@ export function GameLayout() {
       setCurrentScreen(safeScreen)
     }
   }, [currentScreen, safeScreen, setCurrentScreen])
+
+  useEffect(() => {
+    if (currentScreen === 'altar' && !altarUnlockedByForgottenForgeQuest) {
+      setCurrentScreen('forge')
+    }
+  }, [currentScreen, altarUnlockedByForgottenForgeQuest, setCurrentScreen])
   
   // Экран загрузки
   if (isLoadingSave) {
@@ -430,7 +428,7 @@ export function GameLayout() {
       <div className="flex min-h-0 min-w-0 flex-1 flex-col md:flex-row">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {/* Панель ресурсов сверху */}
-          <ResourceBar saveStatus={{ isSaving, lastSavedAt, error: saveError }} />
+          <TopStatusBar saveStatus={{ isSaving, lastSavedAt, error: saveError }} />
           
           {/* Область контента */}
           <main className={cn(

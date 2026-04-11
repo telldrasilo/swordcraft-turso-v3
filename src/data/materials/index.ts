@@ -9,30 +9,29 @@ export * from './library'
 // Экспорт коллекций
 export * from './collections'
 
+export {
+  getMetalMaterialsRuntimeMerged,
+  getMetalMaterialRuntimeMerged,
+} from './metals-runtime-merge'
+
 // Импорт типов
 import type { MaterialNode } from '@/types/materials/material-core'
 
 // Импорт всех материалов из library
-import {
-  allMaterials,
-  materialById,
-  allMetals,
-  allWoods,
-  allLeathers,
-} from './library'
+import { allMaterials, materialById } from './library'
 
 // Реэкспорт для обратной совместимости
 export { allMaterials }
 export { materialById }
 
-// Группировка по классам (для энциклопедии и крафта; в т.ч. добываемые узлы library)
+// Группировка по классам — только производные от полного реестра (пакет 1.4)
 export const materialsByClass = {
-  metal: allMetals,
-  mineral: allMaterials.filter(m => m.identity.class === 'mineral'),
-  wood: allWoods,
-  leather: allLeathers,
-  organic: allMaterials.filter(m => m.identity.class === 'organic'),
-  other: allMaterials.filter(m => m.identity.class === 'other'),
+  metal: allMaterials.filter((m) => m.identity.class === 'metal'),
+  mineral: allMaterials.filter((m) => m.identity.class === 'mineral'),
+  wood: allMaterials.filter((m) => m.identity.class === 'wood'),
+  leather: allMaterials.filter((m) => m.identity.class === 'leather'),
+  organic: allMaterials.filter((m) => m.identity.class === 'organic'),
+  other: allMaterials.filter((m) => m.identity.class === 'other'),
 }
 
 /**

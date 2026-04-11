@@ -88,6 +88,8 @@ export interface StartExpeditionFullOptions {
   devBalance?: ExpeditionDevBalanceTweaks
   /** Связь с особым заданием гильдии (квест «Эхо забытой кузни» и др.) */
   linkedQuestId?: string
+  /** Различение повторов одной локации в цепочке FF v2 (руны / обжиг / …) */
+  linkedQuestTag?: string
 }
 
 // ================================
@@ -120,6 +122,7 @@ export interface ActiveExpedition {
   devBalanceTweaks?: ExpeditionDevBalanceTweaks
   /** Зачёт прогресса особого задания при успешном завершении */
   linkedQuestId?: string
+  linkedQuestTag?: string
 }
 
 // ================================

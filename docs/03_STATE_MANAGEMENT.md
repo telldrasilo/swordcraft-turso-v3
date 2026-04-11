@@ -640,6 +640,8 @@ removeEnchantment(weaponId: string, enchantmentId: string) => boolean
 
 **Домен:** Энциклопедия знаний о материалах
 
+**Persist (Zustand):** помимо `materialKnowledge` и сессий изучения — `lastEncyclopediaTab` (`materials` \| `techniques`) и **`lastEncyclopediaTechniqueKindTab`** (активное семейство техник на экране, ENC P2d, **STORE_VERSION 33**). Фокусы `encyclopediaFocusMaterialId` / `encyclopediaFocusTechniqueRef` не сохраняются. Облако: см. `cloud-save-feature.ts` (эти поля пока только локально, как `lastEncyclopediaTab`).
+
 #### State (EncyclopediaState)
 ```typescript
 {

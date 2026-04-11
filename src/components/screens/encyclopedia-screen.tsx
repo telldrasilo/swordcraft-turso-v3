@@ -13,13 +13,21 @@ import {
   MaterialCard,
   SearchBar,
   CategoryTabs,
+  TechniquesSection,
 } from '@/components/encyclopedia'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { allMaterials, materialById } from '@/data/materials'
+import { compareMaterialNodesForEncyclopediaList } from '@/lib/materials/encyclopedia-display-order'
+import {
+  isBaseMetalSupersededByAlloyCatalogEntry,
+  resolveEncyclopediaFocusMaterialId,
+} from '@/lib/materials/encyclopedia-base-metal-alloy-display'
 import { getMaterialStudyTechniqueById } from '@/data/material-study-techniques'
 import { getDisplayCategory } from '@/types/materials'
 import type { MaterialDisplayCategory, MaterialNode } from '@/types/materials'
 import type { MaterialStudySession } from '@/types/material-study'
 import { useGameStore } from '@/store/game-store-composed'
+import type { EncyclopediaScreenTab } from '@/store/slices/encyclopedia-slice'
 
 function formatStudyRemain(totalSec: number): string {
   const sec = Math.max(0, totalSec)
@@ -87,10 +95,30 @@ export function EncyclopediaScreen() {
   const materialStudySessions = useGameStore(s => s.materialStudySessions)
   const encyclopediaFocusMaterialId = useGameStore(s => s.encyclopediaFocusMaterialId)
   const setEncyclopediaFocusMaterialId = useGameStore(s => s.setEncyclopediaFocusMaterialId)
+  const encyclopediaFocusTechniqueRef = useGameStore(s => s.encyclopediaFocusTechniqueRef)
+  const setEncyclopediaFocusTechniqueRef = useGameStore(s => s.setEncyclopediaFocusTechniqueRef)
+  const lastEncyclopediaTab = useGameStore(s => s.lastEncyclopediaTab)
+  const setLastEncyclopediaTab = useGameStore(s => s.setLastEncyclopediaTab)
+  const setLastEncyclopediaTechniqueKindTab = useGameStore(s => s.setLastEncyclopediaTechniqueKindTab)
+
+  const effectiveEncyclopediaTab: EncyclopediaScreenTab = encyclopediaFocusMaterialId
+    ? 'materials'
+    : encyclopediaFocusTechniqueRef
+      ? 'techniques'
+      : lastEncyclopediaTab
+
+  /** Узлы списка ENC: без базовых металлов, у которых в каталоге есть `id_alloy` (одна строка на семейство). */
+  const encyclopediaListSource = useMemo(
+    () =>
+      allMaterials.filter(
+        (m: MaterialNode) => !isBaseMetalSupersededByAlloyCatalogEntry(m, materialById),
+      ),
+    [],
+  )
 
   // Filter materials
   const filteredMaterials = useMemo(() => {
-    return allMaterials
+    return encyclopediaListSource
       .filter((material: MaterialNode) => {
         if (!showOnlyDiscovered) return true
         const knowledge = materialKnowledge[material.identity.id]
@@ -116,24 +144,45 @@ export function EncyclopediaScreen() {
           basic.includes(normalizedQuery)
         )
       })
-      // Sort by rarity and name
-      .sort((a, b) => {
-        const rarityDiff = a.economy.rarity - b.economy.rarity
-        if (rarityDiff !== 0) return rarityDiff
-        return a.identity.name.localeCompare(b.identity.name, 'ru')
-      })
-  }, [selectedCategory, searchQuery, materialKnowledge, showOnlyDiscovered])
+      // Sort by economy tier then name (roadmap 5.1 — см. encyclopedia-display-order)
+      .sort(compareMaterialNodesForEncyclopediaList)
+  }, [encyclopediaListSource, selectedCategory, searchQuery, materialKnowledge, showOnlyDiscovered])
 
   useEffect(() => {
     if (!encyclopediaFocusMaterialId) return
-    const id = encyclopediaFocusMaterialId
+    queueMicrotask(() => {
+      setLastEncyclopediaTab('materials')
+    })
+    const id = resolveEncyclopediaFocusMaterialId(encyclopediaFocusMaterialId, materialById)
     const t = window.setTimeout(() => {
       const el = document.querySelector(`[data-encyclopedia-material="${CSS.escape(id)}"]`)
       el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
       setEncyclopediaFocusMaterialId(null)
     }, 120)
     return () => window.clearTimeout(t)
-  }, [encyclopediaFocusMaterialId, setEncyclopediaFocusMaterialId])
+  }, [encyclopediaFocusMaterialId, setEncyclopediaFocusMaterialId, setLastEncyclopediaTab])
+
+  useEffect(() => {
+    if (!encyclopediaFocusTechniqueRef) return
+    const { kind, id } = encyclopediaFocusTechniqueRef
+    setLastEncyclopediaTechniqueKindTab(kind)
+    queueMicrotask(() => {
+      setLastEncyclopediaTab('techniques')
+    })
+    const t = window.setTimeout(() => {
+      const el = document.querySelector(
+        `[data-encyclopedia-technique-kind="${CSS.escape(kind)}"][data-encyclopedia-technique-id="${CSS.escape(id)}"]`,
+      )
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      setEncyclopediaFocusTechniqueRef(null)
+    }, 200)
+    return () => window.clearTimeout(t)
+  }, [
+    encyclopediaFocusTechniqueRef,
+    setEncyclopediaFocusTechniqueRef,
+    setLastEncyclopediaTab,
+    setLastEncyclopediaTechniqueKindTab,
+  ])
 
   /**
    * Только dev: массово меняет экспертизу и пишет в persist — в production давало «у всех 10%».
@@ -166,120 +215,143 @@ export function EncyclopediaScreen() {
 
   return (
     <div className="p-4 md:p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="space-y-4">
         <div>
           <h2 className="text-2xl font-bold text-amber-200 flex items-center gap-2">
             <BookOpen className="w-6 h-6 text-amber-500" />
-            Энциклопедия материалов
+            Энциклопедия
           </h2>
-          <p className="text-stone-500 text-sm">Изучайте свойства материалов</p>
+          <p className="text-stone-500 text-sm">
+            Материалы и техники — справочник каталога и реестров проекта
+          </p>
         </div>
-        <div className="flex items-center gap-3">
-          {IS_DEV ? (
-            <button
-              type="button"
-              onClick={testToggleExpertise}
-              className="flex items-center gap-2 px-3 py-1 text-xs bg-purple-900/50 hover:bg-purple-800/50 border border-purple-700 text-purple-300 rounded"
-              title={`[dev] Тест persist: все материалы 100% → 10% → сброс режима (значения в store не откатываются автоматически)`}
-            >
-              <TestTube className="w-4 h-4" />
-              <span>{getTestButtonText()}</span>
-            </button>
-          ) : null}
-          <div className="text-stone-400 text-sm">
-            {filteredMaterials.length} / {allMaterials.length}
-          </div>
-        </div>
-      </div>
 
-      {/* Search and filters */}
-      <div className="space-y-4">
-        <SearchBar value={searchQuery} onChange={setSearchQuery} />
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <CategoryTabs 
-            activeCategory={selectedCategory} 
-            onCategoryChange={setSelectedCategory} 
-          />
-          <label className="flex items-center gap-2 text-sm text-stone-400 cursor-pointer shrink-0">
-            <Switch
-              checked={showOnlyDiscovered}
-              onCheckedChange={() => toggleShowOnlyDiscovered()}
-              aria-label="Только открытые материалы"
-            />
-            <span>Только открытые</span>
-          </label>
-        </div>
-      </div>
+        <Tabs
+          value={effectiveEncyclopediaTab}
+          onValueChange={v => setLastEncyclopediaTab(v as EncyclopediaScreenTab)}
+          className="w-full gap-4"
+        >
+          <TabsList className="bg-stone-900/80 border border-stone-700 p-1 h-auto flex-wrap">
+            <TabsTrigger value="materials" className="data-[state=active]:bg-stone-800">
+              Материалы
+            </TabsTrigger>
+            <TabsTrigger value="techniques" className="data-[state=active]:bg-stone-800">
+              Техники
+            </TabsTrigger>
+          </TabsList>
 
-      {runningStudySessions.length > 0 && (
-        <div className="space-y-3">
-          {runningStudySessions.map(s => (
-            <MaterialStudyProgress key={s.id} session={s} />
-          ))}
-        </div>
-      )}
-
-      {/* Material grid */}
-      {filteredMaterials.length === 0 ? (
-        <Card className="bg-stone-900/50 border-stone-700">
-          <CardContent className="p-8 text-center">
-            <Search className="w-12 h-12 mx-auto text-stone-600 mb-3" />
-            <p className="text-stone-500">Материалы не найдены</p>
-            <p className="text-stone-600 text-sm">
-              {searchQuery
-                ? 'Попробуйте изменить поисковый запрос'
-                : showOnlyDiscovered
-                  ? 'Снимите фильтр «Только открытые», чтобы видеть весь каталог, или накапливайте экспертизу'
-                  : 'Ничего не подошло под категорию или поиск'}
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredMaterials.map((material: MaterialNode) => (
-            <div
-              key={material.identity.id}
-              data-encyclopedia-material={material.identity.id}
-              className="min-w-0"
-            >
-              <MaterialCard
-                material={material}
-                knowledge={materialKnowledge[material.identity.id]}
-              />
+          <TabsContent value="materials" className="space-y-6 mt-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <p className="text-stone-500 text-sm">Каталог материалов и изучение</p>
+              <div className="flex items-center gap-3">
+                {IS_DEV ? (
+                  <button
+                    type="button"
+                    onClick={testToggleExpertise}
+                    className="flex items-center gap-2 px-3 py-1 text-xs bg-purple-900/50 hover:bg-purple-800/50 border border-purple-700 text-purple-300 rounded"
+                    title={`[dev] Тест persist: все материалы 100% → 10% → сброс режима (значения в store не откатываются автоматически)`}
+                  >
+                    <TestTube className="w-4 h-4" />
+                    <span>{getTestButtonText()}</span>
+                  </button>
+                ) : null}
+                <div className="text-stone-400 text-sm tabular-nums">
+                  {filteredMaterials.length} / {encyclopediaListSource.length}
+                </div>
+              </div>
             </div>
-          ))}
-        </div>
-      )}
 
-      {/* Help */}
-      <Card className="bg-stone-800/30 border-stone-700">
-        <CardContent className="p-4">
-          <h4 className="font-semibold text-stone-300 mb-2 flex items-center gap-2">
-            <Info className="w-4 h-4 text-amber-500" />
-            Об энциклопедии
-          </h4>
-          <ul className="text-xs text-stone-500 space-y-1">
-            <li>
-              <strong className="text-amber-400">Экспертиза</strong> —
-              накапливается при использовании материалов в крафте
-            </li>
-            <li>
-              <strong className="text-green-400">Изученные материалы</strong> —
-              дают бонусы к скорости, качеству и точности прогноза
-            </li>
-            <li>
-              <strong className="text-purple-400">Новые свойства</strong> —
-              открываются по мере накопления экспертизы
-            </li>
-            <li>
-              <strong className="text-amber-400">Изучение в энциклопедии</strong> —
-              прогресс и активная сессия сохраняются в сохранении игры (в том числе после обновления
-              страницы и при переходе на другие вкладки)
-            </li>
-          </ul>
-        </CardContent>
-      </Card>
+            <div className="space-y-4">
+              <SearchBar value={searchQuery} onChange={setSearchQuery} />
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <CategoryTabs
+                  activeCategory={selectedCategory}
+                  onCategoryChange={setSelectedCategory}
+                />
+                <label className="flex items-center gap-2 text-sm text-stone-400 cursor-pointer shrink-0">
+                  <Switch
+                    checked={showOnlyDiscovered}
+                    onCheckedChange={() => toggleShowOnlyDiscovered()}
+                    aria-label="Только открытые материалы"
+                  />
+                  <span>Только открытые</span>
+                </label>
+              </div>
+            </div>
+
+            {runningStudySessions.length > 0 && (
+              <div className="space-y-3">
+                {runningStudySessions.map(s => (
+                  <MaterialStudyProgress key={s.id} session={s} />
+                ))}
+              </div>
+            )}
+
+            {filteredMaterials.length === 0 ? (
+              <Card className="bg-stone-900/50 border-stone-700">
+                <CardContent className="p-8 text-center">
+                  <Search className="w-12 h-12 mx-auto text-stone-600 mb-3" />
+                  <p className="text-stone-500">Материалы не найдены</p>
+                  <p className="text-stone-600 text-sm">
+                    {searchQuery
+                      ? 'Попробуйте изменить поисковый запрос'
+                      : showOnlyDiscovered
+                        ? 'Снимите фильтр «Только открытые», чтобы видеть весь каталог, или накапливайте экспертизу'
+                        : 'Ничего не подошло под категорию или поиск'}
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredMaterials.map((material: MaterialNode) => (
+                  <div
+                    key={material.identity.id}
+                    data-encyclopedia-material={material.identity.id}
+                    className="min-w-0"
+                  >
+                    <MaterialCard
+                      material={material}
+                      knowledge={materialKnowledge[material.identity.id]}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <Card className="bg-stone-800/30 border-stone-700">
+              <CardContent className="p-4">
+                <h4 className="font-semibold text-stone-300 mb-2 flex items-center gap-2">
+                  <Info className="w-4 h-4 text-amber-500" />
+                  Об энциклопедии
+                </h4>
+                <ul className="text-xs text-stone-500 space-y-1">
+                  <li>
+                    <strong className="text-amber-400">Экспертиза</strong> —
+                    накапливается при использовании материалов в крафте
+                  </li>
+                  <li>
+                    <strong className="text-green-400">Изученные материалы</strong> —
+                    дают бонусы к скорости, качеству и точности прогноза
+                  </li>
+                  <li>
+                    <strong className="text-purple-400">Новые свойства</strong> —
+                    открываются по мере накопления экспертизы
+                  </li>
+                  <li>
+                    <strong className="text-amber-400">Изучение в энциклопедии</strong> —
+                    прогресс и активная сессия сохраняются в сохранении игры (в том числе после
+                    обновления страницы и при переходе на другие вкладки)
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="techniques" className="mt-4">
+            <TechniquesSection />
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   )
 }

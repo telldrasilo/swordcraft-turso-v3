@@ -3,7 +3,13 @@
  * Позже можно заменить на графику без смены ключей — вернуть пути/Image в компонентах.
  */
 
-export type ResourceIconRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary'
+export type ResourceIconRarity =
+  | 'common'
+  | 'uncommon'
+  | 'rare'
+  | 'epic'
+  | 'legendary'
+  | 'unique'
 
 export const RESOURCE_ICON_META: Record<
   string,
@@ -31,6 +37,9 @@ export const RESOURCE_ICON_META: Record<
   mithrilIngot: { emoji: '💠', name: 'Мифр. слиток', rarity: 'legendary' },
   planks: { emoji: '📐', name: 'Доски', rarity: 'uncommon' },
   stoneBlocks: { emoji: '🧱', name: 'Блоки камня', rarity: 'uncommon' },
+  resonator_matrix: { emoji: '🔷', name: 'Резонаторная матрица', rarity: 'unique' },
+  focusing_chalice: { emoji: '🏆', name: 'Фокусирующая чаша', rarity: 'unique' },
+  lunar_tuning_fork: { emoji: '🌙', name: 'Лунный камертон', rarity: 'unique' },
 }
 
 /** Только эмодзи по ResourceKey (кузница, подсказки). */

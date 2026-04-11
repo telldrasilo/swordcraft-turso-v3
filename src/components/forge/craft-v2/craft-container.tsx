@@ -11,12 +11,8 @@
 import React, { useState, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 
-import { 
-  Hammer, ArrowLeft,
-  HelpCircle, Sparkles
-} from 'lucide-react'
+import { HelpCircle, Sparkles } from 'lucide-react'
 
 import { useCraftV2 } from '@/hooks/use-craft-v2'
 import { useGameStore } from '@/store/game-store-composed'
@@ -439,26 +435,12 @@ export function CraftContainerV2({
             exit={{ opacity: 0 }}
             className="space-y-4"
           >
-            {/* Заголовок */}
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-stone-200 flex items-center gap-2">
-                <Hammer className="w-5 h-5 text-amber-400 animate-pulse" />
-                Крафт в процессе
-              </h2>
-              {onBack && (
-                <Button variant="ghost" size="sm" onClick={cancelCraft}>
-                  <ArrowLeft className="w-4 h-4 mr-1" />
-                  Отмена
-                </Button>
-              )}
-            </div>
-            
-            {/* Прогресс */}
             {state.activeCraft && (
               <CraftProgress
                 activeCraft={state.activeCraft}
                 onCancel={cancelCraft}
                 onInstantComplete={instantComplete}
+                onCancelHeader={onBack ? cancelCraft : undefined}
               />
             )}
           </motion.div>

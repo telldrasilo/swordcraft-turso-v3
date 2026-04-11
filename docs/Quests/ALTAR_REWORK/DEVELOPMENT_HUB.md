@@ -26,6 +26,8 @@
 | [readme.md](./readme.md) | План этапов 0–6, чеклисты, критерии релиза, риски, работа в Cursor | Все |
 | [SPECIFICATION.md](./SPECIFICATION.md) | Типы, store, события, хуки, примеры кода | Разработчики |
 | [ALTAR_BUILDING_V2.md](./ALTAR_BUILDING_V2.md) | Геймдизайн: 5 фаз, микроэтапы, материалы, UX, отмена, сохранение | ГД, UI, store |
+| [ALTAR_MATERIAL_BALANCE.md](./ALTAR_MATERIAL_BALANCE.md) | Баланс количеств на старт фаз: `altar-phase-material-balance.ts`, связь с `refining-recipes` | ГД, баланс |
+| [ALTAR_CONSTRUCTION_PROGRESS_UI_PLAN.md](./ALTAR_CONSTRUCTION_PROGRESS_UI_PLAN.md) | План UI прогресса стройки (скрытие требований при активной фазе, выравнивание полосы с крафтом/верстаком/ремонтом) | UI, ГД |
 | [FORGOTTEN_FORGE v2.md](./FORGOTTEN_FORGE%20v2.md) | Сценарий квеста (шаги, диалоги, ветвления) | Сценаристы, логика квеста |
 | [CHAT.md](./CHAT.md) | ТЗ модуля общения: store, диалоги, триггеры, связь с UI | Store, UI |
 | **DEVELOPMENT_HUB.md** (этот файл) | Сводка решений, мастер-план, инвентарь кода, журнал | Все |
@@ -142,7 +144,7 @@
 | Главный UI постройки / дорожная карта фаз | `src/components/screens/altar-screen.tsx` и/или `src/components/enchantment/` (создать по конвенции проекта) |
 | Конфиг фаз I–V | `src/data/altar/` или `src/lib/altar/` — как в `SPECIFICATION.md` / `ALTAR_BUILDING_V2.md` |
 | Слайсы store | `questForgottenForge*`, `altarConstruction*` — пути из `SPECIFICATION.md` (уточнить под фактическую структуру `src/store/slices/`) |
-| Шина событий | `src/lib/event-bus.ts` (или существующий паттерн проекта — сейчас отдельного `eventBus` нет) |
+| Шина событий | `src/lib/game-events.ts` — типизированные `on` / `emit` |
 | События квеста | Хук в духе `useForgottenForgeQuestEvents` — `layout` или корневой клиентский провайдер (см. `readme.md` этап 2) |
 | Диалоги | `src/data/quests/forgotten-forge-dialogue.ts` (расширение существующего) |
 
@@ -155,43 +157,59 @@
 Детализация и параллели — **§3**. Гейты по шагам — **§3.5** (не полагаться только на readme).
 
 ### Этап 0. Подготовка и типизация
-- [ ] Типы: `QuestForgottenForgeState`, `AltarConstructionState`, `AltarPhase`, `AltarStage`, `AltarPhaseConfig` (и действия) — по `SPECIFICATION.md`
-- [ ] Store: новые поля и начальные значения без полной логики
-- [ ] `materialStash` / квестовые предметы: флаг `isQuestItem`, если ещё нет
+- [x] Типы: `ForgottenForgeQuestState` (расширение), `AltarConstructionState`, `AltarPhase`, `AltarStage`, `AltarPhaseConfig` — по `SPECIFICATION.md`
+- [x] Store: новые поля и начальные значения без полной логики (`altarConstruction`, `materialStashQuestItemIds`, merge/persist **STORE_VERSION 28**)
+- [x] Квестовые предметы: `materialStashQuestItemIds` + опционально `addMaterialToStash(..., { markQuestItem: true })`
 
 ### Этап 1. Базовая механика строительства
-- [ ] `altarPhasesConfig` для фаз I–V по `ALTAR_BUILDING_V2.md`
-- [ ] Actions: `startAltarPhase`, `completeAltarPhase`, `cancelAltarPhase`, `updateAltarProgress`
-- [ ] Тик прогресса активной фазы
-- [ ] `canStartPhase`, `consumeMaterialsForPhase`
-- [ ] Базовый UI на экране **«Зачарования»** (не в кузнице): дорожная карта, старт, прогресс, отмена
-- [ ] Событие `altar:phaseCompleted`; отмена без возврата материалов; persist
+- [x] `altarPhasesConfig` для фаз I–V (`src/data/altar/altar-phases-config.ts`); **количества материалов** — `src/data/altar/altar-phase-material-balance.ts` ([`ALTAR_MATERIAL_BALANCE.md`](./ALTAR_MATERIAL_BALANCE.md))
+- [x] Actions: `startAltarConstructionPhase`, завершение/отмена, `updateAltarConstructionProgress` в store
+- [x] Тик прогресса (`use-altar-construction-tick.ts`)
+- [x] `canStartAltarPhase`, `consumeMaterialsForAltarPhase` (`src/lib/altar/`)
+- [x] Базовый UI на экране **«Зачарования»**: дорожная карта, старт, прогресс, отмена (`altar-screen.tsx`)
+- [x] Событие `altar:phaseCompleted` через `game-events`; отмена без возврата материалов; persist
 
 ### Этап 2. Квест: флаги, триггеры, чат
-- [ ] Store квеста: `step`, `waitingForCraftAfterPhase2`, действия
-- [ ] Диалоги по шагам; `selectArchivistChoice`
-- [ ] Подписки: `expedition:completed`, `craft:completed`, `altar:phaseCompleted`
-- [ ] Хук событий в layout / app
+- [x] Store квеста: `step`, `waitingForCraftAfterPhase2`, действия
+- [x] Диалоги по шагам v2: `forgotten-forge-dialogue.ts` (шаги 0–7, стройка, крафт, техники, финал); реплики в чат через `useForgottenForgeQuestEvents` + слайс
+- [x] `selectArchivistChoice` и интеграция с доком
+- [x] Подписки: `expedition:completed`, `craft:completed`, `altar:phaseCompleted`
+- [x] Хук `useForgottenForgeQuestEvents` в layout
 
 ### Этап 3. UI цели и блокировка фаз
-- [ ] `AltarQuestGoal` (см. `SPECIFICATION.md` п.5)
-- [ ] Блокировка «Начать фазу» по **§3.5** (не по устаревшей таблице readme)
-- [ ] Подсказки «Сначала выполните задание архивариуса»
+- [x] `AltarQuestGoal` (`src/components/enchantment/altar-quest-goal.tsx`)
+- [x] Блокировка «Начать фазу» по **§3.5** (`altar-quest-gates.ts` + экран)
+- [x] Подсказки при блокировке фазы
 
 ### Этап 4. Предметы, техники, экспедиции
-- [ ] Выдача артефактов и техник по сценарию; `isQuestItem`; фаза III только проверка наличия
-- [ ] `requiredItems` / `questTag` в данных экспедиций; списание при отправке
-- [ ] Подсказки в UI при нехватке ресурсов
+- [x] Выдача артефактов и техник по сценарию; `isQuestItem`; фаза III — проверка наличия
+- [x] `linkedQuestTag` / `requiredItems` в данных экспедиций; списание при отправке (guild cross-slice)
+- [x] Подсказки в UI цели при нехватке ресурсов
 
 ### Этап 5. Финал и режим «алтарь готов»
-- [ ] Шаг 18 / завершение фазы V → `altarBuiltInForge = true` (или переименование флага по SPEC)
-- [ ] Скрыть панель цели; подвкладки «Зачарование» и «Улучшение алтаря» (заглушка)
-- [ ] Нет повторного запуска квеста
+- [x] Завершение фазы V → шаг 18 / `altarBuiltInForge` (хук квеста)
+- [x] Панель цели скрывается после финала; подвкладки «Зачарование» / «Улучшение алтаря» на экране
+- [x] Повторный запуск квеста не предусмотрен сценарием (статус/шаг в store)
 
 ### Этап 6. Тесты, баланс, отладка
-- [ ] Полный проход 0 → финал; reload на каждом шаге; краевые случаи
-- [ ] Нет эксплойта отмены фаз
-- [ ] Dev-сброс квеста (например `window.resetForgottenForgeQuest()`)
+- [x] Автопроверка критического пути по событиям алтаря/крафта: [`forgotten-forge-event-transitions.test.ts`](../../../src/lib/quests/forgotten-forge-event-transitions.test.ts) (логика совпадает с [`useForgottenForgeQuestEvents`](../../../src/hooks/use-forgotten-forge-quest-events.ts))
+- [ ] Операционный sign-off: полный ручной прогон по [§6.1](#61-приёмочный-чеклист-ручной) (reload на ключевых шагах)
+- [x] Юнит-тесты на чистые функции стройки / гейты (см. `src/lib/altar/*.test.ts`)
+- [x] Dev-сброс: `window.resetForgottenForgeQuest()` в dev ([`useForgottenForgeQuestEvents`](../../../src/hooks/use-forgotten-forge-quest-events.ts) → `resetForgottenForgeQuestDev` в слайсе)
+
+### 6.1 Приёмочный чеклист (ручной)
+
+Перед релизом команда отмечает прогон (ориентир — [readme §5](./readme.md) и [FORGOTTEN_FORGE v2.md](./FORGOTTEN_FORGE%20v2.md), гейты — **§3.5**).
+
+| Шаг | Действие | Reload после |
+|-----|-----------|--------------|
+| 1 | Квест активирован, экспедиции 1–6, три артефакта в stash | После шага 6 |
+| 2 | Диалог шага 7 → шаг 8, чертёж, фаза I на «Зачарованиях» | После шага 8 |
+| 3 | Фаза I → событие, шаг 9; фаза II → ожидание крафта, варианты `ff_pw_*` | Во время ожидания крафта |
+| 4 | Крафт v2 → шаг 11; три FF-экспедиции → техники; фаза III | После шага 14 |
+| 5 | Экспедиция благословения → фазы IV–V → финал, подвкладки enchant/upgrade | После шага 18 |
+| 6 | Отмена активной фазы стройки — материалы не возвращаются | — |
+| 7 | Недостаток `requiredItems` — кнопка экспедиции недоступна | — |
 
 ---
 
@@ -203,7 +221,7 @@
 
 ## 8. Риски (из readme + кодовая база)
 
-- Синхронизация событий между крафтом, экспедициями и алтарём; отсутствие готовой шины — заложить модуль рано (**волна C**).
+- Синхронизация событий между крафтом, экспедициями и алтарём — модуль **`game-events`**; новые emit подключать после commit в Zustand.
 - Атомарное списание материалов при старте фазы.
 - Техники-заглушки: `clay_firing`, `frequency_tuning`, `spirit_blessing` и др.
 - Миграция сохранений: старые сейвы с `forgeMainTab: 'altar'` и прогрессом рецепта `forgotten_forge_altar_node` — описать в журнале при появлении стратегии.
@@ -227,6 +245,29 @@
 
 ### Записи
 
+### 2026-04-09 — Post-v2: smoke-тесты переходов, баланс фазы IV, облако persist, чеклист §6.1
+
+- Сделано: вынесена чистая логика [`forgotten-forge-event-transitions.ts`](../../../src/lib/quests/forgotten-forge-event-transitions.ts), хук переведён на неё; тесты критического пути; фаза IV ~10800 с ([`altar-phases-config`](../../../src/data/altar/altar-phases-config.ts)); тест roundtrip `forgottenForgePersist` для формы cloud-save; §6.1 ручной чеклист; уточнён dev-reset в §6; ссылка на следующий эпик в [ENCHANTMENT_MODULE_PHASE2_IMPLEMENTATION_ROADMAP.md](../../systems/ENCHANTMENT_MODULE_PHASE2_IMPLEMENTATION_ROADMAP.md).
+- Следующие шаги: отметить в таблице §6.1 фактический ручной прогон; при Turso — один E2E-сейв вручную.
+
+### 2026-04-09 — Диалоги v2 в чате, dev-сброс, тесты гейтов, синхронизация §6/readme
+
+- Сделано: расширен `forgotten-forge-dialogue.ts` по **FORGOTTEN_FORGE v2**; сообщения после фаз I–V, крафта и экспедиций за техники; финал с выбором ответа; `appendArchivistLines` + обновлён `useForgottenForgeQuestEvents`; ветка «ожидание крафта» после фазы II (`FF_PHASE2_WAIT_CRAFT_*`); `resetForgottenForgeQuestDev` и `window.resetForgottenForgeQuest` в dev; `altar-quest-gates.test.ts`; комментарий целевых сумм длительностей в `altar-phases-config.ts`; §6 хаба и readme v1.1.
+- Файлы: `src/data/quests/forgotten-forge-dialogue.ts`, `src/hooks/use-forgotten-forge-quest-events.ts`, `src/store/slices/forgotten-forge-quest-slice.ts`, `src/lib/altar/altar-quest-gates.test.ts`, `src/data/altar/altar-phases-config.ts`, `docs/Quests/ALTAR_REWORK/DEVELOPMENT_HUB.md`, `docs/Quests/ALTAR_REWORK/readme.md`
+- Следующие шаги: ручной полный проход команды; итерации баланса микроэтапов по плейтесту.
+
+### 2026-04-09 — M1–M5: стройка на «Зачарованиях», квест §3.5, экспедиции, удаление вкладки кузницы
+
+- Сделано: `altarPhasesConfig` + `canStartAltarPhase` / `consumeMaterialsForAltarPhase` / тик `updateAltarConstructionProgress` + `game-events`; actions в `game-store-composed`; хук тика; UI дорожной карты на `altar-screen.tsx`, `AltarQuestGoal`; `useForgottenForgeQuestEvents` + переходы шагов; расширение FF экспедиций (`linkedQuestTag`, шаги 11–15, артефакты в stash, техники, траты shadow_leather / mist_herbs); эпилог → шаг 8; `STORE_VERSION` 29; удалены рецепт/вкладка кузницы «Алтарь»; `canAccessForgottenForgeEnchantmentFlow` для доступа к стройке без legacy-сборки.
+- Файлы: `src/lib/altar/*`, `src/data/altar/*`, `src/hooks/use-altar-construction-tick.ts`, `src/hooks/use-forgotten-forge-quest-events.ts`, `src/components/screens/altar-screen.tsx`, `src/components/enchantment/altar-quest-goal.tsx`, `src/store/slices/forgotten-forge-quest-slice.ts`, `src/data/quests/forgotten-forge.ts`, `src/store/cross-slice/guild-expedition-cross-slice.ts`, `src/types/guild.ts`, `src/lib/enchantment-screen-access.ts`, и др.
+- Следующие шаги: полнота диалогов v2, баланс длительностей, `npm run build` в CI.
+
+### 2026-04-09 — Этап 0: типы и заготовка store
+
+- Сделано: `src/types/altar-construction.ts`; расширен `ForgottenForgeQuestState` (`step` до 18, `waitingForCraftAfterPhase2`, `lastStepChangeAt`); `materialStashQuestItemIds` и `altarConstruction` в store + partialize/merge; `normalizeForgottenForgePersistFromSave` / облачный `forgottenForgePersist`; `addMaterialToStash` с `markQuestItem`; тесты нормализации; `docs/04_TYPES_SYSTEM.md` §11.
+- Файлы: `src/types/altar-construction.ts`, `src/types/forgotten-forge-quest.ts`, `src/types/index.ts`, `src/store/slices/resources-slice.ts`, `src/store/game-store-composed.ts`, `src/lib/normalize-forgotten-forge-persist.ts`, `src/lib/normalize-forgotten-forge-persist.test.ts`, `src/hooks/use-cloud-save.ts`, `src/store/slices/forgotten-forge-quest-slice.ts`, `docs/04_TYPES_SYSTEM.md`
+- Следующие шаги: волна B — `altarPhasesConfig` и actions строительства (этап 1 readme).
+
 ### 2026-04-09 — Мастер-план и §3.5–3.6
 
 - Сделано: перечитаны все документы в `ALTAR_REWORK`; в хаб добавлены мастер-план (волны A–H), параллельные треки, расширенный охват модулей и проектной доки; зафиксирована **каноническая матрица шаг ↔ фаза** по FORGOTTEN_FORGE v2 + CHAT; отмечены расхождения readme/SPEC/v2; уточнено, что отдельного `eventBus` в коде пока нет; этап 3 в §6 связан с §3.5.
@@ -243,12 +284,13 @@
 
 ## 10. Быстрые ссылки на реализацию в репозитории
 
-- Store: `src/store/game-store-composed.ts` — `altarUnlockedByForgottenForgeQuest`, `altarBuiltInForge`, `ForgeMainTab`, `navigateToForgeTab`
+- Store: `src/store/game-store-composed.ts` — `altarUnlockedByForgottenForgeQuest`, `altarBuiltInForge`, `ForgeMainTab` (`craft` \| `inventory` \| `bench`), `navigateToForgeTab`
 - Квест: `src/store/slices/forgotten-forge-quest-slice.ts`
 - Экран зачарований: `src/components/screens/altar-screen.tsx`
 - Доступ: `src/lib/enchantment-screen-access.ts`
-- Диалоги (заготовка): `src/data/quests/forgotten-forge-dialogue.ts`
+- Диалоги: `src/data/quests/forgotten-forge-dialogue.ts`; шина: `src/lib/game-events.ts`
 - Крафт v2: `src/hooks/use-craft-v2.ts`
+- Нормализация FF/облако: `src/lib/normalize-forgotten-forge-persist.ts`
 
 ---
 

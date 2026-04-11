@@ -11,6 +11,7 @@ import React, { useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
@@ -19,11 +20,29 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { 
-  CheckCircle2, Circle, Loader2, Clock, ChevronDown, ChevronUp,
-  Flame, Hammer, Wrench, Package, Sparkles, Zap
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Circle,
+  Loader2,
+  Clock,
+  ChevronDown,
+  ChevronUp,
+  Flame,
+  Hammer,
+  Wrench,
+  Package,
+  Sparkles,
+  Zap,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { CraftLineStrip } from './craft-line-strip'
+import {
+  buildCraftLineFromPlanWithRecipe,
+  craftLineCaptionAtOverallProgress,
+} from '@/lib/craft/build-craft-line'
+import { getRecipeById } from '@/data/recipes/index'
+import { isCraftLineBackboneSegment } from '@/types/craft-line'
 
 import type { ActiveCraftV2, CraftStageInstance, StageCategory } from '@/types/craft-v2'
 
@@ -31,12 +50,13 @@ import type { ActiveCraftV2, CraftStageInstance, StageCategory } from '@/types/c
 // КОНСТАНТЫ
 // ================================
 
+/** Согласовано с фазами крафтовой линии: подготовка ↔ teal, «тело» процесса ↔ amber/orange, финиш ↔ фиолет. */
 const CATEGORY_COLORS: Record<StageCategory, string> = {
-  preparation: 'bg-yellow-500',
-  processing: 'bg-orange-500',
-  forming: 'bg-red-500',
-  assembly: 'bg-blue-500',
-  finishing: 'bg-purple-500',
+  preparation: 'bg-emerald-500',
+  processing: 'bg-amber-500',
+  forming: 'bg-orange-600',
+  assembly: 'bg-sky-500',
+  finishing: 'bg-fuchsia-600',
 }
 
 const CATEGORY_NAMES: Record<StageCategory, string> = {
@@ -151,17 +171,32 @@ function ProgressSegment({
 }
 
 /** Карточка текущего этапа */
-function CurrentStageCard({ stage }: { stage: CraftStageInstance }) {
+function CurrentStageCard({
+  stage,
+  craftLineCaption,
+  hideItalicCaption,
+}: {
+  stage: CraftStageInstance
+  /** Не показывать цитату, если подпись уже выведена над полосой («Сейчас: …»). */
+  craftLineCaption?: string | null
+  hideItalicCaption?: boolean
+}) {
   const category = stage.category as StageCategory
-  
+  const flavorQuote = craftLineCaption ?? stage.startMessage
+
+  const iconSurface: Record<StageCategory, string> = {
+    preparation: 'bg-emerald-500/25 text-emerald-200',
+    processing: 'bg-amber-500/25 text-amber-200',
+    forming: 'bg-orange-600/25 text-orange-200',
+    assembly: 'bg-sky-500/25 text-sky-200',
+    finishing: 'bg-fuchsia-600/25 text-fuchsia-200',
+  }
+
   return (
     <Card className="bg-stone-800/50 border-stone-700">
       <CardContent className="p-4">
         <div className="flex items-center gap-3 mb-3">
-          <div className={cn(
-            "p-2 rounded-lg",
-            CATEGORY_COLORS[category].replace('bg-', 'bg-').replace('500', '600/30')
-          )}>
+          <div className={cn('p-2 rounded-lg', iconSurface[category])}>
             {CATEGORY_ICONS[category]}
           </div>
           <div className="flex-1">
@@ -183,12 +218,9 @@ function CurrentStageCard({ stage }: { stage: CraftStageInstance }) {
           />
         </div>
         
-        {/* Сообщение */}
-        {stage.startMessage && (
-          <p className="mt-2 text-sm text-stone-400 italic">
-            «{stage.startMessage}»
-          </p>
-        )}
+        {!hideItalicCaption && flavorQuote ? (
+          <p className="mt-2 text-sm text-stone-400 italic">«{flavorQuote}»</p>
+        ) : null}
       </CardContent>
     </Card>
   )
@@ -282,10 +314,17 @@ function CompletedStagesLog({
 interface CraftProgressProps {
   activeCraft: ActiveCraftV2
   onCancel?: () => void
-  onInstantComplete?: () => void  // Тестовая функция мгновенного завершения
+  onInstantComplete?: () => void // Тестовая функция мгновенного завершения
+  /** Верхняя «Отмена» (как раньше в контейнере при переданном `onBack`) */
+  onCancelHeader?: () => void
 }
 
-export function CraftProgress({ activeCraft, onCancel, onInstantComplete }: CraftProgressProps) {
+export function CraftProgress({
+  activeCraft,
+  onCancel,
+  onInstantComplete,
+  onCancelHeader,
+}: CraftProgressProps) {
   const [showLog, setShowLog] = useState(false)
   
   const currentStage = useMemo(() => {
@@ -295,7 +334,31 @@ export function CraftProgress({ activeCraft, onCancel, onInstantComplete }: Craf
   const overallProgress = useMemo(() => {
     return (activeCraft.elapsedTime / (activeCraft.totalDuration * 1000)) * 100
   }, [activeCraft.elapsedTime, activeCraft.totalDuration])
-  
+
+  const lineProgress01 = useMemo(() => {
+    const d = activeCraft.totalDuration * 1000
+    if (d <= 0) return 0
+    return Math.min(1, Math.max(0, activeCraft.elapsedTime / d))
+  }, [activeCraft.elapsedTime, activeCraft.totalDuration])
+
+  const recipe = useMemo(() => getRecipeById(activeCraft.plan.recipeId), [activeCraft.plan.recipeId])
+
+  const craftLineSegments = useMemo(
+    () => buildCraftLineFromPlanWithRecipe(activeCraft.plan, recipe),
+    [activeCraft.plan, recipe],
+  )
+
+  const craftLineCaption = useMemo(
+    () => craftLineCaptionAtOverallProgress(craftLineSegments, lineProgress01),
+    [craftLineSegments, lineProgress01],
+  )
+
+  /** Линия с хребтом рецепта + техники: один «источник правды» для полосы; без второго ряда из 26 ячеек. */
+  const hasBackboneCraftLine = useMemo(
+    () => craftLineSegments.some(isCraftLineBackboneSegment),
+    [craftLineSegments],
+  )
+
   const timeRemaining = useMemo(() => {
     const remaining = (activeCraft.totalDuration * 1000 - activeCraft.elapsedTime) / 1000
     return Math.max(0, Math.ceil(remaining))
@@ -321,81 +384,143 @@ export function CraftProgress({ activeCraft, onCancel, onInstantComplete }: Craf
     return groups
   }, [activeCraft.stages])
   
+  const progressHeader = (
+    <div className="flex items-start justify-between gap-3">
+      <div className="flex items-center gap-3 min-w-0">
+        <Hammer className="w-6 h-6 text-amber-400 animate-pulse shrink-0" />
+        <div className="min-w-0">
+          <h2 className="text-lg sm:text-xl font-bold text-stone-200 leading-tight">
+            Крафт в процессе
+          </h2>
+          <p className="text-sm text-stone-500">
+            {activeCraft.stages.filter(s => s.status === 'completed').length} из{' '}
+            {activeCraft.stages.length} этапов симуляции
+            {hasBackboneCraftLine && craftLineSegments.length > 0 ? (
+              <span className="text-stone-600">
+                {' '}
+                · {craftLineSegments.length} микрошагов на линии
+              </span>
+            ) : null}
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <Badge variant="outline" className="bg-amber-900/30 border-amber-600/50 tabular-nums">
+          <Clock className="w-3 h-3 mr-1" />
+          {Math.floor(timeRemaining / 60)}:{(timeRemaining % 60).toString().padStart(2, '0')}
+        </Badge>
+        {onCancelHeader ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-8 px-2 text-stone-300"
+            onClick={onCancelHeader}
+          >
+            <ArrowLeft className="w-4 h-4 mr-1" />
+            Отмена
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  )
+
   return (
     <TooltipProvider>
       <div className="space-y-4">
-        {/* Заголовок */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Hammer className="w-6 h-6 text-amber-400 animate-pulse" />
-            <div>
-              <h3 className="text-lg font-bold text-stone-200">
-                Крафт в процессе
-              </h3>
-              <p className="text-sm text-stone-500">
-                {activeCraft.stages.filter(s => s.status === 'completed').length} из {activeCraft.stages.length} этапов
+        {craftLineSegments.length > 0 ? (
+          <Card className="border-amber-800/45 bg-gradient-to-b from-stone-900/95 to-stone-950 shadow-lg shadow-black/40">
+            <CardContent className="space-y-3 p-4 sm:p-5">
+              {progressHeader}
+              <CraftLineStrip
+                segments={craftLineSegments}
+                overallProgress01={lineProgress01}
+                recipe={recipe}
+              />
+              <p className="text-[11px] leading-relaxed text-stone-600">
+                <span className="font-semibold text-amber-500/90">Крафтовая линия: </span>
+                наведите на сегмент — подробности; скобки 【·】 — один блок техники из энциклопедии. Оттенок
+                цвета соответствует условной температуре процесса (синий — холодная работа, красно-оранжевый —
+                горячая).
               </p>
+              {craftLineCaption ? (
+                <p className="text-sm font-medium text-amber-200/95" aria-live="polite">
+                  Сейчас: {craftLineCaption}
+                </p>
+              ) : null}
+              {hasBackboneCraftLine && currentStage ? (
+                <p className="text-xs text-stone-500">
+                  Макроэтап симулятора: {activeCraft.currentStageIndex + 1}/{activeCraft.stages.length} —{' '}
+                  <span className="text-stone-400">{currentStage.name}</span>
+                </p>
+              ) : null}
+            </CardContent>
+          </Card>
+        ) : (
+          progressHeader
+        )}
+
+        {!hasBackboneCraftLine ? (
+          <div className="rounded-lg overflow-hidden border border-stone-700">
+            <div className="flex">
+              {activeCraft.stages.map((stage, index) => (
+                <ProgressSegment
+                  key={stage.id}
+                  stage={stage}
+                  index={index}
+                  totalDuration={activeCraft.totalDuration}
+                  isCompleted={stage.status === 'completed'}
+                  isInProgress={stage.status === 'in_progress'}
+                />
+              ))}
             </div>
           </div>
-          <div className="text-right">
-            <Badge variant="outline" className="bg-amber-900/30 border-amber-600/50">
-              <Clock className="w-3 h-3 mr-1" />
-              {Math.floor(timeRemaining / 60)}:{(timeRemaining % 60).toString().padStart(2, '0')}
-            </Badge>
+        ) : null}
+
+        {!hasBackboneCraftLine ? (
+          <div className="space-y-1">
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(categoryGroups).map(([category, stages]) => {
+                if (stages.length === 0) return null
+                const completedInCategory = stages.filter(s => s.status === 'completed').length
+                const isCurrentCategory = stages.some(s => s.status === 'in_progress')
+
+                return (
+                  <Badge
+                    key={category}
+                    variant="outline"
+                    className={cn(
+                      'transition-colors',
+                      isCurrentCategory && 'ring-2 ring-amber-400',
+                      completedInCategory === stages.length
+                        ? 'bg-green-900/30 border-green-600/50'
+                        : 'bg-stone-800 border-stone-700'
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'w-2 h-2 rounded-full mr-1.5',
+                        CATEGORY_COLORS[category as StageCategory]
+                      )}
+                    />
+                    {CATEGORY_NAMES[category as StageCategory]}
+                    <span className="ml-1.5 text-stone-500">
+                      {completedInCategory}/{stages.length}
+                    </span>
+                  </Badge>
+                )
+              })}
+            </div>
           </div>
-        </div>
-        
-        {/* Сегментированный прогресс-бар */}
-        <div className="rounded-lg overflow-hidden border border-stone-700">
-          <div className="flex">
-            {activeCraft.stages.map((stage, index) => (
-              <ProgressSegment
-                key={stage.id}
-                stage={stage}
-                index={index}
-                totalDuration={activeCraft.totalDuration}
-                isCompleted={stage.status === 'completed'}
-                isInProgress={stage.status === 'in_progress'}
-              />
-            ))}
-          </div>
-        </div>
-        
-        {/* Легенда категорий */}
-        <div className="flex flex-wrap gap-2">
-          {Object.entries(categoryGroups).map(([category, stages]) => {
-            if (stages.length === 0) return null
-            const completedInCategory = stages.filter(s => s.status === 'completed').length
-            const isCurrentCategory = stages.some(s => s.status === 'in_progress')
-            
-            return (
-              <Badge
-                key={category}
-                variant="outline"
-                className={cn(
-                  "transition-colors",
-                  isCurrentCategory && "ring-2 ring-amber-400",
-                  completedInCategory === stages.length
-                    ? "bg-green-900/30 border-green-600/50"
-                    : "bg-stone-800 border-stone-700"
-                )}
-              >
-                <span className={cn(
-                  "w-2 h-2 rounded-full mr-1.5",
-                  CATEGORY_COLORS[category as StageCategory]
-                )} />
-                {CATEGORY_NAMES[category as StageCategory]}
-                <span className="ml-1.5 text-stone-500">
-                  {completedInCategory}/{stages.length}
-                </span>
-              </Badge>
-            )
-          })}
-        </div>
+        ) : null}
         
         {/* Текущий этап */}
         {currentStage && (
-          <CurrentStageCard stage={currentStage} />
+          <CurrentStageCard
+            stage={currentStage}
+            craftLineCaption={craftLineCaption}
+            hideItalicCaption={hasBackboneCraftLine && craftLineCaption != null && craftLineCaption !== ''}
+          />
         )}
         
         {/* Лог этапов */}

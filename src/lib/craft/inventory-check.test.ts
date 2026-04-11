@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest'
 import type { MaterialAssignment } from '@/types/craft-v2'
 import { getRecipeById } from '@/data/recipes'
 import type { LegacyWeaponRecipe } from '@/data/weapon-recipes'
-import type { Resources } from '@/store/slices/resources-slice'
+import type { ResourceKey, Resources } from '@/store/slices/resources-slice'
 import { getRefiningRecipe } from '@/data/refining-recipes'
 import {
   applyCraftingCostSpend,
+  applyRefiningFullSpend,
   calculateCraftRequirements,
   canAffordCraftingCostWithStash,
+  canAffordRefiningStart,
   canCatalogMaterialSpendInForgeCraft,
   checkInventoryForCraft,
   computePoolSpendDeltas,
@@ -22,6 +24,7 @@ import {
   hasMaterialInInventory,
   migrateLegacyMaterialResourcesToStash,
   removeResourceKeyFromPools,
+  RESOURCE_GRANT_STASH_FALLBACK,
 } from './inventory-check'
 
 const emptyInventory = (): Resources => ({
@@ -73,6 +76,23 @@ describe('migrateLegacyMaterialResourcesToStash', () => {
     const out = migrateLegacyMaterialResourcesToStash(inv, { iron: 4, iron_ore: 1 })
     expect(out.materialStash.iron_ore).toBe(5)
     expect(out.materialStash.iron).toBeUndefined()
+  })
+
+  it('is idempotent: second application does not change resources or stash (2.4 sweep)', () => {
+    const inv = { ...emptyInventory(), iron: 5, coal: 2 }
+    const stash: Record<string, number> = { iron_ore: 1 }
+    const m1 = migrateLegacyMaterialResourcesToStash(inv, stash)
+    const m2 = migrateLegacyMaterialResourcesToStash(m1.resources, m1.materialStash)
+    expect(m2.resources).toEqual(m1.resources)
+    expect(m2.materialStash).toEqual(m1.materialStash)
+    expect(m2.resources.iron).toBe(0)
+    expect(m2.resources.coal).toBe(0)
+  })
+
+  it('RESOURCE_GRANT_STASH_FALLBACK aligns with getGrantTargetMaterialId (bridge subset)', () => {
+    for (const [rk, mid] of Object.entries(RESOURCE_GRANT_STASH_FALLBACK)) {
+      expect(getGrantTargetMaterialId(rk as ResourceKey)).toBe(mid)
+    }
   })
 })
 
@@ -158,8 +178,8 @@ describe('computeRefiningSmeltingOutputMultiplier (semantic phase C)', () => {
     const recipe = getRefiningRecipe('iron_ingot')
     expect(recipe).toBeDefined()
     if (!recipe) return
-    const inv = { ...emptyInventory(), coal: 10 }
-    const stash = { iron_ore: 30 }
+    const inv = { ...emptyInventory() }
+    const stash = { iron_ore: 30, coal: 10 }
     expect(computeRefiningSmeltingOutputMultiplier(recipe, 1, inv, stash)).toBeCloseTo(1, 5)
   })
 
@@ -167,8 +187,8 @@ describe('computeRefiningSmeltingOutputMultiplier (semantic phase C)', () => {
     const recipe = getRefiningRecipe('iron_ingot')
     expect(recipe).toBeDefined()
     if (!recipe) return
-    const inv = { ...emptyInventory(), coal: 10 }
-    const stash = { bog_iron: 30 }
+    const inv = { ...emptyInventory() }
+    const stash = { bog_iron: 30, coal: 10 }
     expect(computeRefiningSmeltingOutputMultiplier(recipe, 1, inv, stash)).toBeCloseTo(0.88, 5)
   })
 })
@@ -302,17 +322,17 @@ describe('partMaterialSupply ore_smelt (phase C)', () => {
       ironIngot: 2,
       wood: 10,
       iron: 20,
-      coal: 15,
     }
+    const stashCoal15 = { coal: 15 }
     const noOre = checkInventoryForCraft(recipe, mats, inv, {})
     expect(noOre.canCraft).toBe(false)
 
-    const withOre = checkInventoryForCraft(recipe, mats, inv, {}, bladeOreSupply)
+    const withOre = checkInventoryForCraft(recipe, mats, inv, stashCoal15, bladeOreSupply)
     expect(withOre.canCraft).toBe(true)
 
     // Раньше проверялись только +3 угля «горна» отдельно от угля плавки — крафт открывали, spend падал.
-    const invTightCoal = { ...inv, coal: 8 }
-    const tight = checkInventoryForCraft(recipe, mats, invTightCoal, {}, bladeOreSupply)
+    const invTightCoal = { ...inv }
+    const tight = checkInventoryForCraft(recipe, mats, invTightCoal, { coal: 8 }, bladeOreSupply)
     expect(tight.canCraft).toBe(false)
     expect(tight.missing.some(m => m.resourceKey === 'coal')).toBe(true)
   })
@@ -337,8 +357,8 @@ describe('checkInventoryForCraft', () => {
     const recipe = getRecipeById('basic_sword')
     expect(recipe).toBeDefined()
     if (!recipe) throw new Error('fixture: basic_sword')
-    const inv = { ...emptyInventory(), ironIngot: 20, wood: 10, coal: 5 }
-    const r = checkInventoryForCraft(recipe, basicSwordSelections(), inv)
+    const inv = { ...emptyInventory(), ironIngot: 20, wood: 10 }
+    const r = checkInventoryForCraft(recipe, basicSwordSelections(), inv, { coal: 5 })
     expect(r.canCraft).toBe(true)
     expect(r.missing.length).toBe(0)
     expect(r.fuelRequired?.sufficient).toBe(true)
@@ -348,8 +368,8 @@ describe('checkInventoryForCraft', () => {
     const recipe = getRecipeById('basic_sword')
     expect(recipe).toBeDefined()
     if (!recipe) throw new Error('fixture: basic_sword')
-    const inv = { ...emptyInventory(), ironIngot: 1, wood: 0, coal: 5 }
-    const r = checkInventoryForCraft(recipe, basicSwordSelections(), inv)
+    const inv = { ...emptyInventory(), ironIngot: 1, wood: 0 }
+    const r = checkInventoryForCraft(recipe, basicSwordSelections(), inv, { coal: 5 })
     expect(r.canCraft).toBe(false)
     expect(r.missing.length).toBeGreaterThan(0)
     expect(r.requirements.some(q => q.resourceKey === 'ironIngot')).toBe(true)
@@ -359,8 +379,8 @@ describe('checkInventoryForCraft', () => {
     const recipe = getRecipeById('basic_sword')
     expect(recipe).toBeDefined()
     if (!recipe) throw new Error('fixture: basic_sword')
-    const inv = { ...emptyInventory(), iron: 50, wood: 10, coal: 1 }
-    const r = checkInventoryForCraft(recipe, basicSwordSelections(), inv)
+    const inv = { ...emptyInventory(), iron: 50, wood: 10 }
+    const r = checkInventoryForCraft(recipe, basicSwordSelections(), inv, { coal: 1 })
     expect(r.canCraft).toBe(false)
     expect(r.fuelRequired?.sufficient).toBe(false)
   })
@@ -427,6 +447,20 @@ describe('getRefiningCraftingCost / canAffordCraftingCostWithStash', () => {
     expect(out.resources.coal).toBe(0)
     expect(out.materialStash.iron_ore).toBeUndefined()
     expect(out.materialStash.coal).toBeUndefined()
+  })
+
+  it('tanned_leather_tan: no ResourceKey inputs; stash debit raw_leather only', () => {
+    const recipe = getRefiningRecipe('tanned_leather_tan')
+    expect(recipe).toBeDefined()
+    if (!recipe) return
+    expect(getRefiningCraftingCost(recipe, 2)).toEqual({})
+    const inv = emptyInventory()
+    const stash = { raw_leather: 5 }
+    expect(canAffordRefiningStart(recipe, 2, inv, stash)).toBe(true)
+    const spent = applyRefiningFullSpend(recipe, 2, inv, stash)
+    expect(spent.ok).toBe(true)
+    if (!spent.ok) return
+    expect(spent.materialStash.raw_leather).toBe(3)
   })
 })
 
@@ -500,6 +534,23 @@ describe('getAvailableAmountForResourceKey', () => {
     const inv = emptyInventory()
     expect(getAvailableAmountForResourceKey(inv, { peat: 4 }, 'coal')).toBe(4)
   })
+
+  it('coal pool is stash-only: ignores resources.coal', () => {
+    const inv = { ...emptyInventory(), coal: 100 }
+    expect(getAvailableAmountForResourceKey(inv, {}, 'coal')).toBe(0)
+    expect(getAvailableAmountForResourceKey(inv, { coal: 3 }, 'coal')).toBe(3)
+  })
+
+  it('coal spend does not debit resources.coal', () => {
+    const inv = { ...emptyInventory(), coal: 50 }
+    const out = applyCraftingCostSpend({ coal: 2 }, inv, { coal: 1 })
+    expect(out.ok).toBe(false)
+    const ok = applyCraftingCostSpend({ coal: 2 }, inv, { coal: 2 })
+    expect(ok.ok).toBe(true)
+    if (!ok.ok) return
+    expect(ok.resources.coal).toBe(50)
+    expect(ok.materialStash.coal).toBeUndefined()
+  })
 })
 
 describe('world-resource → ResourceKey bridge', () => {
@@ -514,6 +565,76 @@ describe('world-resource → ResourceKey bridge', () => {
   it('core entries override bridge when both define same id', () => {
     expect(getResourceKeyForMaterial('silver_ore')).toBe('silver')
     expect(getResourceKeyForMaterial('mithril_ore')).toBe('mithril')
+  })
+})
+
+describe('stone domain chain (A2 2.3)', () => {
+  it('stone_blocks: cost stone оплачивается из stash (basic_stone + fieldstone), без resources.stone', () => {
+    const recipe = getRefiningRecipe('stone_blocks')
+    expect(recipe).toBeDefined()
+    if (!recipe) return
+    const inv = emptyInventory()
+    const stash: Record<string, number> = { basic_stone: 1, fieldstone: 2 }
+    const cost = getRefiningCraftingCost(recipe, 1)
+    expect(cost).toEqual({ stone: 3 })
+    expect(canAffordCraftingCostWithStash(cost, inv, stash)).toBe(true)
+    const r = applyCraftingCostSpend(cost, inv, stash)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.resources.stone).toBe(0)
+    expect(r.materialStash.basic_stone).toBeUndefined()
+    expect(r.materialStash.fieldstone).toBeUndefined()
+  })
+})
+
+describe('leather domain chain (A2 2.3)', () => {
+  it('crafting cost leather оплачивается из stash (raw_leather + bridge id), без resources.leather', () => {
+    const inv = emptyInventory()
+    const stash: Record<string, number> = { raw_leather: 1, shadow_leather: 3 }
+    const cost = { leather: 4 }
+    expect(canAffordCraftingCostWithStash(cost, inv, stash)).toBe(true)
+    const r = applyCraftingCostSpend(cost, inv, stash)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.resources.leather).toBe(0)
+    expect(r.materialStash.raw_leather).toBeUndefined()
+    expect(r.materialStash.shadow_leather).toBeUndefined()
+  })
+})
+
+describe('wood domain chain (A2 2.3)', () => {
+  it('wood_planks: cost wood оплачивается из stash (oak + birch), без resources.wood', () => {
+    const recipe = getRefiningRecipe('wood_planks')
+    expect(recipe).toBeDefined()
+    if (!recipe) return
+    const inv = emptyInventory()
+    const stash: Record<string, number> = { oak: 1, birch: 1 }
+    const cost = getRefiningCraftingCost(recipe, 1)
+    expect(cost).toEqual({ wood: 2 })
+    expect(canAffordCraftingCostWithStash(cost, inv, stash)).toBe(true)
+    const r = applyCraftingCostSpend(cost, inv, stash)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.resources.wood).toBe(0)
+    expect(r.materialStash.oak).toBeUndefined()
+    expect(r.materialStash.birch).toBeUndefined()
+  })
+})
+
+describe('smelting domain chain (A2 2.2)', () => {
+  it('refining iron ingot: cost оплачивается из materialStash (iron_ore, coal)', () => {
+    const recipe = getRefiningRecipe('iron_ingot')
+    expect(recipe).toBeDefined()
+    if (!recipe) return
+    const inv = emptyInventory()
+    const stash: Record<string, number> = { iron_ore: 9, coal: 6 }
+    const cost = getRefiningCraftingCost(recipe, 1)
+    expect(canAffordCraftingCostWithStash(cost, inv, stash)).toBe(true)
+    const r = applyCraftingCostSpend(cost, inv, stash)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.materialStash.iron_ore).toBe(6)
+    expect(r.materialStash.coal).toBe(4)
   })
 })
 

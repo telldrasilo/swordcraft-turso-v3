@@ -1,8 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import {
   canAccessEnchantmentAltarScreen,
+  canAccessForgottenForgeEnchantmentFlow,
   canUseEnchantmentAltarContent,
 } from '@/lib/enchantment-screen-access'
+
+describe('canAccessForgottenForgeEnchantmentFlow', () => {
+  it('depends only on blueprint flag from FF quest', () => {
+    expect(canAccessForgottenForgeEnchantmentFlow(false)).toBe(false)
+    expect(canAccessForgottenForgeEnchantmentFlow(true)).toBe(true)
+  })
+})
 
 describe('canUseEnchantmentAltarContent', () => {
   it('requires tier-2, blueprint quest, and built node', () => {

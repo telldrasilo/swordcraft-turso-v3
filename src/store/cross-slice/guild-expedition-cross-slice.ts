@@ -43,7 +43,9 @@ import type { TutorialState } from '@/store/slices/tutorial-slice'
 import {
   FORGOTTEN_FORGE_QUEST_ID,
   FORGOTTEN_FORGE_STEP3_INSURANCE_GOLD,
+  FF_QUEST_EXPEDITION_TAGS,
 } from '@/data/quests/forgotten-forge'
+import { gameEvents } from '@/lib/game-events'
 
 export type GuildExpeditionStoreDeps = {
   guild: GuildState
@@ -76,7 +78,9 @@ export type GuildExpeditionStoreDeps = {
     locationId?: string
     success: boolean
     linkedQuestId?: string
+    linkedQuestTag?: string
   }) => void
+  materialStash?: Record<string, number>
 }
 
 /** Множитель «раз в 20 меньше» к формуле репутации за экспедицию (до применения addReputation). */
@@ -119,6 +123,44 @@ export function buildGuildExpeditionCrossSlice<S extends GuildExpeditionStoreDep
         state.forgottenForgeQuest.flags.step3Insurance === true
       ) {
         if (!state.spendResource('gold', FORGOTTEN_FORGE_STEP3_INSURANCE_GOLD)) return false
+      }
+
+      const lqTag = options?.linkedQuestTag
+      const materialStashFull = (state as { materialStash?: Record<string, number> }).materialStash ?? {}
+      if (
+        options?.linkedQuestId === FORGOTTEN_FORGE_QUEST_ID &&
+        state.forgottenForgeQuest?.step === 13 &&
+        lqTag === FF_QUEST_EXPEDITION_TAGS.frequency
+      ) {
+        if ((materialStashFull.shadow_leather ?? 0) < 2) return false
+      }
+      if (
+        options?.linkedQuestId === FORGOTTEN_FORGE_QUEST_ID &&
+        state.forgottenForgeQuest?.step === 15 &&
+        lqTag === FF_QUEST_EXPEDITION_TAGS.spirit
+      ) {
+        if ((materialStashFull.mist_herbs ?? 0) < 3) return false
+      }
+
+      let nextMaterialStash: Record<string, number> | null = null
+      if (
+        options?.linkedQuestId === FORGOTTEN_FORGE_QUEST_ID &&
+        state.forgottenForgeQuest?.step === 13 &&
+        lqTag === FF_QUEST_EXPEDITION_TAGS.frequency
+      ) {
+        nextMaterialStash = {
+          ...materialStashFull,
+          shadow_leather: Math.max(0, (materialStashFull.shadow_leather ?? 0) - 2),
+        }
+      } else if (
+        options?.linkedQuestId === FORGOTTEN_FORGE_QUEST_ID &&
+        state.forgottenForgeQuest?.step === 15 &&
+        lqTag === FF_QUEST_EXPEDITION_TAGS.spirit
+      ) {
+        nextMaterialStash = {
+          ...materialStashFull,
+          mist_herbs: Math.max(0, (materialStashFull.mist_herbs ?? 0) - 3),
+        }
       }
 
       const startedAt = Date.now()
@@ -174,6 +216,7 @@ export function buildGuildExpeditionCrossSlice<S extends GuildExpeditionStoreDep
             : undefined,
         devBalanceTweaks,
         linkedQuestId: options?.linkedQuestId,
+        linkedQuestTag: options?.linkedQuestTag,
       }
 
       set((s) => ({
@@ -181,6 +224,9 @@ export function buildGuildExpeditionCrossSlice<S extends GuildExpeditionStoreDep
           ...s.guild,
           activeExpeditions: [...s.guild.activeExpeditions, newExpedition],
         },
+        ...(nextMaterialStash
+          ? { materialStash: nextMaterialStash }
+          : {}),
       }))
 
       return true
@@ -554,6 +600,18 @@ export function buildGuildExpeditionCrossSlice<S extends GuildExpeditionStoreDep
         locationId: expedition.locationId,
         success: result.success,
         linkedQuestId: expedition.linkedQuestId,
+        linkedQuestTag: expedition.linkedQuestTag,
+      })
+
+      queueMicrotask(() => {
+        const loc = expedition.locationId
+        if (loc) {
+          gameEvents.emit('expedition:completed', {
+            locationId: loc,
+            questTag: expedition.linkedQuestTag,
+            success: result.success,
+          })
+        }
       })
 
       return result

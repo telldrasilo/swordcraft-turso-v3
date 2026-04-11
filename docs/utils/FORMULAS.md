@@ -9,6 +9,8 @@
 - итоговое качество = базовое качество + бонусы качества материалов и техник
 - финальный стат = сырой стат * quality multiplier
 
+**Крафтовая линия (время и UI):** суммарная длительность процесса складывается из этапов таймлайна (рецепт + техники обработки + приёмы ковки). Нормализованные доли подсегментов (сумма = 1) собирает [`buildCraftLine` / `buildCraftLineFromPlan`](../../src/lib/craft/build-craft-line.ts) из микрозадач техник и фаз упорядочивания **`craftLinePhase` / `craftLineOrder`** (**см. [ENCYCLOPEDIA_MATERIALS_TECHNIQUES_ROADMAP.md](../ENCYCLOPEDIA_MATERIALS_TECHNIQUES_ROADMAP.md) §12**). Детали вставок техник обработки — ниже и в [`process-generator.ts`](../../src/lib/craft/process-generator.ts).
+
 ## Инвентарь: `powerScore` (сводная «мощь»)
 
 Источник в коде: [`recalculateWeaponPowerScore`](../../src/lib/craft/weapon-power-score.ts), поле `powerScore` на [`CraftedWeaponV2`](../../src/types/craft-v2.ts). Пересчитывается при создании и мутациях оружия (`withRecalculatedPowerScore`).

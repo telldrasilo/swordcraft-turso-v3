@@ -3,8 +3,8 @@ import type { MaterialStudyTechnique } from '@/types/material-study'
 import { refundMaterialStudyTechniqueCosts } from '@/lib/materials/material-study-refund'
 
 describe('refundMaterialStudyTechniqueCosts', () => {
-  it('делит стоимость пополам между ResourceKey и stash по маппингу материала', () => {
-    const addResource = vi.fn()
+  it('делит стоимость пополам и начисляет через grantResourceKeyFromWorld (A2 stash path)', () => {
+    const grantResourceKeyFromWorld = vi.fn()
     const addMaterialToStash = vi.fn()
     const technique: MaterialStudyTechnique = {
       id: 't1',
@@ -15,9 +15,13 @@ describe('refundMaterialStudyTechniqueCosts', () => {
         { materialId: 'birch', quantity: 2 },
       ],
     }
-    refundMaterialStudyTechniqueCosts({ addResource, addMaterialToStash }, technique, 0.5)
-    expect(addResource).toHaveBeenCalledWith('coal', 1)
-    expect(addResource).toHaveBeenCalledWith('wood', 1)
+    refundMaterialStudyTechniqueCosts(
+      { grantResourceKeyFromWorld, addMaterialToStash },
+      technique,
+      0.5
+    )
+    expect(grantResourceKeyFromWorld).toHaveBeenCalledWith('coal', 1)
+    expect(grantResourceKeyFromWorld).toHaveBeenCalledWith('wood', 1)
     expect(addMaterialToStash).not.toHaveBeenCalled()
   })
 })

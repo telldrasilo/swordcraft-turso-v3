@@ -22,6 +22,7 @@ export type ReforgeFailReason =
   | 'locked_guild'
   | 'locked_technique'
   | 'insufficient_war_soul'
+  | 'insufficient_catalog_materials'
   | 'no_scars'
   | 'max_stacks'
   | 'all_scars_awakened'

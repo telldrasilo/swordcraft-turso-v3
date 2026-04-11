@@ -297,13 +297,12 @@ export function calculateEventCount(
 // СИСТЕМА ВЫБОРА МАТЕРИАЛОВ ИЗ ЛОКАЦИИ
 // ============================================================================
 
-/** Базовое сырьё крафта — повышенный шанс в событиях `grant_location_material` */
-const PRIMARY_LOOT_MATERIAL_IDS = new Set<string>([
+/** Базовое сырьё крафта — повышенный шанс в событиях `grant_location_material` (id ⊆ каталога ENC). */
+export const PRIMARY_LOOT_MATERIAL_IDS = new Set<string>([
   'iron_ore',
   'copper_ore',
   'tin_ore',
   'coal',
-  'stone',
   'fieldstone',
   'clay',
   'oak',

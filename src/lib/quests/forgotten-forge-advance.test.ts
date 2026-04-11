@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { canAdvanceForgottenForgeAfterExpedition } from './forgotten-forge-advance'
-import { FORGOTTEN_FORGE_QUEST_ID } from '@/data/quests/forgotten-forge'
+import { FORGOTTEN_FORGE_QUEST_ID, FF_QUEST_EXPEDITION_TAGS } from '@/data/quests/forgotten-forge'
 
 const baseQuest = {
   status: 'active' as const,
   step: 1,
+  waitingForCraftAfterPhase2: false,
+  lastStepChangeAt: null as number | null,
   flags: {},
 }
 
@@ -67,5 +69,29 @@ describe('canAdvanceForgottenForgeAfterExpedition', () => {
         linkedQuestId: FORGOTTEN_FORGE_QUEST_ID,
       })
     ).toBe(false)
+  })
+
+  it('step 11 requires matching questTag on oak grove', () => {
+    const q = { ...baseQuest, step: 11 }
+    expect(
+      canAdvanceForgottenForgeAfterExpedition({
+        forgottenForgeQuest: q,
+        forgottenForgePhase: 'awaiting_expedition',
+        locationId: 'oak_grove_outskirts',
+        success: true,
+        linkedQuestId: FORGOTTEN_FORGE_QUEST_ID,
+        linkedQuestTag: undefined,
+      })
+    ).toBe(false)
+    expect(
+      canAdvanceForgottenForgeAfterExpedition({
+        forgottenForgeQuest: q,
+        forgottenForgePhase: 'awaiting_expedition',
+        locationId: 'oak_grove_outskirts',
+        success: true,
+        linkedQuestId: FORGOTTEN_FORGE_QUEST_ID,
+        linkedQuestTag: FF_QUEST_EXPEDITION_TAGS.runes,
+      })
+    ).toBe(true)
   })
 })

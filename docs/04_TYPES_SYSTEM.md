@@ -129,7 +129,7 @@ Interface WeaponInventory:
 - enchantments: WeaponEnchantment[]
 - createdAt: number
 
-**Статус (P2-Craft-05, обновлено 2026-04):** `src/types/craft.ts` описывает **историческую** модель «плоского» оружия и `CraftedWeapon` с полями `attack`/`durability` на верхнем уровне. **Канон v2** — тип `WeaponRecipe` в [`src/types/craft-v2.ts`](../src/types/craft-v2.ts): части, этапы, `baseStats`, опционально `cost`; в **`CraftPlan`** — опционально **`partMaterialSupply`**: на часть режим `direct` | **`ore_smelt`** и при необходимости **`processingTechniqueId`** из реестра [`material-processing-techniques.ts`](../src/data/material-processing-techniques.ts); каталог — только **формы** в [`src/data/recipes/index.ts`](../src/data/recipes/index.ts) (`allRecipes`, `getRecipeById`). Шаблоны заказов `iron_sword`, … — **отдельный** тип в [`weapon-recipes.ts`](../src/data/weapon-recipes.ts) с полем **`shapeRecipeId`** (ссылка на форму v2). **`CraftedWeaponV2`**, **`ActiveCraftV2`** — канон для инвентаря и активного крафта. Инвентарь: `craft-slice` → `WeaponInventory.weapons: CraftedWeaponV2[]`. Тип `CraftedWeapon` из `craft.ts` — совместимость; новый код — **`CraftedWeaponV2`**. В **`weapon-recipes.ts`** — `calculateAttack`, множники и массив **`weaponRecipes`** из [`legacy-recipe-rows.ts`](../src/data/recipes/legacy-recipe-rows.ts). Миграция id в persist: **`STORE_VERSION` 5**, [`recipe-id-migrate.ts`](../src/lib/recipe-id-migrate.ts). Активный крафт v2 — **`craftV2Persisted`** / `ActiveCraftV2 | null`; legacy `ActiveCraft` — только нормализация (`save-craft-normalize`).
+**Статус (P2-Craft-05, обновлено 2026-04):** `src/types/craft.ts` описывает **историческую** модель «плоского» оружия и `CraftedWeapon` с полями `attack`/`durability` на верхнем уровне. **Канон v2** — тип `WeaponRecipe` в [`src/types/craft-v2.ts`](../src/types/craft-v2.ts): части, этапы (`**RecipeStageConfig**`: опционально **`craftLinePhase`**, **`craftLineMicroSteps`** — микроэтапы хребта для Крафтовой линии, см. `RecipeCraftLineMicroStep`), `baseStats`, опционально `cost`; у боевой **`Technique`** — опционально **`craftLineAnchorAfterStageIndex`** (вставка блока приёма на линии после стадии рецепта с этим индексом); в **`CraftPlan`** — опционально **`partMaterialSupply`**: на часть режим `direct` | **`ore_smelt`** и при необходимости **`processingTechniqueId`** из реестра [`material-processing-techniques.ts`](../src/data/material-processing-techniques.ts); каталог — только **формы** в [`src/data/recipes/index.ts`](../src/data/recipes/index.ts) (`allRecipes`, `getRecipeById`). Шаблоны заказов `iron_sword`, … — **отдельный** тип в [`weapon-recipes.ts`](../src/data/weapon-recipes.ts) с полем **`shapeRecipeId`** (ссылка на форму v2). **`CraftedWeaponV2`**, **`ActiveCraftV2`** — канон для инвентаря и активного крафта. Инвентарь: `craft-slice` → `WeaponInventory.weapons: CraftedWeaponV2[]`. Тип `CraftedWeapon` из `craft.ts` — совместимость; новый код — **`CraftedWeaponV2`**. В **`weapon-recipes.ts`** — `calculateAttack`, множники и массив **`weaponRecipes`** из [`legacy-recipe-rows.ts`](../src/data/recipes/legacy-recipe-rows.ts). Миграция id в persist: **`STORE_VERSION` 5**, [`recipe-id-migrate.ts`](../src/lib/recipe-id-migrate.ts). Активный крафт v2 — **`craftV2Persisted`** / `ActiveCraftV2 | null`; legacy `ActiveCraft` — только нормализация (`save-craft-normalize`).
 
 **Повреждения и наследие клинка (фаза 6 данных):** типы в [`src/types/weapon-damage.ts`](../src/types/weapon-damage.ts) (`ActiveDamageTagEntry`, `WeaponLegacy`: `hiddenMarks`, опционально `bladeBondRepairCount`, `deepInspectReadyAt` (таймер сеанса осмотра), `lastDeepInspectAt`, снимок осмотра `deepInspectNotes` / `deepInspectTagIds`, `autoRepairCompletedCount`, **`repairResolveCountByTagId`** / **`archivedDamageTagIds`** (§9.1 REPAIR_UI_UX — скрытый учёт снятых тегов); опционально **`repairDiagnosisPreciseCountByTagId`**, **`repairDiagnosisRiskyCountByTagId`**, **`repairDiagnosisSkippedCountByTagId`** (§9.1.1 — tier диагностики по тегу, см. `RepairDiagnosisTier`); опционально **`physicalScarWeights`** / **`elementalScarWeights`** (ELEMENTAL_PLATFORM_SPEC §1.1 — топ-3+топ-3 после починок; логика [`scar-weights.ts`](../src/lib/weapon-damage/scar-weights.ts)); утилиты [`weapon-legacy.ts`](../src/lib/weapon-damage/weapon-legacy.ts)); на **`CraftedWeaponV2`** — `activeDamageTags`, `weaponLegacy`, `repairCondition`, опционально `autoRepairReadyAt`, `autoRepairAwaitingForgeVisit`. В **`craft-slice`** — `repairBenchWeaponId: string | null` (верстак «Ремонт», persist). Реестр тегов и карта событий → теги: [`src/data/weapon-damage/`](../src/data/weapon-damage/). Миграция сейва и merge: **`STORE_VERSION` 13**, [`migrate-crafted-weapon-damage.ts`](../src/lib/weapon-damage/migrate-crafted-weapon-damage.ts). **Техники починки и план этапов (фаза 3b):** [`src/types/weapon-repair.ts`](../src/types/weapon-repair.ts) (`RepairTechniqueDefinition`, `WeaponRepairPlan`, `ActiveWeaponRepairSession`, …); реестр техник — [`repair-techniques-registry.ts`](../src/data/weapon-damage/repair-techniques-registry.ts); сборка плана — [`build-repair-plan.ts`](../src/lib/weapon-damage/build-repair-plan.ts). Ось броска кубика (G1), отдельно от импорта `RepairType` из `repair-system`: [`repair-dice-profile.ts`](../src/lib/weapon-damage/repair-dice-profile.ts) (`RepairDiceProfile`); переход к таблицам ремонта — [`repair-utils.ts`](../src/lib/store-utils/repair-utils.ts) (`repairDiceProfileToRepairType`).
 
@@ -242,7 +242,11 @@ Type EnchantmentEffect = damage | defense | speed | regen | lifesteal | burn | s
 
 **Актуально (код):** интерфейс `MaterialNode` и `MaterialClass = 'metal' | 'mineral' | 'wood' | 'leather' | 'organic' | 'other'` — только в `material-core.ts`. Экспедиционные id: узлы в [`src/data/materials/library/expedition/`](../src/data/materials/library/expedition/), маппинг [`docs/expedition-material-id-map.md`](expedition-material-id-map.md), гайд добавления — [`docs/data/MATERIALS_ADDING.md`](data/MATERIALS_ADDING.md).
 
-**Смысловые роли в процессах (отдельно от `MaterialNode`):** [`src/types/materials/material-process.ts`](../src/types/materials/material-process.ts) — `MaterialProcessKind`, `MaterialProcessFacet`, `MaterialProcessContribution`, `MaterialRefiningSmeltingParams` (`oreChargeEfficiency` для плавки); чтение вклада [`src/lib/materials/material-process-contribution.ts`](../src/lib/materials/material-process-contribution.ts) (`getRefiningOreChargeEfficiency`). Документ: [`docs/MATERIAL_SEMANTIC_PROCESS_ROLES.md`](../MATERIAL_SEMANTIC_PROCESS_ROLES.md).
+**Смысловые роли в процессах (отдельно от `MaterialNode`):** [`src/types/materials/material-process.ts`](../src/types/materials/material-process.ts) — `MaterialProcessKind` (в т.ч. `refining_tanning` для выделки кожи / `tannery`), `MaterialProcessFacet`, `MaterialProcessContribution`, `MaterialRefiningSmeltingParams` (`oreChargeEfficiency` для плавки); чтение вклада [`src/lib/materials/material-process-contribution.ts`](../src/lib/materials/material-process-contribution.ts) (`getRefiningOreChargeEfficiency`). Документ: [`docs/MATERIAL_SEMANTIC_PROCESS_ROLES.md`](../MATERIAL_SEMANTIC_PROCESS_ROLES.md).
+
+**Операции внутри техники обработки (черновик roadmap 0.3):** [`src/types/materials/processing-operations.ts`](../src/types/materials/processing-operations.ts) — `ProcessingOperation`; рантайм пока на `refiningRecipeId` + `craftStageInsertions` в данных техник.
+
+**Черновик единого склада по `materialId` (roadmap 2.1):** [`src/store/contracts/material-stash-a2-draft.ts`](../src/store/contracts/material-stash-a2-draft.ts) — `MaterialStashDebit`, `MaterialStashOperationsDraft`; не импортировать в слайсы до волны **2.2** без ревью ([`MATERIALS_SINGLE_SOURCE_ROADMAP.md`](MATERIALS_SINGLE_SOURCE_ROADMAP.md) §11.1).
 
 *Фрагмент ниже — устаревшее краткое описание; при расхождении ориентироваться на исходники.*
 
@@ -250,7 +254,9 @@ Type MaterialClass = metal | wood | leather | stone | ore | organic
 
 Type MaterialOrigin = local | imported | magical | ancient | divine
 
-Type MaterialRarity = common | uncommon | rare | epic | legendary
+Type MaterialRarity = common | uncommon | rare | epic | legendary | unique
+
+Для [`MaterialNode`](../src/types/materials/material-core.ts): шаг «уникальный» задаётся через `economy.rarity ≥ 200` в `getMaterialRarity` (ниже порога легендарного 150). В модуле экспедиций у материалов каталога поле `Material.rarity` допускает отдельное значение `unique` (см. `MaterialCatalogRarity`).
 
 Interface MaterialNode:
 - id: string
@@ -301,6 +307,55 @@ Interface StatRange:
 - average: number
 
 Type ForecastAccuracy = low | medium | high | exact
+
+---
+
+### 11. Квест «Эхо забытой кузни» и строительство алтаря v2
+
+Файлы: `src/types/forgotten-forge-quest.ts`, `src/types/altar-construction.ts` (см. `docs/Quests/ALTAR_REWORK/`).
+
+**Константа:** `FORGOTTEN_FORGE_QUEST_STEP_MAX = 18` — верхняя граница сюжетного шага v2.
+
+**ForgottenForgeQuestState** (дополнения к статусу и флагам):
+- `step: number` — шаг сценария **0..18**
+- `waitingForCraftAfterPhase2: boolean` — ожидание крафта оружия после фазы II
+- `lastStepChangeAt: number | null` — опциональная метка времени смены шага
+
+**AltarPhase** — литерал `1 | 2 | 3 | 4 | 5` (макрофазы стройки).
+
+**AltarStage** — микроэтап: `id`, `name`, `durationSec`, `description`, опционально `techniqueId`.
+
+**AltarPhaseConfig** — конфиг фазы (материалы, техники, этапы, `totalDurationSec`); каталог `src/data/altar/altar-phases-config.ts`.
+
+**AltarConstructionState** — прогресс строительства в store: `altarUnlocked`, `altarBuilt` (дублируют верхнеуровневые флаги и синхронизируются при merge загрузки), `completedPhases`, активная фаза и поля таймера/списка `activePhaseStages`.
+
+**События (клиент):** `src/lib/game-events.ts` — `altar:phaseCompleted`, `craft:completed`, `expedition:completed` (emit после commit store / в `queueMicrotask`).
+
+**Крафт:** `unlockCraftTechnique` в `craft-slice` — выдача боевых приёмов квестом (например руны / обжиг / частоты).
+
+**Ресурсы:** `materialStashQuestItemIds: string[]` в slice ресурсов — каталожные id материалов-квестовых предметов (не расходуются при списании фазы III алтаря). Добавление: `addMaterialToStash(id, amount, { markQuestItem: true })`.
+
+---
+
+### 12. Энциклопедия: техники и Крафтовая линия — `encyclopedia-techniques.ts` + `craft-line.ts`
+
+Для раздела «Техники» и Крафтовой линии UI (см. `docs/ENCYCLOPEDIA_MATERIALS_TECHNIQUES_ROADMAP.md` §10–§12).
+
+**`src/types/craft-line.ts`:** **`CraftLinePhase`**, **`CraftLineSegment`**, порядок фаз. Сборка: [`build-craft-line.ts`](../src/lib/craft/build-craft-line.ts); метаданные **`craftLinePhase` / `craftLineOrder`**: [`craft-line-meta.ts`](../src/lib/craft/craft-line-meta.ts).
+
+- **`EncyclopediaTechniqueKind`** — `'craft' | 'material_processing' | 'material_study' | 'reforge' | 'repair'` (один реестр на значение).
+- **`EncyclopediaTechniqueRef`** — `{ kind, id }`; склейка `` `${kind}:${id}` `` только для индексов и тестов (`techniqueRefToStableKey` в `encyclopedia-technique-sections.ts`).
+- **`TechniqueMicroTask`** — `{ id, label, hint?, durationWeight? }`: шаг «Ход работы» / микроэтап; **`id`** обязателен (стабильный ключ внутри техники; глобально — вместе с `EncyclopediaTechniqueRef`). **`durationWeight`** — вес доли времени на Крафтовой линии (P5). У боевой **`Technique`** в [`craft-v2.ts`](../src/types/craft-v2.ts): опционально **`craftLinePhase`**, **`craftLineOrder`**, **`microTasks`**.
+- **`EncyclopediaTechniqueCardModel`** — плоская модель карточки UI: `ref`, `name`, `description`, бейджи, `summaryRows`, опционально `detailHintLines`, `relatedMaterialIds`, `expertisePercent?`, `workSteps?`.
+- **`EncyclopediaTechniqueSectionModel`** — секция списка: `sectionId`, `title`, `blurb`, `items`.
+
+Сборка: `buildEncyclopediaTechniqueSections()`; нормализация шагов: `expandTechniqueToDisplaySteps(ref)` в `src/lib/encyclopedia/expand-technique-display-steps.ts`.
+
+- **`isValidEncyclopediaTechniqueRef(value)`** — узкий type guard для произвольного JSON (например `navigationTarget` в сообщении).
+
+**Сообщения (`src/types/game-message.ts`):** в `GameMessageNavigationTarget` поле **`techniqueRef?: EncyclopediaTechniqueRef`** — переход на экран энциклопедии с фокусом карточки техники (приоритет над `entityId` для материала).
+
+**Store энциклопедии:** `encyclopediaFocusTechniqueRef`, `lastEncyclopediaTab` (`EncyclopediaScreenTab`: `'materials' | 'techniques'`, persist при **STORE_VERSION 32+**), **`lastEncyclopediaTechniqueKindTab`** (**STORE_VERSION 33+**), см. `src/store/slices/encyclopedia-slice.ts`.
 
 ---
 

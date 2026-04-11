@@ -21,7 +21,7 @@ import { Label } from '@/components/ui/label'
 import { Slider } from '@/components/ui/slider'
 import { TooltipProvider } from '@/components/ui/game-tooltip'
 import { useGameStore } from '@/store'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { Adventurer, getMaxActiveExpeditions } from '@/types/guild'
 import type { ExpeditionDevBalanceTweaks } from '@/types/guild'
 import type { ExpeditionTemplate } from '@/data/expedition-templates'
@@ -43,8 +43,11 @@ import { ExpeditionLocationMissionBoard } from './expeditions/ExpeditionLocation
 import { ExpeditionMissionBrief } from './expeditions/ExpeditionMissionBrief'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ForgottenForgeQuestCard } from './forgotten-forge-quest-card'
-import { FORGOTTEN_FORGE_EXPEDITION_LOCATION_BY_STEP } from '@/data/quests/forgotten-forge'
-import { getForgottenForgeLinkedQuestIdForExpedition } from '@/lib/quests/forgotten-forge-expedition-link'
+import { getForgottenForgeExpeditionExpectation } from '@/data/quests/forgotten-forge'
+import {
+  getForgottenForgeLinkedQuestIdForExpedition,
+  getForgottenForgeLinkedQuestTagForStep,
+} from '@/lib/quests/forgotten-forge-expedition-link'
 
 // Автосохранение
 import { debouncedSaveDraft, clearDraft, loadDraft, DraftStatus, getDraftStatus } from '@/lib/expedition-draft'
@@ -84,13 +87,17 @@ export function ExpeditionsSection() {
   )
   const forgottenForgeQuest = useGameStore((state) => state.forgottenForgeQuest)
   const forgottenForgePhase = useGameStore((state) => state.forgottenForgePhase)
+  const materialStash = useGameStore((state) => state.materialStash)
 
   const forgottenForgeQuestLocationId = useMemo(() => {
     if (forgottenForgeQuest.status !== 'active' || forgottenForgePhase !== 'awaiting_expedition') {
       return undefined
     }
-    return FORGOTTEN_FORGE_EXPEDITION_LOCATION_BY_STEP[forgottenForgeQuest.step]
+    return getForgottenForgeExpeditionExpectation(forgottenForgeQuest.step)?.locationId
   }, [forgottenForgeQuest.status, forgottenForgeQuest.step, forgottenForgePhase])
+
+  const guildExpeditionsSpecialTabNonce = useGameStore((s) => s.guildExpeditionsSpecialTabNonce)
+  const prevSpecialTabNonceRef = useRef(0)
 
   const [selectedExpedition, setSelectedExpedition] = useState<ExpeditionTemplate | null>(null)
   const [selectedWeapon, setSelectedWeapon] = useState<CraftedWeaponV2 | null>(null)
@@ -104,6 +111,12 @@ export function ExpeditionsSection() {
 
   const [missionContract, setMissionContract] = useState<'exploration' | 'speed'>('exploration')
   const [expeditionSubTab, setExpeditionSubTab] = useState<'expeditions' | 'special'>('expeditions')
+
+  useLayoutEffect(() => {
+    if (guildExpeditionsSpecialTabNonce <= prevSpecialTabNonceRef.current) return
+    prevSpecialTabNonceRef.current = guildExpeditionsSpecialTabNonce
+    queueMicrotask(() => setExpeditionSubTab('special'))
+  }, [guildExpeditionsSpecialTabNonce])
   const [showBalancePanel, setShowBalancePanel] = useState(false)
   const [expeditionWorkbenchQueueWeapon, setExpeditionWorkbenchQueueWeapon] =
     useState<CraftedWeaponV2 | null>(null)
@@ -240,6 +253,9 @@ export function ExpeditionsSection() {
       forgottenForgeQuest,
       forgottenForgePhase
     )
+    const linkedQuestTag = linkedQuestId
+      ? getForgottenForgeLinkedQuestTagForStep(forgottenForgeQuest.step)
+      : undefined
 
     const success = startExpeditionFull(
       selectedExpedition,
@@ -250,6 +266,7 @@ export function ExpeditionsSection() {
         contractOverride: missionContract,
         ...(EXPEDITION_DEV_UI_ENABLED ? { devBalance } : {}),
         ...(linkedQuestId ? { linkedQuestId } : {}),
+        ...(linkedQuestTag ? { linkedQuestTag } : {}),
       }
     )
     if (success) {
@@ -315,7 +332,7 @@ export function ExpeditionsSection() {
       forgottenForgePhase === 'awaiting_expedition' &&
       forgottenForgeQuest.step === 5
     ) {
-      const need = FORGOTTEN_FORGE_EXPEDITION_LOCATION_BY_STEP[5]
+      const need = getForgottenForgeExpeditionExpectation(5)?.locationId
       const loc = selectedExpedition.moduleLocationId
       if (
         need &&
@@ -326,6 +343,32 @@ export function ExpeditionsSection() {
         return {
           can: false as const,
           reason: 'В особом задании выберите способ очистки чаши (магия или физически)',
+        }
+      }
+    }
+    if (
+      forgottenForgeQuest.status === 'active' &&
+      forgottenForgePhase === 'awaiting_expedition' &&
+      forgottenForgeQuest.step === 13 &&
+      selectedExpedition.moduleLocationId === 'silver_grove'
+    ) {
+      if ((materialStash.shadow_leather ?? 0) < 2) {
+        return {
+          can: false as const,
+          reason: 'Для особого задания нужно 2 ед. болотной кожи (shadow_leather) на складе',
+        }
+      }
+    }
+    if (
+      forgottenForgeQuest.status === 'active' &&
+      forgottenForgePhase === 'awaiting_expedition' &&
+      forgottenForgeQuest.step === 15 &&
+      selectedExpedition.moduleLocationId === 'misty_lowlands'
+    ) {
+      if ((materialStash.mist_herbs ?? 0) < 3) {
+        return {
+          can: false as const,
+          reason: 'Для особого задания нужно 3 ед. туманных трав (mist_herbs) на складе',
         }
       }
     }
@@ -341,6 +384,8 @@ export function ExpeditionsSection() {
     forgottenForgeQuest.step,
     forgottenForgeQuest.flags.step5Cleanse,
     forgottenForgePhase,
+    materialStash.shadow_leather,
+    materialStash.mist_herbs,
   ])
 
   return (

@@ -29,6 +29,7 @@ import {
   AlertTriangle,
   Package,
   Target,
+  Factory,
 } from 'lucide-react'
 import { MaterialDisplayIcon } from '@/components/ui/material-display-icon'
 import { Button } from '@/components/ui/button'
@@ -49,6 +50,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { encyclopediaCraftBonusTooltips } from '@/lib/encyclopedia/encyclopedia-craft-bonus-tooltips'
+import { getMaterialAcquisitionHintLines } from '@/lib/materials/material-acquisition-hints'
 
 function formatRemainHuman(totalSec: number): string {
   const sec = Math.max(0, totalSec)
@@ -131,6 +133,7 @@ export function MaterialCard({ material, knowledge, onClick }: MaterialCardProps
   const undiscovered = expertise < 1
   const mid = material.identity.id
   const studyTechniques = useMemo(() => getStudyTechniquesForMaterial(mid), [mid])
+  const acquisitionHints = useMemo(() => getMaterialAcquisitionHintLines(mid), [mid])
   const activeStudy = materialStudySessions.find(
     s => s.materialId === mid && s.status === 'running'
   )
@@ -299,6 +302,20 @@ export function MaterialCard({ material, knowledge, onClick }: MaterialCardProps
           <div className="text-xs">
             <span className="text-stone-500">Применение: </span>
             <span className="text-stone-300">{material.summary.applied}</span>
+          </div>
+        )}
+
+        {showApplied && acquisitionHints.length > 0 && (
+          <div className="text-xs space-y-1 rounded-md border border-stone-800/80 bg-stone-950/40 p-2">
+            <div className="flex items-center gap-1.5 text-stone-500 font-medium">
+              <Factory className="w-3.5 h-3.5 shrink-0 text-amber-600/90" aria-hidden />
+              Как получить
+            </div>
+            <ul className="list-disc list-inside space-y-0.5 text-stone-400 leading-snug">
+              {acquisitionHints.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
           </div>
         )}
 

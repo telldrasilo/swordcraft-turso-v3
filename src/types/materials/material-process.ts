@@ -7,6 +7,8 @@
 export type MaterialProcessKind =
   | 'weapon_craft_v2'
   | 'refining_smelting'
+  /** Выделка кожи / постройка `tannery`; отделено от плавки (фаза **3.4** roadmap). */
+  | 'refining_tanning'
 
 /**
  * Узкая роль в контексте процесса (общий словарь проекта).

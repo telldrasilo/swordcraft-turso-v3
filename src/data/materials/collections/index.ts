@@ -3,6 +3,9 @@
  * Групповой экспорт по категориям
  */
 
+/** Roadmap **5.2:** полный список legacy-металлов с числами каталога — предпочитать этим импортам прямое чтение `metalMaterials`. */
+export { getMetalMaterialRuntimeMerged, getMetalMaterialsRuntimeMerged } from '../metals-runtime-merge'
+
 export * from './metals'
 export * from './ores'
 export * from './stones'

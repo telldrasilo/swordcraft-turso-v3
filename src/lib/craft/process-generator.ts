@@ -1,6 +1,8 @@
 /**
  * Генератор процесса крафта
  * Создаёт последовательность этапов из рецепта с учётом материалов и техник
+ *
+ * **Фаза 4.x:** чистая композиция порядка этапов для тестов и будущего переноса — [`timeline-composition`](./timeline-composition.ts).
  */
 
 import type { 
@@ -22,12 +24,16 @@ import { getMaterialAsLegacy } from '@/data/materials'
 import { getRecipeById } from '@/data/recipes'
 import { getTechniqueById } from '@/data/techniques'
 import { resolveProcessingTechniqueForPart } from '@/data/material-processing-techniques'
+import { refiningRecipes } from '@/data/refining-recipes'
+import { getEffectiveRefiningRecipeId } from '@/lib/craft/processing-technique-refining-bridge'
 import {
   aggregateExpertiseImpactsForPlan,
   buildExpertisePlanRowsFromCraft,
   getExpertiseTimeMultiplierForMaterial,
 } from '@/lib/craft/aggregate-expertise-impact'
 import { scaleCraftSoulCapacityToWeaponPool } from '@/data/war-soul-tiers'
+import { applyCombatProcessModsToStageEntries } from '@/lib/craft/timeline-composition'
+import { collectProcessingTechniqueStageInsertions } from '@/lib/craft/processing-technique-stage-insertions'
 
 /**
  * Контекст для генерации процесса
@@ -42,6 +48,54 @@ interface GenerationContext {
   materialExpertise: Record<string, number>
   /** Глобальный множитель времени от экспертизы (этапы без primaryMaterialId). */
   aggregatedExpertiseTimeMultiplier: number
+}
+
+/**
+ * Развёрнутая последовательность конфигов этапов (те же правила, что и `generateCraftStages`, без экземпляров).
+ * Для Крафтовой линии v2, согласованной с `processMods` и вставками обработки.
+ */
+export function collectExpandedStageConfigsForCraft(
+  recipe: WeaponRecipe,
+  materials: MaterialAssignment,
+  techniques: Technique[] = [],
+  blacksmithLevel: number = 1,
+  forgeLevel: number = 1,
+  config: GameConfig = DEFAULT_GAME_CONFIG,
+  shouldPurchaseMaterials: boolean = false,
+  partMaterialSupply?: Record<string, PartMaterialSupplyEntry>,
+  materialExpertise: Record<string, number> = {}
+): WeaponRecipe['stages'] {
+  const expertiseRows = buildExpertisePlanRowsFromCraft(recipe, materials)
+  const aggExpertise = aggregateExpertiseImpactsForPlan(expertiseRows, materialExpertise)
+
+  const context: GenerationContext = {
+    recipe,
+    materials,
+    techniques,
+    blacksmithLevel,
+    forgeLevel,
+    config,
+    materialExpertise,
+    aggregatedExpertiseTimeMultiplier: aggExpertise.timeMultiplier,
+  }
+
+  let stageConfigs = [...recipe.stages]
+
+  if (shouldPurchaseMaterials) {
+    stageConfigs.unshift({ stageType: 'proc_purchasing', stageSource: 'global' })
+  }
+
+  stageConfigs = applyMaterialMods(stageConfigs, materials, context)
+  stageConfigs = applyTechniqueMods(stageConfigs, techniques, context)
+
+  stageConfigs = applyPartMaterialSupplyStageConfigs(
+    stageConfigs,
+    materials,
+    partMaterialSupply
+  )
+
+  stageConfigs = attachPrimaryMetadataToStages(stageConfigs, materials)
+  return stageConfigs
 }
 
 /**
@@ -71,29 +125,19 @@ export function generateCraftStages(
     materialExpertise,
     aggregatedExpertiseTimeMultiplier: aggExpertise.timeMultiplier,
   }
-  
-  // 1. Базовая последовательность этапов из рецепта
-  let stageConfigs = [...recipe.stages]
-  
-  // 2. Добавляем этап закупки материалов, если нужно
-  if (shouldPurchaseMaterials) {
-    stageConfigs.unshift({ stageType: 'proc_purchasing', stageSource: 'global' })
-  }
-  
-  // 3. Применяем модификации от материалов
-  stageConfigs = applyMaterialMods(stageConfigs, materials, context)
-  
-  // 3. Применяем модификации от техник
-  stageConfigs = applyTechniqueMods(stageConfigs, techniques, context)
 
-  stageConfigs = applyPartMaterialSupplyStageConfigs(
-    stageConfigs,
+  const stageConfigs = collectExpandedStageConfigsForCraft(
+    recipe,
     materials,
-    partMaterialSupply
+    techniques,
+    blacksmithLevel,
+    forgeLevel,
+    config,
+    shouldPurchaseMaterials,
+    partMaterialSupply,
+    materialExpertise
   )
 
-  stageConfigs = attachPrimaryMetadataToStages(stageConfigs, materials)
-  
   // 4. Создаём экземпляры этапов
   const instances: CraftStageInstance[] = stageConfigs.map((config, index) => {
     const stageType = getStageById(config.stageType)
@@ -179,8 +223,16 @@ function applyPartMaterialSupplyStageConfigs(
   for (const [partId, assign] of Object.entries(materials)) {
     const entry = partMaterialSupply[partId]
     const tech = resolveProcessingTechniqueForPart(partId, assign.materialId, entry)
-    if (!tech?.craftStageInsertions?.length) continue
-    for (const ins of tech.craftStageInsertions) {
+    if (!tech) continue
+    const stageSpecs = collectProcessingTechniqueStageInsertions(tech)
+    if (stageSpecs.length === 0) continue
+    const effRecipeId = getEffectiveRefiningRecipeId(tech)
+    if (!refiningRecipes.some((r) => r.id === effRecipeId)) {
+      throw new Error(
+        `process-generator: refining recipe "${effRecipeId}" missing for processing technique ${tech.id}`
+      )
+    }
+    for (const ins of stageSpecs) {
       insertions.push({
         stageType: ins.stageType,
         afterStageType: ins.afterStageType,
@@ -252,38 +304,10 @@ function applyTechniqueMods(
   techniques: Technique[],
   _context: GenerationContext
 ): WeaponRecipe['stages'] {
-  const result = [...stages]
-  
-  for (const technique of techniques) {
-    if (!technique.processMods) continue
-    
-    const { replaceStage, addStage } = technique.processMods
-    
-    // Замена этапов
-    if (replaceStage) {
-      for (let i = 0; i < result.length; i++) {
-        const replacement = replaceStage[result[i].stageType]
-        if (replacement) {
-          result[i] = { ...result[i], stageType: replacement }
-        }
-      }
-    }
-    
-    // Добавление этапов
-    if (addStage) {
-      const insertIndex = addStage.after
-        ? result.findIndex(s => s.stageType === addStage.after) + 1
-        : addStage.before
-        ? result.findIndex(s => s.stageType === addStage.before)
-        : result.length
-      
-      if (insertIndex >= 0) {
-        result.splice(insertIndex, 0, { stageType: addStage.stage })
-      }
-    }
-  }
-  
-  return result
+  return applyCombatProcessModsToStageEntries(
+    stages,
+    techniques.map((t) => t.processMods)
+  )
 }
 
 /**
@@ -333,7 +357,8 @@ function createStageInstance(
     primaryMaterialId
   )
   
-  // Выбираем сообщения
+  // Сообщения из библиотеки типа этапа. Подпись по микрозадаче Крафтовой линии — в UI
+  // (`craftLineCaption` в CraftProgress, ENC §10.4 п.6 / P5d).
   const startMessage = selectMessage(stageType.messages.start)
   const completeMessage = selectMessage(stageType.messages.complete)
   

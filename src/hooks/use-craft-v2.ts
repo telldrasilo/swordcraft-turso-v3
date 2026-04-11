@@ -48,6 +48,7 @@ import {
 } from '@/data/material-processing-techniques'
 import { getPlannerUnlockedTechniqueIds } from '@/lib/craft/planner-unlocked-techniques'
 import { isForgottenForgeAltarRecipe } from '@/lib/craft/altar-construction'
+import { gameEvents } from '@/lib/game-events'
 
 function buildExpertiseMap(
   knowledge: Record<string, MaterialKnowledge> | undefined
@@ -174,10 +175,8 @@ function finalizeCompletedCraftV2(
   blacksmithLevel: number
 ): CraftV2State | null {
   if (!prev.preview || !prev.plan) return null
-  const recipe = getRecipeById(prev.plan.recipeId)
-  if (!recipe) return null
 
-  if (isForgottenForgeAltarRecipe(recipe.id)) {
+  if (isForgottenForgeAltarRecipe(prev.plan.recipeId)) {
     const gains = buildCraftExpertiseGainRows(prev.plan.materials, {
       getExpertise: id =>
         useGameStore.getState().materialKnowledge[id]?.expertise ?? 0,
@@ -191,7 +190,6 @@ function finalizeCompletedCraftV2(
       })
     }
     queueMicrotask(() => {
-      useGameStore.getState().setAltarBuiltInForge(true)
       useGameStore.getState().setCraftV2Persisted({
         activeCraft: null,
         plan: null,
@@ -215,6 +213,9 @@ function finalizeCompletedCraftV2(
       lastStartCraftError: null,
     }
   }
+
+  const recipe = getRecipeById(prev.plan.recipeId)
+  if (!recipe) return null
 
   const techniques = prev.plan.techniques
     .map(id => getTechniqueById(id))
@@ -264,6 +265,11 @@ function finalizeCompletedCraftV2(
       })
     })
   }
+
+  const rid = prev.plan.recipeId
+  queueMicrotask(() => {
+    gameEvents.emit('craft:completed', { recipeId: rid })
+  })
 
   return {
     ...prev,

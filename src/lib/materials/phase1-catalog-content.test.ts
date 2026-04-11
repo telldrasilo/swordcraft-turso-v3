@@ -29,7 +29,8 @@ describe('full catalog MaterialNode text content (phase 1)', () => {
       expect(node.economy.tier, id).toBeGreaterThanOrEqual(1)
       expect(node.economy.tier, id).toBeLessThanOrEqual(5)
       expect(node.economy.rarity, id).toBeGreaterThanOrEqual(0)
-      expect(node.economy.rarity, id).toBeLessThanOrEqual(200)
+      const maxRarity = node.identity.tags.includes('quest') ? 220 : 200
+      expect(node.economy.rarity, id).toBeLessThanOrEqual(maxRarity)
     }
   })
 })

@@ -14,6 +14,11 @@ import {
 } from '@/types/materials/knowledge'
 import type { GameMessage } from '@/types/game-message'
 import type { MaterialStudySession } from '@/types/material-study'
+import type { EncyclopediaTechniqueKind, EncyclopediaTechniqueRef } from '@/types/encyclopedia-techniques'
+import {
+  DEFAULT_TECHNIQUE_KIND_TAB,
+  isEncyclopediaTechniqueKindTab,
+} from '@/lib/encyclopedia/encyclopedia-technique-sections'
 import { getMaterialStudyTechniqueById } from '@/data/material-study-techniques'
 import { catalogMaterialCostsToCraftingCost } from '@/lib/materials/material-study-costs'
 import type { CraftingCost } from '@/store/slices/resources-slice'
@@ -38,6 +43,10 @@ type EncyclopediaStoreGet = () => {
   spendCraftingCostWithStash: (cost: CraftingCost) => boolean
   canAffordCraftingCostWithStash: (cost: CraftingCost) => boolean
   addResource: (resource: import('@/store/slices/resources-slice').ResourceKey, amount: number) => void
+  grantResourceKeyFromWorld: (
+    resource: import('@/store/slices/resources-slice').ResourceKey,
+    amount: number
+  ) => void
   addMaterialToStash: (materialId: string, amount: number) => void
   workers: Worker[]
   buildings: ProductionBuilding[]
@@ -54,6 +63,9 @@ function safeGameMessages(state: { gameMessages?: GameMessage[] }): GameMessage[
 
 /** Категория отображения энциклопедии (как вкладки материалов в UI) */
 export type EncyclopediaCategory = MaterialDisplayCategory
+
+/** Верхний таб экрана «Энциклопедия»: материалы или техники (persist, ENC P3c). */
+export type EncyclopediaScreenTab = 'materials' | 'techniques'
 
 /** Состояние энциклопедии */
 export interface EncyclopediaState {
@@ -73,6 +85,12 @@ export interface EncyclopediaState {
   showOnlyDiscovered: boolean
   /** Фокус карточки после навигации из ленты сообщений (не в persist). */
   encyclopediaFocusMaterialId: string | null
+  /** Фокус карточки техники `{ kind, id }` (не в persist). */
+  encyclopediaFocusTechniqueRef: EncyclopediaTechniqueRef | null
+  /** Последняя открытая вкладка экрана энциклопедии. */
+  lastEncyclopediaTab: EncyclopediaScreenTab
+  /** Под-вкладка семейства техник (ENC P2d, persist). */
+  lastEncyclopediaTechniqueKindTab: EncyclopediaTechniqueKind
 }
 
 /** Actions для энциклопедии */
@@ -123,6 +141,9 @@ export interface EncyclopediaActions {
   /** Прервать сессию: частичный прирост по прогрессу, рабочие на отдых */
   cancelMaterialStudy: (sessionId: string) => void
   setEncyclopediaFocusMaterialId: (materialId: string | null) => void
+  setEncyclopediaFocusTechniqueRef: (ref: EncyclopediaTechniqueRef | null) => void
+  setLastEncyclopediaTab: (tab: EncyclopediaScreenTab) => void
+  setLastEncyclopediaTechniqueKindTab: (kind: EncyclopediaTechniqueKind) => void
   getMaterialStudySlotCapacity: () => number
   /** Добавить сообщение в ленту (энциклопедия и др.) */
   pushGameMessage: (msg: Omit<GameMessage, 'id' | 'ts'> & Partial<Pick<GameMessage, 'id' | 'ts'>>) => void
@@ -146,6 +167,9 @@ export const initialEncyclopediaState: EncyclopediaState = {
   sortBy: 'rarity',
   showOnlyDiscovered: false,
   encyclopediaFocusMaterialId: null,
+  encyclopediaFocusTechniqueRef: null,
+  lastEncyclopediaTab: 'materials',
+  lastEncyclopediaTechniqueKindTab: DEFAULT_TECHNIQUE_KIND_TAB,
 }
 
 // ================================
@@ -307,6 +331,7 @@ export const createEncyclopediaSlice: StateCreator<EncyclopediaSlice, [], [], En
       materialStudySessions: [],
       gameMessages: [],
       encyclopediaFocusMaterialId: null,
+      encyclopediaFocusTechniqueRef: null,
     })
   },
 
@@ -525,7 +550,7 @@ export const createEncyclopediaSlice: StateCreator<EncyclopediaSlice, [], [], En
     if (techniqueForRefund) {
       refundMaterialStudyTechniqueCosts(
         {
-          addResource: storeGet().addResource,
+          grantResourceKeyFromWorld: storeGet().grantResourceKeyFromWorld,
           addMaterialToStash: storeGet().addMaterialToStash,
         },
         techniqueForRefund
@@ -590,7 +615,28 @@ export const createEncyclopediaSlice: StateCreator<EncyclopediaSlice, [], [], En
   },
 
   setEncyclopediaFocusMaterialId: materialId => {
-    set({ encyclopediaFocusMaterialId: materialId })
+    set(s => ({
+      encyclopediaFocusMaterialId: materialId,
+      encyclopediaFocusTechniqueRef:
+        materialId != null ? null : s.encyclopediaFocusTechniqueRef,
+    }))
+  },
+
+  setEncyclopediaFocusTechniqueRef: ref => {
+    set(s => ({
+      encyclopediaFocusTechniqueRef: ref,
+      encyclopediaFocusMaterialId: ref != null ? null : s.encyclopediaFocusMaterialId,
+    }))
+  },
+
+  setLastEncyclopediaTab: tab => {
+    if (tab !== 'materials' && tab !== 'techniques') return
+    set({ lastEncyclopediaTab: tab })
+  },
+
+  setLastEncyclopediaTechniqueKindTab: kind => {
+    if (!isEncyclopediaTechniqueKindTab(kind)) return
+    set({ lastEncyclopediaTechniqueKindTab: kind })
   },
 
   getMaterialStudySlotCapacity: () => {

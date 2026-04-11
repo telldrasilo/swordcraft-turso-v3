@@ -32,6 +32,14 @@ export const basicTechniques: Technique[] = [
     source: {
       type: 'start',
     },
+
+    microTasks: [
+      { id: 'basic_heat', label: 'Нагрев и черновая ковка', durationWeight: 2 },
+      { id: 'basic_finish', label: 'Правка формы и снятие окалины', durationWeight: 1 },
+    ],
+
+    /** Крафтовая линия: после стадии 8 (`form_heating` лезвия) — см. TZ меча §3.3. */
+    craftLineAnchorAfterStageIndex: 8,
   },
   
   // ============================================
@@ -66,6 +74,11 @@ export const basicTechniques: Technique[] = [
     },
     
     requiredLevel: 5,
+
+    microTasks: [
+      { id: 'fold_heat', label: 'Прогрев и первичная ковка слоёв', durationWeight: 2 },
+      { id: 'fold_weld', label: 'Сварка складок и выравнивание', durationWeight: 2 },
+    ],
   },
   
   // ============================================
@@ -107,6 +120,11 @@ export const basicTechniques: Technique[] = [
     },
     
     requiredLevel: 10,
+
+    microTasks: [
+      { id: 'dh_first', label: 'Первый цикл закалки и отпуска', durationWeight: 2 },
+      { id: 'dh_second', label: 'Повторный подбор режима и финиш', durationWeight: 2 },
+    ],
   },
   
   // ============================================
@@ -145,6 +163,11 @@ export const basicTechniques: Technique[] = [
     },
     
     requiredLevel: 8,
+
+    microTasks: [
+      { id: 'bal_measure', label: 'Замер баланса и развесовки', durationWeight: 1 },
+      { id: 'bal_trim', label: 'Подгонка масс и проверка в руке', durationWeight: 2 },
+    ],
   },
   
   // ============================================
@@ -177,6 +200,11 @@ export const basicTechniques: Technique[] = [
     },
     
     requiredLevel: 5,
+
+    microTasks: [
+      { id: 'polish_prep', label: 'Шлифовка плоскостей', durationWeight: 2 },
+      { id: 'polish_edge', label: 'Доводка режущей кромки', durationWeight: 1 },
+    ],
   },
   
   // ============================================
@@ -211,5 +239,10 @@ export const basicTechniques: Technique[] = [
     },
     
     requiredLevel: 20,
+
+    microTasks: [
+      { id: 'elven_heat', label: 'Мягкий прогрев и работа по шаблону эльфов', durationWeight: 2 },
+      { id: 'elven_tune', label: 'Настройка проводимости и финальный штрих', durationWeight: 2 },
+    ],
   },
 ]

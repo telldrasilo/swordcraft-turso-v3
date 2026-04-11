@@ -4,10 +4,11 @@
 
 import { getAvailableLocations } from '@/modules/expeditions/data/locations'
 import { generateId } from '@/lib/store-utils/generators'
+import { FORGOTTEN_FORGE_ALTAR_QUEST_ARTIFACT_IDS } from '@/data/altar/quest-artifact-material-ids'
 import {
-  FORGOTTEN_FORGE_PROGRESS_LINES,
   FORGOTTEN_FORGE_QUEST_ID,
   FORGOTTEN_FORGE_STEP3_INSURANCE_GOLD,
+  getForgottenForgeProgressDisplayLine,
 } from '@/data/quests/forgotten-forge'
 import * as D from '@/data/quests/forgotten-forge-dialogue'
 import { canAdvanceForgottenForgeAfterExpedition } from '@/lib/quests/forgotten-forge-advance'
@@ -19,12 +20,15 @@ import type {
   ForgottenForgeQuestState,
   GameMessagesDockChannel,
 } from '@/types/forgotten-forge-quest'
+import { initialAltarConstructionState } from '@/types/altar-construction'
 
 export type QuestPhase =
   | 'locked'
   | 'intro'
   | 'awaiting_expedition'
   | 'post_expedition_dialogue'
+  | /** После эпилога v2: стройка / крафт без обязательной экспедиции */
+  'open'
   | 'completed'
 
 export interface ForgottenForgeQuestSliceState {
@@ -41,6 +45,10 @@ export interface ForgottenForgeQuestSliceState {
   messagesDockEncyclopediaReadUpToTs: number
   /** Все реплики архивариуса/игрока с ts ≤ этого считаются прочитанными */
   messagesDockArchivistReadUpToTs: number
+  /**
+   * После реплики с этим id в чате показывается блок «Обновление задачи» (последняя архивариус-реплика после смены стадии).
+   */
+  archivistForgottenForgeTaskBannerAfterEntryId: string | null
 }
 
 export interface ForgottenForgeQuestSliceActions {
@@ -65,6 +73,8 @@ export interface ForgottenForgeQuestSliceActions {
    * Только для dev: мгновенно доводит квест до финала (как после эпилога) и выдаёт чертёж алтаря.
    */
   completeForgottenForgeQuestDev: () => void
+  /** Dev: полный сброс квеста FF, алтаря в store и диалога (см. window.resetForgottenForgeQuest). */
+  resetForgottenForgeQuestDev: () => void
 }
 
 export type ForgottenForgeQuestSlice = ForgottenForgeQuestSliceState & ForgottenForgeQuestSliceActions
@@ -72,15 +82,35 @@ export type ForgottenForgeQuestSlice = ForgottenForgeQuestSliceState & Forgotten
 const initialQuest: ForgottenForgeQuestState = {
   status: 'locked',
   step: 0,
+  waitingForCraftAfterPhase2: false,
+  lastStepChangeAt: null,
   flags: {},
 }
 
 function pushThread(
   thread: ArchivistThreadEntry[],
   speaker: ArchivistThreadEntry['speaker'],
-  text: string
+  text: string,
+  extra?: Pick<ArchivistThreadEntry, 'ctaToScreen'>
 ): ArchivistThreadEntry[] {
-  return [...thread, { id: generateId(), ts: Date.now(), speaker, text }]
+  return [...thread, { id: generateId(), ts: Date.now(), speaker, text, ...extra }]
+}
+
+/** Для хука событий: добавить реплики архивариуса без доступа к set. */
+export function appendArchivistLines(thread: ArchivistThreadEntry[], lines: string[]): ArchivistThreadEntry[] {
+  let t = thread
+  for (const text of lines) {
+    t = pushThread(t, 'archivist', text)
+  }
+  return t
+}
+
+/** Id последней реплики архивариуса в thread (якорь для блока задачи в чате). */
+export function taskBannerAnchorFromThread(thread: ArchivistThreadEntry[]): string | null {
+  for (let i = thread.length - 1; i >= 0; i--) {
+    if (thread[i].speaker === 'archivist') return thread[i].id
+  }
+  return null
 }
 
 export const initialForgottenForgeQuestSlice: ForgottenForgeQuestSliceState = {
@@ -92,6 +122,7 @@ export const initialForgottenForgeQuestSlice: ForgottenForgeQuestSliceState = {
   messagesDockOpenNonce: 0,
   messagesDockEncyclopediaReadUpToTs: 0,
   messagesDockArchivistReadUpToTs: 0,
+  archivistForgottenForgeTaskBannerAfterEntryId: null,
 }
 
 export function createForgottenForgeQuestSlice<
@@ -154,6 +185,7 @@ export function createForgottenForgeQuestSlice<
         archivistDialogue: { thread },
         archivistPendingChoices: D.FF_INTRO_CHOICES.map((c) => ({ id: c.id, label: c.label })),
         messagesDockChannel: 'archivist',
+        archivistForgottenForgeTaskBannerAfterEntryId: taskBannerAnchorFromThread(thread),
       } as Partial<T>)
     },
 
@@ -195,9 +227,36 @@ export function createForgottenForgeQuestSlice<
       const label = pending.find((c) => c.id === choiceId)?.label ?? '…'
       thread = pushThread(thread, 'player', label)
 
+      if (phase === 'completed' && q.status === 'completed' && q.step === 18) {
+        const r = D.FF_FINALE_REPLIES[choiceId]
+        if (r) thread = pushThread(thread, 'archivist', r)
+        set({
+          archivistDialogue: { thread },
+          archivistPendingChoices: null,
+          archivistForgottenForgeTaskBannerAfterEntryId: taskBannerAnchorFromThread(thread),
+        } as Partial<T>)
+        return
+      }
+
+      if (phase === 'open' && q.step === 9 && q.waitingForCraftAfterPhase2) {
+        const r = D.FF_PHASE2_WAIT_CRAFT_REPLIES[choiceId]
+        if (r) {
+          thread = pushThread(thread, 'archivist', r)
+          set({
+            archivistDialogue: { thread },
+            archivistPendingChoices: null,
+            forgottenForgeQuest: { ...q, lastStepChangeAt: Date.now() },
+            archivistForgottenForgeTaskBannerAfterEntryId: taskBannerAnchorFromThread(thread),
+          } as Partial<T>)
+          return
+        }
+      }
+
       let nextQuest = { ...q }
       let nextPhase: QuestPhase = phase
       let nextPending: ArchivistPendingChoice[] | null = null
+      /** Якорь баннера FF: после шага 6 последняя реплика — CTA, якорь оставляем на длинном чертеже. */
+      let taskBannerAnchorOverride: string | null = null
 
       if (phase === 'intro' && q.step === 0) {
         const reply = D.FF_INTRO_REPLIES[choiceId]
@@ -217,7 +276,12 @@ export function createForgottenForgeQuestSlice<
         } else if (s === 2) {
           const r = D.FF_AFTER_EXP_2_REPLIES[choiceId]
           if (r) thread = pushThread(thread, 'archivist', r)
-          nextQuest = { ...q, step: 3 }
+          const step3Insurance = choiceId === 'ff_s2_1'
+          nextQuest = {
+            ...q,
+            step: 3,
+            flags: { ...q.flags, step3Insurance },
+          }
           nextPhase = 'awaiting_expedition'
         } else if (s === 3) {
           const r = D.FF_AFTER_EXP_3_REPLIES[choiceId]
@@ -237,35 +301,52 @@ export function createForgottenForgeQuestSlice<
         } else if (s === 6) {
           const r = D.FF_AFTER_EXP_6_REPLIES[choiceId]
           if (r) thread = pushThread(thread, 'archivist', r)
-          thread = pushThread(thread, 'archivist', D.FF_EPILOGUE_ARCHIVIST)
+          thread = pushThread(thread, 'archivist', D.FF_STEP7_BLUEPRINT_ARCHIVIST)
+          taskBannerAnchorOverride = taskBannerAnchorFromThread(thread)
+          thread = pushThread(thread, 'archivist', D.FF_STEP7_ALTAR_UNLOCK_CTA, {
+            ctaToScreen: 'altar',
+          })
           nextQuest = { ...q, step: 7 }
           nextPhase = 'post_expedition_dialogue'
-          nextPending = D.FF_EPILOGUE_CHOICES.map((c) => ({ id: c.id, label: c.label }))
+          nextPending = D.FF_STEP7_BLUEPRINT_CHOICES.map((c) => ({ id: c.id, label: c.label }))
         } else if (s === 7) {
-          const r = D.FF_EPILOGUE_REPLIES[choiceId]
+          const r = D.FF_STEP7_BLUEPRINT_REPLIES[choiceId]
           if (r) thread = pushThread(thread, 'archivist', r)
-          nextQuest = { ...q, status: 'completed', step: 7 }
-          nextPhase = 'completed'
+          nextQuest = {
+            ...q,
+            status: 'active',
+            step: 8,
+            waitingForCraftAfterPhase2: false,
+            lastStepChangeAt: Date.now(),
+          }
+          nextPhase = 'open'
           nextPending = null
         }
       }
 
-      const altarDone = nextQuest.status === 'completed'
+      const altarBlueprint =
+        nextQuest.step >= 7 || nextQuest.status === 'completed'
+
+      const archivistTaskBannerId =
+        taskBannerAnchorOverride ?? taskBannerAnchorFromThread(thread)
 
       set({
         archivistDialogue: { thread },
         forgottenForgeQuest: nextQuest,
         forgottenForgePhase: nextPhase,
         archivistPendingChoices: nextPending,
-        ...(altarDone ? { altarUnlockedByForgottenForgeQuest: true } : {}),
+        archivistForgottenForgeTaskBannerAfterEntryId: archivistTaskBannerId,
+        ...(altarBlueprint ? { altarUnlockedByForgottenForgeQuest: true } : {}),
       } as Partial<T>)
     },
 
     completeForgottenForgeQuestDev: () => {
       set({
         forgottenForgeQuest: {
-          status: 'completed',
-          step: 7,
+          status: 'active',
+          step: 8,
+          waitingForCraftAfterPhase2: false,
+          lastStepChangeAt: Date.now(),
           step0Choice: 1,
           flags: {
             step3Insurance: false,
@@ -273,9 +354,40 @@ export function createForgottenForgeQuestSlice<
             step6Anselm: 'deal',
           },
         },
-        forgottenForgePhase: 'completed',
+        forgottenForgePhase: 'open',
         archivistPendingChoices: null,
         altarUnlockedByForgottenForgeQuest: true,
+        archivistForgottenForgeTaskBannerAfterEntryId: null,
+      } as unknown as Partial<T>)
+    },
+
+    resetForgottenForgeQuestDev: () => {
+      const state = get() as T & {
+        materialStash?: Record<string, number>
+        materialStashQuestItemIds?: string[]
+      }
+      const stash = { ...(state.materialStash ?? {}) }
+      for (const id of FORGOTTEN_FORGE_ALTAR_QUEST_ARTIFACT_IDS) {
+        delete stash[id]
+      }
+      const artifactSet = new Set<string>([...FORGOTTEN_FORGE_ALTAR_QUEST_ARTIFACT_IDS])
+      const prevQuestIds = state.materialStashQuestItemIds ?? []
+      const questIds = prevQuestIds.filter((id: string) => !artifactSet.has(id))
+      set({
+        forgottenForgeQuest: { ...initialQuest },
+        forgottenForgePhase: 'locked',
+        archivistDialogue: { thread: [] },
+        archivistPendingChoices: null,
+        messagesDockChannel: 'encyclopedia',
+        messagesDockOpenNonce: 0,
+        messagesDockEncyclopediaReadUpToTs: 0,
+        messagesDockArchivistReadUpToTs: 0,
+        altarUnlockedByForgottenForgeQuest: false,
+        altarBuiltInForge: false,
+        altarConstruction: { ...initialAltarConstructionState },
+        materialStash: stash,
+        materialStashQuestItemIds: questIds,
+        archivistForgottenForgeTaskBannerAfterEntryId: null,
       } as unknown as Partial<T>)
     },
 
@@ -283,10 +395,12 @@ export function createForgottenForgeQuestSlice<
       locationId,
       success,
       linkedQuestId,
+      linkedQuestTag,
     }: {
       locationId?: string
       success: boolean
       linkedQuestId?: string
+      linkedQuestTag?: string
     }) => {
       const state = get()
       if (
@@ -296,6 +410,7 @@ export function createForgottenForgeQuestSlice<
           locationId,
           success,
           linkedQuestId,
+          linkedQuestTag,
         })
       ) {
         return
@@ -303,6 +418,85 @@ export function createForgottenForgeQuestSlice<
 
       const q = state.forgottenForgeQuest
       let thread = state.archivistDialogue.thread
+      const addStash = get()['addMaterialToStash' as keyof T] as
+        | ((id: string, n: number, o?: { markQuestItem?: boolean }) => void)
+        | undefined
+      const unlockCraft = get()['unlockCraftTechnique' as keyof T] as
+        | ((id: string) => boolean)
+        | undefined
+
+      if (q.step === 3 && locationId === 'forgotten_mines' && success) {
+        addStash?.('resonator_matrix', 1, { markQuestItem: true })
+      } else if (q.step === 5 && locationId === 'rotten_swamp' && success) {
+        addStash?.('focusing_chalice', 1, { markQuestItem: true })
+      } else if (q.step === 6 && locationId === 'silver_grove' && success) {
+        addStash?.('lunar_tuning_fork', 1, { markQuestItem: true })
+      }
+
+      if (q.step === 11 && success) {
+        unlockCraft?.('rune_engraving_basic')
+        const t11 = pushThread(thread, 'archivist', D.FF_AFTER_EXP_RUNE_TECHNIQUE)
+        set({
+          forgottenForgeQuest: {
+            ...q,
+            step: 12,
+            lastStepChangeAt: Date.now(),
+          },
+          forgottenForgePhase: 'awaiting_expedition',
+          archivistDialogue: { thread: t11 },
+          archivistPendingChoices: null,
+          archivistForgottenForgeTaskBannerAfterEntryId: taskBannerAnchorFromThread(t11),
+        } as Partial<T>)
+        return
+      }
+      if (q.step === 12 && success) {
+        unlockCraft?.('clay_firing')
+        const thread12 = pushThread(thread, 'archivist', D.FF_AFTER_EXP_CLAY_TECHNIQUE)
+        set({
+          forgottenForgeQuest: {
+            ...q,
+            step: 13,
+            lastStepChangeAt: Date.now(),
+          },
+          forgottenForgePhase: 'awaiting_expedition',
+          archivistDialogue: { thread: thread12 },
+          archivistPendingChoices: null,
+          archivistForgottenForgeTaskBannerAfterEntryId: taskBannerAnchorFromThread(thread12),
+        } as Partial<T>)
+        return
+      }
+      if (q.step === 13 && success) {
+        unlockCraft?.('frequency_tuning')
+        const thread13 = pushThread(thread, 'archivist', D.FF_AFTER_EXP_FREQUENCY_TECHNIQUE)
+        set({
+          forgottenForgeQuest: {
+            ...q,
+            step: 14,
+            lastStepChangeAt: Date.now(),
+          },
+          forgottenForgePhase: 'open',
+          archivistDialogue: { thread: thread13 },
+          archivistPendingChoices: null,
+          archivistForgottenForgeTaskBannerAfterEntryId: taskBannerAnchorFromThread(thread13),
+        } as Partial<T>)
+        return
+      }
+      if (q.step === 15 && success) {
+        unlockCraft?.('spirit_blessing')
+        const thread15 = pushThread(thread, 'archivist', D.FF_AFTER_SPIRIT_BLESSING_ARCHIVIST)
+        set({
+          forgottenForgeQuest: {
+            ...q,
+            step: 16,
+            lastStepChangeAt: Date.now(),
+          },
+          forgottenForgePhase: 'open',
+          archivistDialogue: { thread: thread15 },
+          archivistPendingChoices: null,
+          archivistForgottenForgeTaskBannerAfterEntryId: taskBannerAnchorFromThread(thread15),
+        } as Partial<T>)
+        return
+      }
 
       if (q.step === 1) {
         thread = pushThread(thread, 'archivist', D.FF_AFTER_EXP_1_ARCHIVIST)
@@ -310,6 +504,7 @@ export function createForgottenForgeQuestSlice<
           archivistDialogue: { thread },
           archivistPendingChoices: D.FF_AFTER_EXP_1_CHOICES.map((c) => ({ id: c.id, label: c.label })),
           forgottenForgePhase: 'post_expedition_dialogue',
+          archivistForgottenForgeTaskBannerAfterEntryId: taskBannerAnchorFromThread(thread),
         } as Partial<T>)
         return
       }
@@ -319,6 +514,7 @@ export function createForgottenForgeQuestSlice<
           archivistDialogue: { thread },
           archivistPendingChoices: D.FF_AFTER_EXP_2_CHOICES.map((c) => ({ id: c.id, label: c.label })),
           forgottenForgePhase: 'post_expedition_dialogue',
+          archivistForgottenForgeTaskBannerAfterEntryId: taskBannerAnchorFromThread(thread),
         } as Partial<T>)
         return
       }
@@ -330,6 +526,7 @@ export function createForgottenForgeQuestSlice<
           archivistDialogue: { thread },
           archivistPendingChoices: D.FF_AFTER_EXP_3_CHOICES.map((c) => ({ id: c.id, label: c.label })),
           forgottenForgePhase: 'post_expedition_dialogue',
+          archivistForgottenForgeTaskBannerAfterEntryId: taskBannerAnchorFromThread(thread),
         } as Partial<T>)
         return
       }
@@ -339,6 +536,7 @@ export function createForgottenForgeQuestSlice<
           archivistDialogue: { thread },
           archivistPendingChoices: D.FF_AFTER_EXP_4_CHOICES.map((c) => ({ id: c.id, label: c.label })),
           forgottenForgePhase: 'post_expedition_dialogue',
+          archivistForgottenForgeTaskBannerAfterEntryId: taskBannerAnchorFromThread(thread),
         } as Partial<T>)
         return
       }
@@ -350,6 +548,7 @@ export function createForgottenForgeQuestSlice<
           archivistDialogue: { thread },
           archivistPendingChoices: D.FF_AFTER_EXP_5_CHOICES.map((c) => ({ id: c.id, label: c.label })),
           forgottenForgePhase: 'post_expedition_dialogue',
+          archivistForgottenForgeTaskBannerAfterEntryId: taskBannerAnchorFromThread(thread),
         } as Partial<T>)
         return
       }
@@ -361,6 +560,7 @@ export function createForgottenForgeQuestSlice<
           archivistDialogue: { thread },
           archivistPendingChoices: D.FF_AFTER_EXP_6_CHOICES.map((c) => ({ id: c.id, label: c.label })),
           forgottenForgePhase: 'post_expedition_dialogue',
+          archivistForgottenForgeTaskBannerAfterEntryId: taskBannerAnchorFromThread(thread),
         } as Partial<T>)
         return
       }
@@ -379,9 +579,11 @@ export function maybeSpendForgottenForgeStep3Insurance(
   return get().spendResource?.('gold', FORGOTTEN_FORGE_STEP3_INSURANCE_GOLD) ?? false
 }
 
-/** Строка прогресса для карточки UI */
-export function getForgottenForgeProgressLine(step: number, status: ForgottenForgeQuestState['status']): string {
-  if (status === 'locked') return 'Станет доступно, когда гильдия откроет локации 2-го тира.'
-  if (status === 'completed') return FORGOTTEN_FORGE_PROGRESS_LINES[7] ?? ''
-  return FORGOTTEN_FORGE_PROGRESS_LINES[step] ?? FORGOTTEN_FORGE_PROGRESS_LINES[0]
+/** Строка прогресса для карточки UI и дока сообщений */
+export function getForgottenForgeProgressLine(
+  step: number,
+  status: ForgottenForgeQuestState['status'],
+  waitingForCraftAfterPhase2 = false
+): string {
+  return getForgottenForgeProgressDisplayLine(step, status, waitingForCraftAfterPhase2)
 }

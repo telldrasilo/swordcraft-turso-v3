@@ -579,3 +579,37 @@
 .animate-check-pop {
   animation: check-pop 0.4s ease-out;
 }
+
+/* Алтарь v2: заливка прогресса активного сегмента — градиент + мягкий shimmer. */
+@keyframes altar-fill-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.altar-construction-fill {
+  min-width: 0;
+  border-radius: 0;
+  background:
+    linear-gradient(90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.12) 40%,
+      rgba(255, 255, 255, 0.22) 50%,
+      rgba(255, 255, 255, 0.12) 60%,
+      transparent 100%
+    ),
+    linear-gradient(180deg,
+      rgb(217 119 6) 0%,       /* amber-600 — верх светлее */
+      rgb(180 83 9) 50%,       /* amber-700 — середина */
+      rgb(146 64 14) 100%      /* amber-800 — низ темнее */
+    );
+  background-size: 200% 100%, 100% 100%;
+  animation: altar-fill-shimmer 2.4s ease-in-out infinite;
+}
+
+.altar-construction-fill--paused {
+  animation-play-state: paused;
+}

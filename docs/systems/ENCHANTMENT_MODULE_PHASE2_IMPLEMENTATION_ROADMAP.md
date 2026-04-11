@@ -6,6 +6,8 @@
 
 **Связанные документы:** [FORGOTTEN_FORGE.md](../Quests/FORGOTTEN_FORGE.md), [ENCHANTMENT_MODULE_PHASE1.md](./ENCHANTMENT_MODULE_PHASE1.md), [GUILD_INTENDANT_AND_SPECIAL_QUESTS_PLAN.md](./GUILD_INTENDANT_AND_SPECIAL_QUESTS_PLAN.md), [FORGE_SYSTEM.md](./FORGE_SYSTEM.md), [docs/03_STATE_MANAGEMENT.md](../03_STATE_MANAGEMENT.md).
 
+**Следующий эпик после Алтаря v2:** строительство I–V и квест «Эхо забытой кузни» на экране «Зачарования» задокументированы в [ALTAR_REWORK/DEVELOPMENT_HUB.md](../Quests/ALTAR_REWORK/DEVELOPMENT_HUB.md); вкладка кузницы «Алтарь» удалена. Дальше по этому файлу — содержательная вкладка **«Улучшение алтаря»**, полноценный UX зачарования оружия и синхронизация канон-доков Phase2 с фактической v2-моделью (при необходимости).
+
 ### Принятые решения продукта
 
 | Решение | Выбор | Следствие для внедрения |

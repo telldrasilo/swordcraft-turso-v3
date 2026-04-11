@@ -185,6 +185,8 @@ export interface CraftActions {
   unlockEnchantment: (enchantmentId: string) => boolean
   isEnchantmentUnlocked: (enchantmentId: string) => boolean
   unlockMaterialProcessingTechnique: (techniqueId: string) => boolean
+  /** Боевые приёмы крафта (квест, интендант и т.д.) */
+  unlockCraftTechnique: (techniqueId: string) => boolean
   addWarSoulToWeapon: (
     weaponId: string,
     points: number,
@@ -710,6 +712,15 @@ export const createCraftSlice: StateCreator<
         ...s.unlockedMaterialProcessingTechniqueIds,
         techniqueId,
       ],
+    }))
+    return true
+  },
+
+  unlockCraftTechnique: (techniqueId) => {
+    const state = get()
+    if (!techniqueId || state.unlockedCraftTechniqueIds.includes(techniqueId)) return false
+    set((s) => ({
+      unlockedCraftTechniqueIds: [...s.unlockedCraftTechniqueIds, techniqueId],
     }))
     return true
   },

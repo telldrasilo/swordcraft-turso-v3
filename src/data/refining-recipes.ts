@@ -51,7 +51,14 @@ export interface RefiningRecipe {
   // Требуемый уровень
   requiredLevel: number
   // Требуемое здание
-  requiredBuilding: 'smelter' | 'sawmill' | 'quarry'
+  requiredBuilding: 'smelter' | 'sawmill' | 'quarry' | 'tannery'
+  /**
+   * Вход с `materialStash` на партию выхода (`output.amount`), без расхода по пулу `ResourceKey`.
+   * Если задано — поле `inputs` для горна игнорируется при расчёте стоимости (остаётся `extraCost` / уголь).
+   */
+  stashInputsPerBatch?: Record<string, number>
+  /** Явный выход в stash; иначе — `getGrantTargetMaterialId(output.resource)`. */
+  stashOutputMaterialId?: string
   // Разблокирован ли рецепт
   unlocked: boolean
   // Описание
@@ -192,6 +199,21 @@ export const refiningRecipes: RefiningRecipe[] = [
     unlocked: true,
     description: 'Обтёсанный камень для строительства.'
   },
+
+  // === КОЖА (каталожная цепочка: сырьё → выделка) ===
+  {
+    id: 'tanned_leather_tan',
+    name: 'Выделка кожи',
+    inputs: [],
+    stashInputsPerBatch: { raw_leather: 1 },
+    output: { resource: 'planks', amount: 1 },
+    stashOutputMaterialId: 'tanned_leather',
+    processTime: 12,
+    requiredLevel: 1,
+    requiredBuilding: 'tannery',
+    unlocked: true,
+    description: 'Дубление сырой кожи до плотной заготовки для рукояти.',
+  },
 ]
 
 // ================================
@@ -287,7 +309,9 @@ export function getRefiningRecipe(id: string): RefiningRecipe | undefined {
   return refiningRecipes.find(r => r.id === id)
 }
 
-export function getRecipesByBuilding(building: 'smelter' | 'sawmill' | 'quarry'): RefiningRecipe[] {
+export function getRecipesByBuilding(
+  building: 'smelter' | 'sawmill' | 'quarry' | 'tannery'
+): RefiningRecipe[] {
   return refiningRecipes.filter(r => r.requiredBuilding === building)
 }
 

@@ -44,8 +44,8 @@ describe('expedition stash → refine / craft chain', () => {
     expect(recipe).toBeDefined()
     if (!recipe) return
     const cost = getRefiningCraftingCost(recipe, 2)
-    const inv = { ...emptyResources(), coal: 20 }
-    const stash = { iron_ore: 50 }
+    const inv = { ...emptyResources() }
+    const stash = { iron_ore: 50, coal: 20 }
     expect(canAffordCraftingCostWithStash(cost, inv, stash)).toBe(true)
   })
 
@@ -59,8 +59,8 @@ describe('expedition stash → refine / craft chain', () => {
       grip: { materialId: 'oak', quantity: 1 },
       pommel: { materialId: 'iron', quantity: 1 },
     }
-    const inv = { ...emptyResources(), ironIngot: 25, wood: 0, coal: 5 }
-    const stash = { oak: 5 }
+    const inv = { ...emptyResources(), ironIngot: 25, wood: 0 }
+    const stash = { oak: 5, coal: 5 }
     const r = checkInventoryForCraft(recipe, selections, inv, stash)
     expect(r.canCraft).toBe(true)
   })

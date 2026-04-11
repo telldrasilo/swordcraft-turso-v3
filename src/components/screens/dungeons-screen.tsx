@@ -46,6 +46,7 @@ export function DungeonsScreen() {
   const weaponInventory = useGameStore((state) => state.weaponInventory)
   const resources = useGameStore((state) => state.resources)
   const addResource = useGameStore((state) => state.addResource)
+  const grantResourceKeyFromWorld = useGameStore((state) => state.grantResourceKeyFromWorld)
   const addFame = useGameStore((state) => state.addFame)
   const addWarSoulToWeapon = useGameStore((state) => state.addWarSoulToWeapon)
   
@@ -73,7 +74,7 @@ export function DungeonsScreen() {
     if (reward.bonusItems) {
       reward.bonusItems.forEach(item => {
         if (Math.random() < item.chance) {
-          addResource(item.resource as ResourceKey, item.amount)
+          grantResourceKeyFromWorld(item.resource as ResourceKey, item.amount)
         }
       })
     }
@@ -118,7 +119,15 @@ export function DungeonsScreen() {
     // Очищаем состояние
     setActiveAdventure(null)
     setEventLog([])
-  }, [activeAdventure, weaponInventory.weapons, addResource, addFame, eventLog, addWarSoulToWeapon])
+  }, [
+    activeAdventure,
+    weaponInventory.weapons,
+    addResource,
+    grantResourceKeyFromWorld,
+    addFame,
+    eventLog,
+    addWarSoulToWeapon,
+  ])
   
   // Прогресс приключения
   useEffect(() => {

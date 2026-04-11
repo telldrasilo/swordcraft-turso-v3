@@ -66,8 +66,8 @@ describe('buildRepairCrossSlice', () => {
           ...initialResources,
           gold: 5000,
           ironIngot: 80,
-          coal: 80,
         },
+        materialStash: { coal: 80 },
       })
     )
     const { executeWeaponRepairByTechniques } = buildRepairCrossSlice(set, get)
@@ -146,8 +146,8 @@ describe('buildRepairCrossSlice', () => {
           ...initialResources,
           gold: 5000,
           ironIngot: 80,
-          coal: 80,
         },
+        materialStash: { coal: 80 },
       })
     )
     const { executeWeaponRepairByTechniques } = buildRepairCrossSlice(set, get)
@@ -212,8 +212,8 @@ describe('buildRepairCrossSlice', () => {
         ...initialResources,
         gold: 5000,
         ironIngot: 80,
-        coal: 80,
       },
+      materialStash: { coal: 80 },
     })
     const get = vi.fn(() => state)
     const set = vi.fn()
@@ -245,8 +245,8 @@ describe('buildRepairCrossSlice', () => {
         ...initialResources,
         gold: 5000,
         ironIngot: 80,
-        coal: 80,
       },
+      materialStash: { coal: 80 },
     })
     const get = vi.fn(() => state)
     const set = vi.fn()
@@ -277,8 +277,8 @@ describe('buildRepairCrossSlice', () => {
         ...initialResources,
         gold: 5000,
         ironIngot: 80,
-        coal: 80,
       },
+      materialStash: { coal: 80 },
     })
     const get = vi.fn(() => state)
     const set = vi.fn()

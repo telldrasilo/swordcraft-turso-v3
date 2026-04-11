@@ -105,6 +105,21 @@ export const preparationStages: StageTypeDefinition[] = [
     },
   },
   {
+    id: 'prep_forge_leather_tan',
+    category: 'preparation',
+    type: 'material_prep',
+    name: 'Дубление кожи',
+    description: 'Выделка сырой кожи до плотной заготовки для рукояти (кожевенный участок у горна)',
+    baseDuration: 12,
+    durationModifiers: {
+      skill: 'blacksmith.level',
+    },
+    messages: {
+      start: ['Протягиваю кожу через раствор...', 'Фиксирую волокна заготовки...'],
+      complete: ['Кожа готова.', 'Заготовка стабильна для посадки.'],
+    },
+  },
+  {
     id: 'prep_tools',
     category: 'preparation',
     type: 'tool_prep',

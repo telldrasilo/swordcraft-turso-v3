@@ -28,7 +28,7 @@ describe('materials phase 7 — expedition-like stash → spendCraftingCostWithS
   it('руда в stash: iron_ore тратится на стоимость плавки iron_ingot', () => {
     const store = createChainStore()
     store.getState().addMaterialToStash('iron_ore', 10)
-    store.getState().addResource('coal', 10)
+    store.getState().addMaterialToStash('coal', 10)
 
     const recipe = getRefiningRecipe('iron_ingot')
     expect(recipe).toBeDefined()
@@ -37,7 +37,8 @@ describe('materials phase 7 — expedition-like stash → spendCraftingCostWithS
 
     expect(store.getState().spendCraftingCostWithStash(cost)).toBe(true)
     expect(store.getState().materialStash.iron_ore).toBe(7)
-    expect(store.getState().resources.coal).toBe(initialResources.coal + 10 - (cost.coal ?? 0))
+    expect(store.getState().materialStash.coal).toBe(10 - (cost.coal ?? 0))
+    expect(store.getState().resources.coal).toBe(initialResources.coal)
 
     const kn = store.getState().materialKnowledge['iron_ore']
     expect(kn).toBeDefined()
@@ -51,9 +52,9 @@ describe('materials phase 7 — expedition-like stash → spendCraftingCostWithS
       resources: {
         ...store.getState().resources,
         ironIngot: 30,
-        coal: 10,
       },
     })
+    store.getState().addMaterialToStash('coal', 10)
 
     const recipe = getRecipeById('basic_sword')
     expect(recipe).toBeDefined()
@@ -75,7 +76,7 @@ describe('materials phase 7 — expedition-like stash → spendCraftingCostWithS
     const store = createChainStore()
     store.getState().addMaterialToStash('copper_ore', 10)
     store.getState().addMaterialToStash('tin_ore', 10)
-    store.getState().addResource('coal', 20)
+    store.getState().addMaterialToStash('coal', 20)
 
     const recipe = getRefiningRecipe('bronze_ingot')
     expect(recipe).toBeDefined()

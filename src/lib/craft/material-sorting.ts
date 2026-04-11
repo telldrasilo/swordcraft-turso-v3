@@ -56,6 +56,7 @@ const RARITY_VALUES: Record<MaterialRarity, number> = {
   rare: 3,
   epic: 4,
   legendary: 5,
+  unique: 6,
 }
 
 // ================================

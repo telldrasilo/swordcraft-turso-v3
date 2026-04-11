@@ -1,7 +1,13 @@
 /**
  * Квест «Эхо забытой кузни» — состояние в store.
  * @see docs/Quests/FORGOTTEN_FORGE.md
+ * @see docs/Quests/ALTAR_REWORK/FORGOTTEN_FORGE v2.md (шаги 0–18)
  */
+
+import type { GameScreen } from '@/types/game'
+
+/** Максимальный шаг сценария v2 (финал после фазы V). */
+export const FORGOTTEN_FORGE_QUEST_STEP_MAX = 18
 
 export type ForgottenForgeQuestStatus = 'locked' | 'available' | 'active' | 'completed'
 
@@ -12,8 +18,15 @@ export type ForgottenForgePreFlag =
 
 export interface ForgottenForgeQuestState {
   status: ForgottenForgeQuestStatus
-  /** 0..7 по документу квеста */
+  /** Сюжетный шаг квеста v2: 0..FORGOTTEN_FORGE_QUEST_STEP_MAX */
   step: number
+  /**
+   * После завершения фазы II: ждём успешный крафт оружия v2 (см. CHAT.md).
+   * Шаг при этом остаётся на ветке «ожидание крафта».
+   */
+  waitingForCraftAfterPhase2: boolean
+  /** Опционально: отладка / аналитика переходов */
+  lastStepChangeAt: number | null
   /** Выбор на шаге 0 (1–3) */
   step0Choice?: 1 | 2 | 3
   /** Страховка в шахтах (шаг 3), очистка (5), Ансельм (6) */
@@ -31,6 +44,8 @@ export interface ArchivistThreadEntry {
   ts: number
   speaker: ArchivistSpeaker
   text: string
+  /** Если задано, сообщение в доке ведёт на экран (например разблокировка алтаря). */
+  ctaToScreen?: GameScreen
 }
 
 export interface ArchivistPendingChoice {

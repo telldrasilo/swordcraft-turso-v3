@@ -71,9 +71,27 @@ import {
   initialForgottenForgeQuestSlice,
 } from './slices/forgotten-forge-quest-slice'
 import type { ForgottenForgeQuestSlice } from './slices/forgotten-forge-quest-slice'
-import type { ForgottenForgeQuestState } from '@/types/forgotten-forge-quest'
+import {
+  FORGOTTEN_FORGE_QUEST_STEP_MAX,
+  type ForgottenForgeQuestState,
+} from '@/types/forgotten-forge-quest'
+import type { AltarConstructionState, AltarPhase } from '@/types/altar-construction'
+import { initialAltarConstructionState } from '@/types/altar-construction'
+import { getAltarPhaseConfig } from '@/data/altar/altar-phases-config'
+import {
+  altarConstructionStateAfterPhaseComplete,
+  canStartAltarPhase,
+  computeAltarConstructionTick,
+  consumeMaterialsForAltarPhase,
+} from '@/lib/altar/altar-construction-phase'
+import { gameEvents } from '@/lib/game-events'
+import { normalizeAltarConstructionFromSave } from '@/lib/normalize-forgotten-forge-persist'
 import { mergeCraftRoadmapStarterKnowledge } from '@/lib/materials/craft-roadmap-starter-knowledge'
 import { normalizeMaterialStudySessionsFromSave } from '@/lib/materials/normalize-material-study-sessions'
+import {
+  DEFAULT_TECHNIQUE_KIND_TAB,
+  isEncyclopediaTechniqueKindTab,
+} from '@/lib/encyclopedia/encyclopedia-technique-sections'
 
 // ================================
 // DATA IMPORTS
@@ -118,9 +136,10 @@ import { buildRepairCrossSlice } from '@/store/cross-slice/repair-cross-slice'
 import { buildGuildExpeditionCrossSlice } from '@/store/cross-slice/guild-expedition-cross-slice'
 import { buildOrderCrossSlice } from '@/store/cross-slice/order-cross-slice'
 import {
+  canAffordRefiningStart,
   computeRefiningSmeltingOutputMultiplier,
   getAvailableAmountForResourceKey,
-  getRefiningCraftingCost,
+  getGrantTargetMaterialId,
   migrateLegacyMaterialResourcesToStash,
 } from '@/lib/craft/inventory-check'
 import {
@@ -129,6 +148,7 @@ import {
 } from '@/lib/weapon-damage/migrate-crafted-weapon-damage'
 import { applyReforgeTechniquePure, isReforgeTechniqueUnlocked } from '@/lib/reforge'
 import { getReforgeTechniqueById } from '@/data/reforge/reforge-techniques-registry'
+import { buildReforgeCatalogMaterialDebit } from '@/lib/reforge/reforge-catalog-spend'
 
 // ================================
 // ADDITIONAL TYPE IMPORTS
@@ -204,7 +224,7 @@ export type GuildScreenTab =
 export type ForgeBenchSubTab = 'repair' | 'reforge'
 
 /** Вкладки экрана кузницы (синхронизация с `ForgeScreen`); верстак — одна вкладка `bench`. */
-export type ForgeMainTab = 'craft' | 'altar' | 'inventory' | 'bench'
+export type ForgeMainTab = 'craft' | 'inventory' | 'bench'
 
 /** Навигация: основная вкладка или подрежим верстака (`repair` / `reforge` открывают `bench` с нужным sub). */
 export type ForgeTabNavigate = ForgeMainTab | ForgeBenchSubTab
@@ -366,10 +386,20 @@ interface CrossSliceActions {
   /** Перековка: гильдия → интендант → фильтр «Перековка», к карточке техники */
   navigateToGuildIntendantReforgeTechnique: (reforgeTechniqueId: string) => void
   clearIntendantReforgeTechniqueFocus: () => void
+  /** Гильдия → Экспедиции → «Особые задания» (квест FF и т.п.) */
+  navigateToGuildForgottenForgeSpecialQuest: () => void
   /** Текущая подвкладка кузницы; `repair`/`reforge` переключают верстак без смены верхнего ряда */
   setForgeMainTab: (tab: ForgeTabNavigate) => void
   /** Узел алтаря собран в кузнице (завершение рецепта сборки; вкладка «Алтарь»). */
   setAltarBuiltInForge: (built: boolean) => void
+  startAltarConstructionPhase: (phase: AltarPhase) => boolean
+  cancelAltarConstructionPhase: () => void
+  /** Тик прогресса активной макрофазы (reload-safe). */
+  updateAltarConstructionProgress: (nowMs?: number) => void
+  /** Отладка стройки алтаря: следующий микроэтап (на последнем — завершить фазу). */
+  devAltarConstructionSkipToNextStage: () => void
+  /** Отладка: мгновенно завершить активную фазу. */
+  devAltarConstructionCompleteActivePhase: () => void
   /** Полоса очереди: зафиксировать/сбросить baseline (не в persist). */
   setWorkbenchBarBaseline: (baseline: WorkbenchBarBaseline | null) => void
 
@@ -442,6 +472,10 @@ interface AdditionalState {
   intendantRepairTechniqueFocusId: string | null
   /** Не персистится; id техники перековки — проскроллить карточку в интенданте */
   intendantReforgeTechniqueFocusId: string | null
+  /** Не персистится; инкремент — вкладка экспедиций «Особые задания» */
+  guildExpeditionsSpecialTabNonce: number
+  /** Прогресс строительства алтаря v2 (фазы I–V). Флаги дублируют верхнеуровневые altar* при merge. */
+  altarConstruction: AltarConstructionState
 }
 
 const initialAdditionalState: AdditionalState = {
@@ -460,6 +494,8 @@ const initialAdditionalState: AdditionalState = {
   guildScreenTab: 'orders',
   intendantRepairTechniqueFocusId: null,
   intendantReforgeTechniqueFocusId: null,
+  guildExpeditionsSpecialTabNonce: 0,
+  altarConstruction: { ...initialAltarConstructionState },
 }
 
 // ================================
@@ -483,8 +519,8 @@ export type GameStore = PlayerSlice &
 // STORE CREATION
 // ================================
 
-/** … 26: persist фильтров + bench→queue. 27: repairBench* убраны из persist; merge всё ещё читает legacy-ключи из старых блобов. */
-const STORE_VERSION = 27
+/** … 29: стройка на экране зачарований; вкладка кузницы «Алтарь» удалена. 30: A2 **2.4** — повторный sweep `resources`→`materialStash` (`migrateLegacyMaterialResourcesToStash`). 31: хвост 2.4 — снова sweep после ввода stash-only пула **coal**. */
+const STORE_VERSION = 33
 const STORE_NAME = 'swordcraft-store-v2'
 
 /** SSR / Node: нельзя трогать `localStorage` — иначе ReferenceError и пустая страница «Error». */
@@ -674,8 +710,9 @@ export const useGameStore = create<GameStore>()(
         if (state.activeRefining.recipeId) return false
         if (state.player.level < recipe.requiredLevel) return false
 
-        const cost = getRefiningCraftingCost(recipe, amount)
-        if (!state.canAffordCraftingCostWithStash(cost)) return false
+        if (!canAffordRefiningStart(recipe, amount, state.resources, state.materialStash)) {
+          return false
+        }
 
         const smeltingOutputMultiplier = computeRefiningSmeltingOutputMultiplier(
           recipe,
@@ -684,7 +721,7 @@ export const useGameStore = create<GameStore>()(
           state.materialStash
         )
 
-        if (!state.spendCraftingCostWithStash(cost)) return false
+        if (!state.applyRefiningStartSpend(recipe, amount)) return false
 
         return state.startRefining(recipe, amount, { smeltingOutputMultiplier })
       },
@@ -697,13 +734,20 @@ export const useGameStore = create<GameStore>()(
         const recipe = refiningRecipes.find(r => r.id === state.activeRefining.recipeId)
         if (!recipe) return false
 
-        // Начисляем продукт (stash по каталогу, если есть маппинг — фаза 2 аудита)
+        // Начисляем продукт: канон A2 — `addMaterialToStash` при известном каталожном id (см. a2-smelting-domain-scope)
         const mult = state.activeRefining.smeltingOutputMultiplier ?? 1
         const outputAmount = Math.max(
           0,
           Math.floor(recipe.output.amount * state.activeRefining.amount * mult)
         )
-        state.grantResourceKeyFromWorld(recipe.output.resource as ResourceKey, outputAmount)
+        const outKey = recipe.output.resource as ResourceKey
+        const outCatalogId =
+          recipe.stashOutputMaterialId ?? getGrantTargetMaterialId(outKey)
+        if (outCatalogId) {
+          state.addMaterialToStash(outCatalogId, outputAmount)
+        } else {
+          state.grantResourceKeyFromWorld(outKey, outputAmount)
+        }
 
         // Обновляем статистику
         state.updateStatistics({ totalRefines: state.statistics.totalRefines + 1 })
@@ -1051,8 +1095,7 @@ export const useGameStore = create<GameStore>()(
       canRefine: (recipe, amount) => {
         const state = get()
         if (state.player.level < recipe.requiredLevel) return false
-        const cost = getRefiningCraftingCost(recipe, amount)
-        return state.canAffordCraftingCostWithStash(cost)
+        return canAffordRefiningStart(recipe, amount, state.resources, state.materialStash)
       },
 
       // Guild helpers
@@ -1388,6 +1431,13 @@ export const useGameStore = create<GameStore>()(
 
       clearIntendantReforgeTechniqueFocus: () => set({ intendantReforgeTechniqueFocusId: null }),
 
+      navigateToGuildForgottenForgeSpecialQuest: () =>
+        set((s) => ({
+          currentScreen: 'guild',
+          guildScreenTab: 'expeditions',
+          guildExpeditionsSpecialTabNonce: (s.guildExpeditionsSpecialTabNonce ?? 0) + 1,
+        })),
+
       setForgeMainTab: (tab) =>
         tab === 'repair' || tab === 'reforge'
           ? set({ forgeMainTab: 'bench', forgeBenchSubTab: tab })
@@ -1395,12 +1445,136 @@ export const useGameStore = create<GameStore>()(
 
       setAltarBuiltInForge: (built: boolean) => set({ altarBuiltInForge: built }),
 
+      startAltarConstructionPhase: (phase: AltarPhase) => {
+        const state = get()
+        if (
+          !canStartAltarPhase({
+            phase,
+            materialStash: state.materialStash,
+            unlockedCraftTechniqueIds: state.unlockedCraftTechniqueIds,
+            unlockedMaterialProcessingTechniqueIds: state.unlockedMaterialProcessingTechniqueIds,
+            construction: state.altarConstruction,
+          })
+        ) {
+          return false
+        }
+        const nextStash = consumeMaterialsForAltarPhase(
+          phase,
+          state.materialStash,
+          state.materialStashQuestItemIds
+        )
+        if (!nextStash) return false
+        const cfg = getAltarPhaseConfig(phase)
+        const now = Date.now()
+        set({
+          materialStash: nextStash,
+          altarConstruction: {
+            ...state.altarConstruction,
+            altarUnlocked: state.altarUnlockedByForgottenForgeQuest,
+            altarBuilt: state.altarBuiltInForge,
+            activePhase: phase,
+            activePhaseStartTime: now,
+            activePhaseStageIndex: 0,
+            activePhaseStageStartTime: now,
+            activePhaseStages: cfg.stages.map((s) => ({ ...s })),
+          },
+        })
+        return true
+      },
+
+      cancelAltarConstructionPhase: () => {
+        const state = get()
+        if (state.altarConstruction.activePhase == null) return
+        set({
+          altarConstruction: {
+            ...state.altarConstruction,
+            activePhase: null,
+            activePhaseStartTime: 0,
+            activePhaseStageIndex: 0,
+            activePhaseStageStartTime: 0,
+            activePhaseStages: [],
+          },
+        })
+      },
+
+      updateAltarConstructionProgress: (nowMs = Date.now()) => {
+        const state = get()
+        const tick = computeAltarConstructionTick(state.altarConstruction, nowMs)
+        if (tick.kind === 'noop') return
+        if (tick.kind === 'update') {
+          set({
+            altarConstruction: {
+              ...state.altarConstruction,
+              ...tick.patch,
+            },
+          })
+          return
+        }
+        const { phase, constructionAfter } = tick
+        set({
+          altarConstruction: {
+            ...constructionAfter,
+            altarUnlocked: state.altarUnlockedByForgottenForgeQuest,
+            altarBuilt: state.altarBuiltInForge,
+          },
+        })
+        queueMicrotask(() => {
+          gameEvents.emit('altar:phaseCompleted', { phase })
+        })
+      },
+
+      devAltarConstructionSkipToNextStage: () => {
+        const state = get()
+        const ac = state.altarConstruction
+        if (ac.activePhase == null || ac.activePhaseStages.length === 0) return
+        const idx = ac.activePhaseStageIndex
+        const last = ac.activePhaseStages.length - 1
+        if (idx < last) {
+          set({
+            altarConstruction: {
+              ...ac,
+              activePhaseStageIndex: idx + 1,
+              activePhaseStageStartTime: Date.now(),
+            },
+          })
+          return
+        }
+        get().devAltarConstructionCompleteActivePhase()
+      },
+
+      devAltarConstructionCompleteActivePhase: () => {
+        const state = get()
+        const ac = state.altarConstruction
+        const phase = ac.activePhase
+        const next = altarConstructionStateAfterPhaseComplete(ac)
+        if (next == null || phase == null) return
+        set({
+          altarConstruction: {
+            ...next,
+            altarUnlocked: state.altarUnlockedByForgottenForgeQuest,
+            altarBuilt: state.altarBuiltInForge,
+          },
+        })
+        queueMicrotask(() => {
+          gameEvents.emit('altar:phaseCompleted', { phase })
+        })
+      },
+
       setWorkbenchBarBaseline: (baseline) => set({ workbenchBarBaseline: baseline }),
 
       applyReforgeTechnique: (weaponId, techniqueId) => {
         const state = get()
         const weapon = state.weaponInventory.weapons.find((w) => w.id === weaponId)
         if (!weapon) return { ok: false, reason: 'no_weapon' }
+        const technique = getReforgeTechniqueById(techniqueId)
+        const catalogDebit =
+          technique != null ? buildReforgeCatalogMaterialDebit(technique) : {}
+        if (
+          Object.keys(catalogDebit).length > 0 &&
+          !get().canDebitManyFromStash(catalogDebit)
+        ) {
+          return { ok: false, reason: 'insufficient_catalog_materials' }
+        }
         const result = applyReforgeTechniquePure(weapon, techniqueId, {
           guildLevel: state.guild.level,
           playerLevel: state.player.level,
@@ -1408,6 +1582,9 @@ export const useGameStore = create<GameStore>()(
           unlockedReforgeTechniqueIds: state.unlockedReforgeTechniqueIds,
         }, Math.random)
         if (!result.ok) return result
+        if (Object.keys(catalogDebit).length > 0 && !get().tryDebitManyFromStash(catalogDebit)) {
+          return { ok: false, reason: 'insufficient_catalog_materials' }
+        }
         set((s) => ({
           weaponInventory: {
             ...s.weaponInventory,
@@ -1444,6 +1621,7 @@ export const useGameStore = create<GameStore>()(
           player: initialPlayer,
           resources: initialResources,
           materialStash: {} as Record<string, number>,
+          materialStashQuestItemIds: [],
           workers: [],
           buildings: initialBuildings,
           weaponInventory: initialWeaponInventory,
@@ -1472,9 +1650,11 @@ export const useGameStore = create<GameStore>()(
           workbenchBarBaseline: null,
           altarUnlockedByForgottenForgeQuest: false,
           altarBuiltInForge: false,
+          altarConstruction: { ...initialAltarConstructionState },
           guildScreenTab: 'orders',
           intendantRepairTechniqueFocusId: null,
           intendantReforgeTechniqueFocusId: null,
+          guildExpeditionsSpecialTabNonce: 0,
           ...initialEncyclopediaState,
           ...initialForgottenForgeQuestSlice,
           ...defaultInventoryFilterState,
@@ -1500,6 +1680,7 @@ export const useGameStore = create<GameStore>()(
       player: state.player,
       resources: state.resources,
       materialStash: state.materialStash,
+      materialStashQuestItemIds: state.materialStashQuestItemIds,
       statistics: state.statistics,
       workers: state.workers,
       buildings: state.buildings,
@@ -1530,13 +1711,17 @@ export const useGameStore = create<GameStore>()(
       shouldPurchaseMaterials: state.shouldPurchaseMaterials,
       materialKnowledge: state.materialKnowledge,
       materialStudySessions: state.materialStudySessions,
+      lastEncyclopediaTab: state.lastEncyclopediaTab,
+      lastEncyclopediaTechniqueKindTab: state.lastEncyclopediaTechniqueKindTab,
       gameMessages: state.gameMessages,
       forgottenForgeQuest: state.forgottenForgeQuest,
       forgottenForgePhase: state.forgottenForgePhase,
       archivistDialogue: state.archivistDialogue,
       archivistPendingChoices: state.archivistPendingChoices,
+      archivistForgottenForgeTaskBannerAfterEntryId: state.archivistForgottenForgeTaskBannerAfterEntryId ?? null,
       altarUnlockedByForgottenForgeQuest: state.altarUnlockedByForgottenForgeQuest,
       altarBuiltInForge: state.altarBuiltInForge,
+      altarConstruction: state.altarConstruction,
       messagesDockEncyclopediaReadUpToTs: state.messagesDockEncyclopediaReadUpToTs,
       messagesDockArchivistReadUpToTs: state.messagesDockArchivistReadUpToTs,
     }),
@@ -1765,6 +1950,48 @@ export const useGameStore = create<GameStore>()(
         delete next['repairBenchWeaponId']
         return next
       }
+      if (oldVersion < 30) {
+        const next = { ...p } as Record<string, unknown>
+        const resources = {
+          ...initialResources,
+          ...((next.resources as Partial<Resources> | undefined) ?? {}),
+        }
+        const stash =
+          next.materialStash != null && typeof next.materialStash === 'object' && !Array.isArray(next.materialStash)
+            ? { ...(next.materialStash as Record<string, number>) }
+            : {}
+        const m = migrateLegacyMaterialResourcesToStash(resources, stash)
+        return { ...next, resources: m.resources, materialStash: m.materialStash }
+      }
+      if (oldVersion < 31) {
+        const next = { ...p } as Record<string, unknown>
+        const resources = {
+          ...initialResources,
+          ...((next.resources as Partial<Resources> | undefined) ?? {}),
+        }
+        const stash =
+          next.materialStash != null && typeof next.materialStash === 'object' && !Array.isArray(next.materialStash)
+            ? { ...(next.materialStash as Record<string, number>) }
+            : {}
+        const m = migrateLegacyMaterialResourcesToStash(resources, stash)
+        return { ...next, resources: m.resources, materialStash: m.materialStash }
+      }
+      if (oldVersion < 32) {
+        const next = { ...p } as Record<string, unknown>
+        const t = next.lastEncyclopediaTab
+        if (t !== 'materials' && t !== 'techniques') {
+          next.lastEncyclopediaTab = 'materials'
+        }
+        return next
+      }
+      if (oldVersion < 33) {
+        const next = { ...p } as Record<string, unknown>
+        const k = next.lastEncyclopediaTechniqueKindTab
+        if (!isEncyclopediaTechniqueKindTab(k)) {
+          next.lastEncyclopediaTechniqueKindTab = DEFAULT_TECHNIQUE_KIND_TAB
+        }
+        return next
+      }
       return persistedState
     },
     merge: (persistedState: any, currentState) => {
@@ -1838,6 +2065,20 @@ export const useGameStore = create<GameStore>()(
       ) {
         ;(merged as { materialStash: Record<string, number> }).materialStash = {}
       }
+      const stashQuest = (merged as { materialStashQuestItemIds?: unknown }).materialStashQuestItemIds
+      if (!Array.isArray(stashQuest)) {
+        ;(merged as { materialStashQuestItemIds: string[] }).materialStashQuestItemIds = []
+      } else {
+        const seen = new Set<string>()
+        const dedup: string[] = []
+        for (const x of stashQuest) {
+          if (typeof x === 'string' && x.length > 0 && !seen.has(x)) {
+            seen.add(x)
+            dedup.push(x)
+          }
+        }
+        ;(merged as { materialStashQuestItemIds: string[] }).materialStashQuestItemIds = dedup
+      }
       // P2-Craft-04: убрано поле slice activeCraft; старые persist-файлы могли содержать ключ
       if ('activeCraft' in (merged as Record<string, unknown>)) {
         delete (merged as Record<string, unknown>)['activeCraft']
@@ -1852,6 +2093,19 @@ export const useGameStore = create<GameStore>()(
       if (!Array.isArray((merged as { gameMessages?: unknown }).gameMessages)) {
         ;(merged as { gameMessages: unknown[] }).gameMessages = []
       }
+      const encTab = (merged as { lastEncyclopediaTab?: unknown }).lastEncyclopediaTab
+      if (encTab !== 'materials' && encTab !== 'techniques') {
+        ;(merged as { lastEncyclopediaTab: 'materials' | 'techniques' }).lastEncyclopediaTab =
+          'materials'
+      }
+      const encKindTab = (merged as { lastEncyclopediaTechniqueKindTab?: unknown })
+        .lastEncyclopediaTechniqueKindTab
+      if (!isEncyclopediaTechniqueKindTab(encKindTab)) {
+        ;(merged as { lastEncyclopediaTechniqueKindTab: typeof DEFAULT_TECHNIQUE_KIND_TAB }).lastEncyclopediaTechniqueKindTab =
+          DEFAULT_TECHNIQUE_KIND_TAB
+      }
+      ;(merged as { encyclopediaFocusTechniqueRef: null }).encyclopediaFocusTechniqueRef = null
+      ;(merged as { encyclopediaFocusMaterialId: null }).encyclopediaFocusMaterialId = null
       if (
         !Array.isArray(
           (merged as { unlockedMaterialProcessingTechniqueIds?: unknown }).unlockedMaterialProcessingTechniqueIds
@@ -1931,6 +2185,20 @@ export const useGameStore = create<GameStore>()(
       if (!ff.forgottenForgeQuest || typeof ff.forgottenForgeQuest !== 'object') {
         ff.forgottenForgeQuest = initialForgottenForgeQuestSlice.forgottenForgeQuest
       }
+      {
+        const fq = ff.forgottenForgeQuest
+        if (typeof fq.waitingForCraftAfterPhase2 !== 'boolean') {
+          fq.waitingForCraftAfterPhase2 = false
+        }
+        if (typeof fq.lastStepChangeAt !== 'number' || !Number.isFinite(fq.lastStepChangeAt)) {
+          fq.lastStepChangeAt = null
+        }
+        if (typeof fq.step !== 'number' || !Number.isFinite(fq.step) || fq.step < 0) {
+          fq.step = 0
+        } else {
+          fq.step = Math.min(FORGOTTEN_FORGE_QUEST_STEP_MAX, Math.floor(fq.step))
+        }
+      }
       if (ff.forgottenForgePhase == null) {
         ff.forgottenForgePhase = initialForgottenForgeQuestSlice.forgottenForgePhase
       }
@@ -1947,6 +2215,17 @@ export const useGameStore = create<GameStore>()(
       if (typeof ff.altarUnlockedByForgottenForgeQuest !== 'boolean') {
         ff.altarUnlockedByForgottenForgeQuest = false
       }
+      {
+        const fqU = ff.forgottenForgeQuest
+        if (
+          ff.altarUnlockedByForgottenForgeQuest !== true &&
+          fqU &&
+          (fqU.status === 'completed' ||
+            (fqU.status === 'active' && typeof fqU.step === 'number' && fqU.step >= 7))
+        ) {
+          ff.altarUnlockedByForgottenForgeQuest = true
+        }
+      }
       if (typeof ff.altarBuiltInForge !== 'boolean') {
         ff.altarBuiltInForge = false
       }
@@ -1960,8 +2239,43 @@ export const useGameStore = create<GameStore>()(
       if (typeof mdd.messagesDockArchivistReadUpToTs !== 'number') {
         mdd.messagesDockArchivistReadUpToTs = 0
       }
-      if (m.forgeMainTab === 'altar' && ff.altarUnlockedByForgottenForgeQuest !== true) {
+      const bannerAnchor = merged as { archivistForgottenForgeTaskBannerAfterEntryId?: string | null }
+      if (
+        bannerAnchor.archivistForgottenForgeTaskBannerAfterEntryId != null &&
+        typeof bannerAnchor.archivistForgottenForgeTaskBannerAfterEntryId !== 'string'
+      ) {
+        bannerAnchor.archivistForgottenForgeTaskBannerAfterEntryId = null
+      }
+      if (bannerAnchor.archivistForgottenForgeTaskBannerAfterEntryId === undefined) {
+        bannerAnchor.archivistForgottenForgeTaskBannerAfterEntryId = null
+      }
+      ;(merged as { altarConstruction: AltarConstructionState }).altarConstruction =
+        normalizeAltarConstructionFromSave(
+          (merged as { altarConstruction?: unknown }).altarConstruction,
+          {
+            altarUnlocked: ff.altarUnlockedByForgottenForgeQuest === true,
+            altarBuilt: ff.altarBuiltInForge === true,
+          }
+        )
+      if ((m.forgeMainTab as string) === 'altar') {
         m.forgeMainTab = 'craft'
+      }
+      {
+        const fq = ff.forgottenForgeQuest
+        if (
+          fq.status === 'completed' &&
+          fq.step === 7 &&
+          ff.altarBuiltInForge !== true
+        ) {
+          fq.status = 'active'
+          fq.step = 8
+          if (ff.forgottenForgePhase === 'completed') {
+            ff.forgottenForgePhase = 'open'
+          }
+        }
+        if (fq.status === 'completed' && fq.step === 7 && ff.altarBuiltInForge === true) {
+          fq.step = 18
+        }
       }
       return merged
     },

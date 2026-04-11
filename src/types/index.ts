@@ -27,5 +27,12 @@ export * from './expedition-events'
 // Заказы и туториал
 export * from './game'
 
+// Квест «Эхо забытой кузни» и строительство алтаря (v2)
+export * from './forgotten-forge-quest'
+export * from './altar-construction'
+
 // Ремонт по техникам (фаза 3b)
 export * from './weapon-repair'
+
+// Энциклопедия: техники и микрозадачи
+export * from './encyclopedia-techniques'

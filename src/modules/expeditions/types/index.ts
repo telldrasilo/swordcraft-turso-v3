@@ -31,6 +31,7 @@ export type { Rarity } from './location.types';
 // Ресурсы
 export type {
   Material,
+  MaterialCatalogRarity,
   MaterialCategory,
   MaterialProperties,
   BaseResourceKey,

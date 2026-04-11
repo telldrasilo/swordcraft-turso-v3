@@ -45,6 +45,11 @@ export const advancedTechniques: Technique[] = [
     
     requiredLevel: 25,
     requiredMaterials: ['celestial_iron'],
+
+    microTasks: [
+      { id: 'cel_bath', label: 'Погружение в священный состав', durationWeight: 2 },
+      { id: 'cel_quench', label: 'Закалка и контроль охлаждения', durationWeight: 2 },
+    ],
   },
   
   // ============================================
@@ -84,6 +89,11 @@ export const advancedTechniques: Technique[] = [
     },
     
     requiredLevel: 20,
+
+    microTasks: [
+      { id: 'spirit_prep', label: 'Подготовка алтаря и чистка поверхности', durationWeight: 1 },
+      { id: 'spirit_rite', label: 'Ритуал благословения и фиксация проводимости', durationWeight: 3 },
+    ],
   },
   
   // ============================================
@@ -124,6 +134,11 @@ export const advancedTechniques: Technique[] = [
     
     requiredLevel: 22,
     requiredMaterials: ['ice_steel'],
+
+    microTasks: [
+      { id: 'cold_draw', label: 'Холодная вытяжка на морозе', durationWeight: 3 },
+      { id: 'cold_check', label: 'Проверка структуры и правка', durationWeight: 2 },
+    ],
   },
   
   // ============================================
@@ -164,6 +179,11 @@ export const advancedTechniques: Technique[] = [
     },
     
     requiredLevel: 35,
+
+    microTasks: [
+      { id: 'dh_fire', label: 'Нагрев в потоке драконьего пламени', durationWeight: 2 },
+      { id: 'dh_quench', label: 'Закалка и контроль микротрещин', durationWeight: 2 },
+    ],
   },
   
   // ============================================
@@ -204,6 +224,11 @@ export const advancedTechniques: Technique[] = [
     },
     
     requiredLevel: 28,
+
+    microTasks: [
+      { id: 'rune_layout', label: 'Разметка рунической матрицы', durationWeight: 2 },
+      { id: 'rune_cut', label: 'Гравировка и прожиг каналов', durationWeight: 3 },
+    ],
   },
   
   // ============================================
@@ -242,6 +267,11 @@ export const advancedTechniques: Technique[] = [
     },
     
     requiredLevel: 18,
+
+    microTasks: [
+      { id: 'mb_pass', label: 'Второй проход балансировки по осям', durationWeight: 2 },
+      { id: 'mb_verify', label: 'Финальная проверка веса и крена', durationWeight: 1 },
+    ],
   },
   
   // ============================================
@@ -275,6 +305,11 @@ export const advancedTechniques: Technique[] = [
     },
     
     requiredLevel: 6,
+
+    microTasks: [
+      { id: 'carve_sketch', label: 'Эскиз рельефа и перенос на заготовку', durationWeight: 1 },
+      { id: 'carve_work', label: 'Резьба и полировка рельефа', durationWeight: 3 },
+    ],
   },
   
   // ============================================
@@ -307,6 +342,11 @@ export const advancedTechniques: Technique[] = [
     },
     
     requiredLevel: 4,
+
+    microTasks: [
+      { id: 'tan_soak', label: 'Повторное пропитывание и дожим', durationWeight: 2 },
+      { id: 'tan_set', label: 'Фиксация волокна и сушка', durationWeight: 1 },
+    ],
   },
   
   // ============================================
@@ -343,5 +383,10 @@ export const advancedTechniques: Technique[] = [
     },
     
     requiredLevel: 30,
+
+    microTasks: [
+      { id: 'diff_edge', label: 'Закалка кромки — твёрдый режущий пояс', durationWeight: 2 },
+      { id: 'diff_spine', label: 'Упругая спинка: отпуск и снятие напряжений', durationWeight: 2 },
+    ],
   },
 ]

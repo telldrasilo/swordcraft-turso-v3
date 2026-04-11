@@ -5,7 +5,7 @@
 
 'use client'
 
-import { Flame, Package, Sparkles, Star, Wrench } from 'lucide-react'
+import { Flame, Package, Star, Wrench } from 'lucide-react'
 import { useMemo, useEffect } from 'react'
 import { getAvailableRecipes } from '@/data/recipes'
 import { Badge } from '@/components/ui/badge'
@@ -20,7 +20,6 @@ import { InventorySection, ActiveOrdersSection } from '@/components/forge'
 import { CraftContainerV2 } from '@/components/forge/craft-v2'
 
 import { WorkbenchScreen } from '@/components/forge/workbench-screen'
-import { AltarForgeSection } from '@/components/forge/altar-forge-section'
 
 export function ForgeScreen() {
   // Используем индивидуальные селекторы
@@ -32,15 +31,6 @@ export function ForgeScreen() {
   const clearForgeTabRequest = useGameStore((state) => state.clearForgeTabRequest)
   const mainTab = useGameStore((state) => state.forgeMainTab)
   const setForgeMainTab = useGameStore((state) => state.setForgeMainTab)
-  const altarUnlockedByForgottenForgeQuest = useGameStore(
-    (state) => state.altarUnlockedByForgottenForgeQuest
-  )
-
-  useEffect(() => {
-    if (mainTab === 'altar' && !altarUnlockedByForgottenForgeQuest) {
-      setForgeMainTab('craft')
-    }
-  }, [mainTab, altarUnlockedByForgottenForgeQuest, setForgeMainTab])
 
   useEffect(() => {
     if (!forgeTabRequest) return
@@ -101,22 +91,6 @@ export function ForgeScreen() {
             <Flame className="w-4 h-4 mr-2" />
             Крафт
           </Button>
-          {altarUnlockedByForgottenForgeQuest ? (
-            <Button
-              type="button"
-              variant="ghost"
-              className={cn(
-                'rounded-none border-b-2 transition-all whitespace-nowrap',
-                mainTab === 'altar'
-                  ? 'border-amber-500 text-amber-300 bg-amber-900/20'
-                  : 'border-transparent text-stone-500 hover:text-stone-300'
-              )}
-              onClick={() => setForgeMainTab('altar')}
-            >
-              <Sparkles className="w-4 h-4 mr-2" />
-              Алтарь
-            </Button>
-          ) : null}
           <Button
             variant="ghost"
             className={cn(
@@ -163,8 +137,6 @@ export function ForgeScreen() {
           <InventorySection />
         ) : mainTab === 'bench' ? (
           <WorkbenchScreen />
-        ) : mainTab === 'altar' ? (
-          <AltarForgeSection />
         ) : mainTab === 'craft' ? (
           <div className="space-y-6">
             <CraftContainerV2 playerLevel={player.level} forgeLevel={1} />

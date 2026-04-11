@@ -1,5 +1,7 @@
 ## Геймдизайн строительства алтаря (фазовая модель с предварительной проверкой ресурсов)
 
+**Баланс количеств материалов на старт фаз** вынесен в один модуль: [`src/data/altar/altar-phase-material-balance.ts`](../../src/data/altar/altar-phase-material-balance.ts). Описание для ГД: **[`ALTAR_MATERIAL_BALANCE.md`](./ALTAR_MATERIAL_BALANCE.md)**.
+
 ### 1. Общая концепция
 
 - **5 макрофаз**, каждая запускается отдельно.

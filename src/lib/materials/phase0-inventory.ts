@@ -108,13 +108,8 @@ function stubLevelForNode(node: MaterialNode): 'ok' | 'thin' {
   return 'ok'
 }
 
-/** Ключи из buyPackages в shop-screen (дублируем id здесь — см. компонент). */
-export const SHOP_SCREEN_BUY_PACKAGE_KEYS = [
-  'wood',
-  'stone',
-  'iron',
-  'coal',
-] as const satisfies readonly ResourceKey[]
+/** ResourceKey, задействованные офферами лавки (см. material-shop.ts / shop-screen). */
+export const SHOP_SCREEN_BUY_PACKAGE_KEYS = ['wood', 'iron', 'coal', 'mithril'] as const satisfies readonly ResourceKey[]
 
 export interface Phase0MaterialRow {
   id: string

@@ -69,10 +69,14 @@ mindmap
 ### Техническая документация
 | Файл | Описание |
 |---------|---------|
+| [docs/ENCYCLOPEDIA_MATERIALS_TECHNIQUES_ROADMAP.md](ENCYCLOPEDIA_MATERIALS_TECHNIQUES_ROADMAP.md) | Энциклопедия: разделы материалы/техники, **микрозадачи**, **Крафтовая линия** (этапы и микроэтапы, порядок техник, UI полосы), платформа процесса |
+| [docs/CRAFT_LINE_RECIPE_TECHNIQUE_COMPOSITION.md](CRAFT_LINE_RECIPE_TECHNIQUE_COMPOSITION.md) | **Центр проработки:** рецепт + Крафтовая линия + техники — хребет, насадки, фазы внедрения, риски; связь с `TZ_SWORD_…` и `RECIPE_TEMPLATE_…` |
+| [docs/RECIPE_TEMPLATE_COMPOSITION.md](RECIPE_TEMPLATE_COMPOSITION.md) | **Модуль рецептов:** шаблоны, фрагменты, `RecipeDefinition`, материализация в `WeaponRecipe`, приложение §14 (меч / кинжал / топор) |
 | [docs/03_STATE_MANAGEMENT.md](03_STATE_MANAGEMENT.md) | Zustand store, слайсы, actions, selectors |
 | [docs/04_TYPES_SYSTEM.md](04_TYPES_SYSTEM.md) | Все интерфейсы, enum'ы, константы |
 | [docs/PROJECT_AUDIT.md](PROJECT_AUDIT.md) | Актуальные риски и техдолг (живой аудит); журнал закрытых пунктов и **P1** |
 | [docs/P2_ARCHITECTURE_INVENTORY.md](P2_ARCHITECTURE_INVENTORY.md) | **P2:** инвентаризация (крафт v1/v2, store, корень репо, examples) и бэклог задач |
+| [docs/LEGACY_UI.md](LEGACY_UI.md) | **Legacy:** верхняя панель `ResourceBar` — не канон материалов; канон — энциклопедия; план удаления |
 
 ### Игровые системы
 | Файл | Описание |
@@ -90,6 +94,7 @@ mindmap
 | [docs/systems/ENCHANTMENT_AWAKENING_CONCEPT.md](systems/ENCHANTMENT_AWAKENING_CONCEPT.md) | **Канон** модуля зачарований: пробуждения, древо, слияние, план фаз 0–5 |
 | [docs/systems/ENCHANTMENT_MODULE_PHASE0.md](systems/ENCHANTMENT_MODULE_PHASE0.md) | **Фаза 0:** детальный план, worklog, правила разработки модуля |
 | [docs/systems/ENCHANTMENT_MODULE_PHASE1.md](systems/ENCHANTMENT_MODULE_PHASE1.md) | **Фаза 1:** гейт экрана «Зачарования», перековка, to-do 1.3, сверка с концепцией |
+| [docs/systems/ENCHANTMENT_ALTAR_CONSTRUCTION_PHASE_STANDARD.md](systems/ENCHANTMENT_ALTAR_CONSTRUCTION_PHASE_STANDARD.md) | **Стройка алтаря (стандарт макрофазы I–V):** store, UI, квест FF, интендант, аудит баланса/горна, чеклисты и типичные дефекты |
 | [docs/systems/ENCHANTMENT_MODULE_PHASE2_ALTAR_CONSTRUCTION.md](systems/ENCHANTMENT_MODULE_PHASE2_ALTAR_CONSTRUCTION.md) | **Фаза 2 (проект):** постройка алтаря, связь с квестом, материалы, техники, крафт v2 |
 | [docs/systems/ENCHANTMENT_MODULE_PHASE2_IMPLEMENTATION_ROADMAP.md](systems/ENCHANTMENT_MODULE_PHASE2_IMPLEMENTATION_ROADMAP.md) | **Фаза 2:** пошаговый план внедрения по фазам (данные → крафт v2 → UI → техники → QA) |
 | [docs/Ecnchantment_System/README.md](Ecnchantment_System/README.md) | Автономный пакет документации для отдельной разработки и обратной интеграции |
@@ -108,6 +113,7 @@ mindmap
 | [docs/data/MATERIALS_DATA.md](data/MATERIALS_DATA.md) | Система материалов, бонусы |
 | [docs/MATERIAL_SEMANTIC_PROCESS_ROLES.md](MATERIAL_SEMANTIC_PROCESS_ROLES.md) | Смысловые роли материалов в процессах (принципы и фазы A–E) |
 | [docs/RESOURCE_TRANSFORMATION_MAP.md](RESOURCE_TRANSFORMATION_MAP.md) | **Карта преобразований:** `materialId` ↔ `ResourceKey`, горн/пилорама, начисления и расход (Mermaid + таблицы) |
+| [docs/MATERIALS_SINGLE_SOURCE_ROADMAP.md](MATERIALS_SINGLE_SOURCE_ROADMAP.md) | **Единая система материалов и обработки:** один каталог, склад A2, **техники как контейнеры операций** (целевой динамический таймлайн крафта), без `line_key` на материале; финал без legacy; фазы 0–5, CI, worklog |
 | [docs/data/RECIPES_DATA.md](data/RECIPES_DATA.md) | Рецепты оружия и плавки |
 | [docs/data/TECHNIQUES_DATA.md](data/TECHNIQUES_DATA.md) | Техники крафта |
 | [docs/data/ADVENTURERS_DATA.md](data/ADVENTURERS_DATA.md) | Теги, редкость, генерация |
