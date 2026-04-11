@@ -3,8 +3,8 @@
 ## Обзор технологий
 
 ### Frontend Framework
-- **Next.js 15** (зависимость в `package.json`: `^15.1.0`) — React-фреймворк с App Router
-- **React 19** (`^19.0.0` в `package.json`) — UI библиотека
+- **Next.js 16** (зависимость в `package.json`: `16.1.1`) — React-фреймворк с App Router
+- **React 19** (`^19.0.0` в `package.json`; фактическая версия по lockfile) — UI библиотека
 - **TypeScript 5** — Строгая типизация
 
 ### State Management
