@@ -5,7 +5,6 @@
 
 'use client'
 
-import React from 'react'
 import { useGameStore } from '@/store/game-store-composed'
 
 // ================================

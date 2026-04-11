@@ -5,7 +5,6 @@
 
 'use client'
 
-import React from 'react'
 import type { ModifierDetail } from '@/lib/expedition-calculator-v2'
 import { formatModifierValue } from '@/lib/expedition-calculator-v2'
 

@@ -155,22 +155,22 @@
 
 | Дата | Участник | Действие | Результат |
 |------|----------|----------|-----------|
-| YYYY-MM-DD | | Baseline: `npm ci`, lint, test, build | OK / FAIL |
-| YYYY-MM-DD | | Зафиксированы версии (см. ниже) | |
+| 2026-04-11 | — | Baseline: `npm ci`, lint, test, build | OK (lint — предупреждения как ранее; build успешен) |
+| 2026-04-11 | — | Зафиксированы версии (см. ниже) | OK |
 
 **Версии до:**
 
 ```
-next: 
-eslint-config-next:
-react:
-react-dom:
-next-auth:
-next-intl:
-node (локально):
+next: 15.5.14
+eslint-config-next: 15.5.14
+react: 19.2.3
+react-dom: 19.2.3
+next-auth: 4.24.13
+next-intl: 4.7.0
+node (локально): v24.14.0 (CI: Node 20)
 ```
 
-**Коммит baseline:** ` `
+**Коммит baseline:** `b96ec99`
 
 ---
 
@@ -178,12 +178,16 @@ node (локально):
 
 | Дата | Фаза | Действие | Результат / примечание |
 |------|------|----------|-------------------------|
-| | 1 | Bump next + eslint-config-next | |
-| | 2 | type-check, lint, test, build | |
-| | 3 | API / Prisma / externals | |
-| | 4 | Ручной смоук | |
+| 2026-04-11 | 1 | Bump `next` + `eslint-config-next` → 16.1.1 (pin), удалён неиспользуемый `@eslint/eslintrc` | OK |
+| 2026-04-11 | 2 | type-check, lint, test, test:coverage, build | OK после правок (см. ниже) |
+| 2026-04-11 | 3 | `next start` → GET `/api/auth/providers` HTTP 200; `serverExternalPackages` не потребовался | OK |
+| 2026-04-11 | 4 | `next dev --turbopack` → GET `/` HTTP 200 | OK |
 
 **Проблемы и решения:** *(по мере появления — дата, симптом, решение, ссылка на коммит)*
+
+- **2026-04-11 — Next 16:** ключ `eslint` в `next.config` больше не поддерживается → блок удалён; линт только через `npm run lint` / CI (как и раньше по сути).
+- **2026-04-11 — ESLint:** `FlatCompat.extends("next/...")` с `eslint-config-next@16` давало `Converting circular structure to JSON` → `eslint.config.mjs` переведён на spread `eslint-config-next/core-web-vitals` и `eslint-config-next/typescript`.
+- **2026-04-11 — TypeScript:** после выставления `jsx: react-jsx` сборка ругалась на неиспользуемый default-импорт `React` → убраны/заменены в 8 компонентах крафта/UI.
 
 ---
 
@@ -191,15 +195,15 @@ node (локально):
 
 | Дата | PR | Версии после | Примечание |
 |------|-----|--------------|------------|
-| | # | | |
+| 2026-04-11 | *(создать из ветки `chore/next-16-upgrade`)* | см. ниже | После merge вписать номер PR и ссылку на зелёный CI |
 
-**Версии после:**
+**Версии после (локально после bump):**
 
 ```
-next:
-eslint-config-next:
-react:
-react-dom:
+next: 16.1.1
+eslint-config-next: 16.1.1
+react: 19.2.3
+react-dom: 19.2.3
 ```
 
 ---

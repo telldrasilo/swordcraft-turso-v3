@@ -4,7 +4,7 @@
 SwordCraft — браузерная игра-симулятор кузнеца оружия с системой гильдии, экспедиций, зачарований и заказов NPC.
 
 ## Технологии
-Next.js 15, TypeScript 5, Zustand 5.0.6 (composed store), Tailwind CSS 4, shadcn/ui (Radix UI), Prisma 6.6.0, @libsql/client (Turso/libSQL)
+Next.js 16, TypeScript 5, Zustand 5.0.6 (composed store), Tailwind CSS 4, shadcn/ui (Radix UI), Prisma 6.6.0, @libsql/client (Turso/libSQL)
 
 ## Порядок чтения документации
 

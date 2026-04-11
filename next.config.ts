@@ -24,9 +24,6 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
-  eslint: {
-    ignoreDuringBuilds: false,
-  },
   reactStrictMode: true,
   /**
    * Меньше отдельных чанков на каждую иконку lucide — снижает шанс «битых» ссылок на chunk

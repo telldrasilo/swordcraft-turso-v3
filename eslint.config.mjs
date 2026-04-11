@@ -1,20 +1,15 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
+import coreWebVitals from "eslint-config-next/core-web-vitals";
+import nextTypescript from "eslint-config-next/typescript";
 
 /**
- * Политика: ошибки (error) ломают `next build`; предупреждения (warn) — техдолг.
- * Поэтапно поднимать warn→error по доменам (store → API → UI), не включать массово за один проход.
+ * Next.js 16: `eslint-config-next` отдаёт flat config; `FlatCompat.extends("next/...")` даёт
+ * циклические структуры с ESLint 9. См. https://nextjs.org/docs/app/api-reference/config/eslint
+ *
+ * Политика: ошибки (error) ломают CI; предупреждения (warn) — техдолг.
  */
 const eslintConfig = [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
+  ...coreWebVitals,
+  ...nextTypescript,
   {
     ignores: [
       "node_modules/**",
@@ -27,17 +22,14 @@ const eslintConfig = [
       "skills",
       "swordcraft/**",
       "docs/**",
-      // Корневые артефакты вне src (согласовано с tsconfig exclude)
       "lib/**",
       "data/**",
       "types/**",
-      // Node-скрипты (.cjs / утилиты); не смешивать с правилами Next/TS для `src/`
       "scripts/**",
     ],
   },
   {
     rules: {
-      // TypeScript specific rules
       "@typescript-eslint/no-unused-vars": [
         "warn",
         {
@@ -48,24 +40,21 @@ const eslintConfig = [
       "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/no-non-null-assertion": "warn",
 
-      // React specific rules
       "react/react-in-jsx-scope": "off",
       "react/prop-types": "off",
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn",
 
-      // General code quality
       "no-console": ["warn", { allow: ["warn", "error"] }],
       "no-debugger": "error",
-      "no-unused-vars": "off", // Handled by @typescript-eslint/no-unused-vars
-      "no-undef": "off", // Handled by TypeScript
+      "no-unused-vars": "off",
+      "no-undef": "off",
       "no-redeclare": "error",
       "no-unreachable": "error",
       "no-empty": ["warn", { allowEmptyCatch: false }],
       "no-fallthrough": ["warn", { commentPattern: ".*[Ff]alls?[ -]?through.*" }],
     },
   },
-  // Строже по неиспользуемым символам в store (типы уже чистятся через TS noUnused*)
   {
     files: ["src/store/**/*.ts"],
     rules: {
@@ -78,7 +67,6 @@ const eslintConfig = [
       ],
     },
   },
-  // Домен src/lib: основной покрываемый тестами слой — warn→error по ключевым правилам P1
   {
     files: ["src/lib/**/*.ts"],
     rules: {
