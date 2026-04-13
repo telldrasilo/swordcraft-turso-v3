@@ -1,0 +1,77 @@
+/**
+ * Утилиты из src/app/globals.css (@layer utilities), без дублирования палитры hex —
+ * для семантики используйте bg-background, text-muted-foreground, border-border, text-primary и т.д.;
+ * для layout как в game-layout — stone/amber (например bg-stone-900, text-amber-200).
+ */
+
+@layer utilities {
+  .scrollbar-medieval {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  }
+
+  .scrollbar-medieval::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollbar-medieval::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+    border-radius: 4px;
+  }
+
+  .scrollbar-medieval::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, oklch(0.44 0.04 56), oklch(0.34 0.03 50));
+    border-radius: 4px;
+  }
+
+  .scrollbar-medieval::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, var(--scrollbar-thumb-hover), oklch(0.42 0.04 54));
+  }
+
+  .scrollbar-dock-subtle {
+    scrollbar-width: thin;
+    scrollbar-color: oklch(0.42 0.035 54 / 0.42) transparent;
+  }
+
+  .scrollbar-dock-subtle::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  .scrollbar-dock-subtle::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-dock-subtle::-webkit-scrollbar-thumb {
+    background: oklch(0.4 0.032 52 / 0.38);
+    border-radius: 100px;
+    border: none;
+  }
+
+  .scrollbar-dock-subtle::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.52 0.05 56 / 0.55);
+  }
+
+  .glow-gold {
+    box-shadow: 0 0 20px oklch(0.75 0.15 75 / 0.3);
+  }
+
+  .glow-gold-strong {
+    box-shadow: 0 0 30px oklch(0.75 0.15 75 / 0.5);
+  }
+
+  .text-glow {
+    text-shadow: 0 0 10px oklch(0.75 0.15 75 / 0.5);
+  }
+
+  .card-medieval {
+    background: linear-gradient(145deg, var(--card), oklch(0.18 0.015 50));
+    border: 1px solid oklch(0.35 0.03 50);
+  }
+
+  .resource-icon {
+    @apply flex size-8 items-center justify-center rounded-lg;
+    background: linear-gradient(135deg, var(--muted), oklch(0.22 0.015 50));
+  }
+}

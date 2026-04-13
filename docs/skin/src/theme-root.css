@@ -1,0 +1,105 @@
+/**
+ * Копия :root / .light из src/app/globals.css (без правок значений).
+ * Макет и компоненты игры используют семантические токены + палитру Tailwind (stone, amber).
+ */
+
+:root {
+  --radius: 0.625rem;
+
+  --background: oklch(0.15 0.01 50);
+  --foreground: oklch(0.92 0.02 60);
+
+  --card: oklch(0.2 0.015 50);
+  --card-foreground: oklch(0.92 0.02 60);
+
+  --popover: oklch(0.18 0.015 50);
+  --popover-foreground: oklch(0.92 0.02 60);
+
+  --primary: oklch(0.75 0.15 75);
+  --primary-foreground: oklch(0.15 0.02 50);
+
+  --secondary: oklch(0.35 0.03 50);
+  --secondary-foreground: oklch(0.85 0.02 60);
+
+  --muted: oklch(0.25 0.01 50);
+  --muted-foreground: oklch(0.6 0.02 60);
+
+  --accent: oklch(0.3 0.04 55);
+  --accent-foreground: oklch(0.9 0.02 60);
+
+  --destructive: oklch(0.5 0.2 25);
+
+  --border: oklch(0.3 0.02 50);
+  --input: oklch(0.25 0.02 50);
+  --ring: oklch(0.75 0.15 75);
+
+  --chart-1: oklch(0.75 0.15 75);
+  --chart-2: oklch(0.6 0.12 55);
+  --chart-3: oklch(0.5 0.1 40);
+  --chart-4: oklch(0.55 0.08 30);
+  --chart-5: oklch(0.45 0.06 25);
+
+  --sidebar: oklch(0.18 0.015 50);
+  --sidebar-foreground: oklch(0.85 0.02 60);
+  --sidebar-primary: oklch(0.75 0.15 75);
+  --sidebar-primary-foreground: oklch(0.15 0.02 50);
+  --sidebar-accent: oklch(0.28 0.03 50);
+  --sidebar-accent-foreground: oklch(0.85 0.02 60);
+  --sidebar-border: oklch(0.3 0.02 50);
+  --sidebar-ring: oklch(0.75 0.15 75);
+
+  --gold: oklch(0.8 0.15 75);
+  --gold-light: oklch(0.85 0.12 80);
+  --gold-dark: oklch(0.6 0.12 70);
+  --bronze: oklch(0.55 0.1 55);
+  --copper: oklch(0.6 0.12 45);
+  --iron: oklch(0.45 0.02 50);
+  --steel: oklch(0.55 0.02 50);
+  --leather: oklch(0.35 0.05 35);
+  --parchment: oklch(0.85 0.05 70);
+  --blood: oklch(0.45 0.2 25);
+  --mana: oklch(0.5 0.15 280);
+  --soul: oklch(0.7 0.15 300);
+
+  --scrollbar-track: oklch(0.19 0.012 52);
+  --scrollbar-thumb: oklch(0.4 0.038 54);
+  --scrollbar-thumb-hover: oklch(0.5 0.055 58);
+}
+
+.light {
+  --background: oklch(0.95 0.02 70);
+  --foreground: oklch(0.2 0.02 50);
+  --card: oklch(0.92 0.02 70);
+  --card-foreground: oklch(0.2 0.02 50);
+  --popover: oklch(0.95 0.02 70);
+  --popover-foreground: oklch(0.2 0.02 50);
+  --primary: oklch(0.6 0.15 75);
+  --primary-foreground: oklch(0.95 0.02 70);
+  --secondary: oklch(0.85 0.03 60);
+  --secondary-foreground: oklch(0.25 0.02 50);
+  --muted: oklch(0.88 0.02 65);
+  --muted-foreground: oklch(0.45 0.02 55);
+  --accent: oklch(0.82 0.04 65);
+  --accent-foreground: oklch(0.25 0.02 50);
+  --destructive: oklch(0.55 0.22 25);
+  --border: oklch(0.8 0.02 60);
+  --input: oklch(0.85 0.02 60);
+  --ring: oklch(0.6 0.15 75);
+  --chart-1: oklch(0.6 0.15 75);
+  --chart-2: oklch(0.55 0.1 55);
+  --chart-3: oklch(0.45 0.08 40);
+  --chart-4: oklch(0.5 0.06 30);
+  --chart-5: oklch(0.4 0.05 25);
+  --sidebar: oklch(0.9 0.02 65);
+  --sidebar-foreground: oklch(0.25 0.02 50);
+  --sidebar-primary: oklch(0.6 0.15 75);
+  --sidebar-primary-foreground: oklch(0.95 0.02 70);
+  --sidebar-accent: oklch(0.82 0.04 65);
+  --sidebar-accent-foreground: oklch(0.25 0.02 50);
+  --sidebar-border: oklch(0.8 0.02 60);
+  --sidebar-ring: oklch(0.6 0.15 75);
+}
+
+.dark {
+  /* как в приложении: совпадает с :root */
+}

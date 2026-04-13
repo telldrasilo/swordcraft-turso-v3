@@ -26,7 +26,7 @@ Next.js 16, TypeScript 5, Zustand 5.0.6 (composed store), Tailwind CSS 4, shadcn
 - **Туториал** → docs/systems/TUTORIAL_SYSTEM.md
 
 ### При работе с данными:
-- **Материалы** → docs/data/MATERIALS_DATA.md; полный гайд добавления и энциклопедии — **docs/data/MATERIALS_ADDING.md**; маппинг id экспедиций — **docs/expedition-material-id-map.md**
+- **Материалы** → docs/data/MATERIALS_DATA.md; **список id и имён по классам** — **docs/MATERIALS_BY_CLASS.md**; полный гайд добавления и энциклопедии — **docs/data/MATERIALS_ADDING.md**; маппинг id экспедиций — **docs/expedition-material-id-map.md**
 - **Источник правды по материалам для игрока** — энциклопедия (каталог узлов), а не верхняя полоска ресурсов в макете: см. **docs/LEGACY_UI.md** (панель legacy, к удалению)
 - **Цепочки руда/слиток/wood/stone и ключи склада** → **docs/RESOURCE_TRANSFORMATION_MAP.md** (человекочитаемая карта; источник правды — `inventory-check.ts`, `refining-recipes.ts`)
 - **Переход на единый каталог материалов без legacy-мостов** → **docs/MATERIALS_SINGLE_SOURCE_ROADMAP.md** (фазы, инварианты, склад A2, **обработка через техники и операции**, без постоянной миграции сейвов; при конфликте с устаревшими формулировками приоритет у roadmap). Чеклист PR волны A2 (stash, домены): **`.cursor/skills/materials-a2-wave/SKILL.md`**

@@ -111,6 +111,7 @@ mindmap
 | Файл | Описание |
 |---------|---------|
 | [docs/data/MATERIALS_DATA.md](data/MATERIALS_DATA.md) | Система материалов, бонусы |
+| [docs/MATERIALS_BY_CLASS.md](MATERIALS_BY_CLASS.md) | **Справочник:** все `materialId` и названия по классам (`MaterialClass`); обновление: `npx tsx scripts/dump-materials-by-class.ts` |
 | [docs/MATERIAL_SEMANTIC_PROCESS_ROLES.md](MATERIAL_SEMANTIC_PROCESS_ROLES.md) | Смысловые роли материалов в процессах (принципы и фазы A–E) |
 | [docs/RESOURCE_TRANSFORMATION_MAP.md](RESOURCE_TRANSFORMATION_MAP.md) | **Карта преобразований:** `materialId` ↔ `ResourceKey`, горн/пилорама, начисления и расход (Mermaid + таблицы) |
 | [docs/MATERIALS_SINGLE_SOURCE_ROADMAP.md](MATERIALS_SINGLE_SOURCE_ROADMAP.md) | **Единая система материалов и обработки:** один каталог, склад A2, **техники как контейнеры операций** (целевой динамический таймлайн крафта), без `line_key` на материале; финал без legacy; фазы 0–5, CI, worklog |
